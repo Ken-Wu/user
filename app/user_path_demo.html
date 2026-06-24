@@ -281,7 +281,11 @@
             <select>
               <option>平台首页</option><option>乘客首页</option><option>登录页</option>
               <option>POI页</option><option>询价页</option><option>发单动画</option>
-              <option>等待接单页</option><option>确认同行页</option><option>履约页</option>
+              <option>等待接单页</option><option>确认同行页</option>
+              <option>履约-订单取消</option><option>履约-待车主接单</option>
+              <option>履约-待乘客确认</option><option>履约-待车主到达起点</option>
+              <option>履约-待乘客上车</option><option>履约-待司乘到达终点</option>
+              <option>履约-行程完成</option>
               <option>不限</option>
             </select>
           </div>
@@ -291,7 +295,10 @@
               <option>不限</option><option>平台首页</option><option>乘客首页</option>
               <option>登录页</option><option>POI页</option><option>询价页</option>
               <option>发单动画</option><option>等待接单页</option><option>确认同行页</option>
-              <option>履约页</option>
+              <option>履约-订单取消</option><option>履约-待车主接单</option>
+              <option>履约-待乘客确认</option><option>履约-待车主到达起点</option>
+              <option>履约-待乘客上车</option><option>履约-待司乘到达终点</option>
+              <option>履约-行程完成</option>
             </select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;grid-column:span 2;">
@@ -405,7 +412,11 @@
             <select id="pageSelect" onchange="onPageSelectChange(this.value)">
               <option>平台首页</option><option>乘客首页</option><option>登录页</option>
               <option>POI页</option><option selected>询价页</option><option>发单动画</option>
-              <option>等待接单页</option><option>确认同行页</option><option>履约页</option>
+              <option>等待接单页</option><option>确认同行页</option>
+              <option>履约-订单取消</option><option>履约-待车主接单</option>
+              <option>履约-待乘客确认</option><option>履约-待车主到达起点</option>
+              <option>履约-待乘客上车</option><option>履约-待司乘到达终点</option>
+              <option>履约-行程完成</option>
             </select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;grid-column:span 2;">
@@ -826,14 +837,14 @@ const rawSteps = [
   [{name:'发单动画',val:40000},{name:'等待接单页',val:16000},{name:'询价页',val:7000}],
   // 第6步
   [{name:'等待接单页',val:38000},{name:'确认同行页',val:15000},{name:'发单动画',val:5000}],
-  // 第7步
-  [{name:'确认同行页',val:34000},{name:'履约页',val:14000},{name:'等待接单页',val:4000}],
+  // 第7步：进入履约流程
+  [{name:'确认同行页',val:34000},{name:'履约-待车主接单',val:9000},{name:'履约-订单取消',val:5000}],
   // 第8步
-  [{name:'履约页',val:30000},{name:'确认同行页',val:6000}],
+  [{name:'履约-待车主接单',val:18000},{name:'履约-待乘客确认',val:8000},{name:'履约-订单取消',val:4000}],
   // 第9步
-  [{name:'履约页',val:26000},{name:'确认同行页',val:3000}],
+  [{name:'履约-待乘客确认',val:14000},{name:'履约-待车主到达起点',val:9000},{name:'履约-订单取消',val:3000}],
   // 第10步
-  [{name:'履约页',val:22000}]
+  [{name:'履约-待车主到达起点',val:13000},{name:'履约-待乘客上车',val:7000},{name:'履约-待司乘到达终点',val:4000},{name:'履约-行程完成',val:3000}]
 ];
 
 // 各页面的总 PV / UV（页面维度汇总，模拟数据）
@@ -846,7 +857,13 @@ const pageStats = {
   '发单动画':   {pv:86000,  uv:62000},
   '等待接单页': {pv:80000,  uv:58000},
   '确认同行页': {pv:72000,  uv:53000},
-  '履约页':     {pv:64000,  uv:48000}
+  '履约-订单取消':        {pv:18000, uv:14500},
+  '履约-待车主接单':      {pv:54000, uv:42000},
+  '履约-待乘客确认':      {pv:46000, uv:36000},
+  '履约-待车主到达起点':  {pv:42000, uv:33500},
+  '履约-待乘客上车':      {pv:36000, uv:29000},
+  '履约-待司乘到达终点':  {pv:31000, uv:25500},
+  '履约-行程完成':        {pv:27000, uv:23000}
 };
 
 // 根据 topX 切分 Top 节点与「更多」，并计算每步流失
@@ -1245,7 +1262,7 @@ function showModSankey(startName){
   if(card) card.style.display='';
   const sel = document.getElementById('modStartSel');
   if(sel){
-    if(!sel.options.length) sel.innerHTML = modules.map(m=>`<option value="${m.name}">${m.name}</option>`).join('');
+    if(!sel.options.length) sel.innerHTML = '<option value="进入页面">进入页面</option>' + modules.map(m=>`<option value="${m.name}">${m.name}</option>`).join('');
     sel.value = startName;
   }
   renderModSankey(startName);
