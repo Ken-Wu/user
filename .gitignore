@@ -16,3 +16,7 @@ Icon?
 # 日志 / 临时
 *.log
 .tmp/
+
+# Markdown 文件不同步（仅保留 README）
+*.md
+!README.md
