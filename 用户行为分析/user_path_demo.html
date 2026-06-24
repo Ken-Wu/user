@@ -1,0 +1,1471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>用户行为分析平台 · Demo</title>
+<script src="echarts.min.js"></script>
+<script>if(!window.echarts){document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"><\/scr'+'ipt>');}</script>
+<style>
+  /* 全局样式 */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Segoe UI", Roboto, Arial, sans-serif;
+    background: #f5f6fa; color: #2c3e50; font-size: 14px;
+  }
+  .topbar {
+    background: #1f2d3d; color: #fff; padding: 14px 28px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .topbar h1 { font-size: 18px; font-weight: 600; letter-spacing: .3px; }
+  .topbar .sub { font-size: 12px; color: #8fa4b8; margin-left: 12px; }
+  /* Tab 导航 */
+  .tabs { display: flex; gap: 4px; padding: 0 28px; background: #fff; border-bottom: 1px solid #e6e9ef; }
+  .tab {
+    padding: 14px 22px; cursor: pointer; font-size: 14px; color: #7f8c9b;
+    border-bottom: 2px solid transparent; transition: all .2s;
+  }
+  .tab:hover { color: #2c3e50; }
+  .tab.active { color: #2f6fed; border-bottom-color: #2f6fed; font-weight: 600; }
+  .panel { display: none; padding: 22px 28px; }
+  .panel.active { display: block; }
+  .card {
+    background: #fff; border-radius: 10px; padding: 18px 20px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05); margin-bottom: 18px;
+  }
+  .card h2 { font-size: 15px; margin-bottom: 4px; }
+  .card .desc { font-size: 12px; color: #95a3b3; margin-bottom: 14px; }
+  /* 模块一布局：上配置 + 下结果（上下结构） */
+  .cfg-row { display:flex; gap:28px; flex-wrap:wrap; }
+  .cfg-group { flex:1; min-width:230px; margin-bottom: 4px; }
+  .cfg-group .gt { font-size: 13px; font-weight: 600; color: #1f2d3d; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #eef1f5; display:flex; align-items:center; gap:6px;}
+  .cfg-group .gt::before { content:''; width:3px; height:13px; background:#2f6fed; border-radius:2px; }
+  .cfg-pair { display:flex; gap:14px; }
+  .cfg-pair .cfg-item { flex:1; min-width:0; }
+  .cfg-item { margin-bottom: 11px; }
+  .cfg-item label { display:block; font-size:12px; color:#7f8c9b; margin-bottom:4px; }
+  .cfg-item select, .cfg-item input {
+    width:100%; padding:6px 9px; border:1px solid #d7dce5; border-radius:6px;
+    font-size:13px; background:#fff; color:#2c3e50;
+  }
+  .cfg-actions { margin-top:14px; padding-top:14px; border-top:1px solid #eef1f5; display:flex; justify-content:flex-start; }
+  .seg { display:flex; border:1px solid #d7dce5; border-radius:6px; overflow:hidden; }
+  .seg div { flex:1; text-align:center; padding:6px 0; font-size:12px; cursor:pointer; color:#7f8c9b; background:#fff;}
+  .seg div.on { background:#2f6fed; color:#fff; }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chip { padding:4px 10px; border:1px solid #d7dce5; border-radius:14px; font-size:12px; cursor:pointer; color:#7f8c9b; background:#fff;}
+  .chip.on { background:#eef4ff; border-color:#2f6fed; color:#2f6fed; }
+  .btn { width:100%; padding:9px 0; background:#2f6fed; color:#fff; border:none; border-radius:6px; cursor:pointer; font-size:14px; font-weight:600;}
+  .btn:hover { background:#2560d8; }
+  .range { display:flex; align-items:center; gap:8px; }
+  .range input[type=range]{ flex:1; }
+  .range .val { font-size:12px; color:#2f6fed; font-weight:600; min-width:54px; text-align:right;}
+  /* 会话间隔：数字 + 单位 */
+  .sess-gap { display:flex; gap:8px; }
+  .sess-gap input[type=number]{ flex:1; min-width:0; padding:6px 9px; border:1px solid #d7dce5; border-radius:6px; font-size:13px; color:#2c3e50; }
+  .sess-gap select { width:78px; flex:none; padding:6px 9px; border:1px solid #d7dce5; border-radius:6px; font-size:13px; background:#fff; color:#2c3e50; }
+  /* ===== 属性筛选器组件 ===== */
+  .flt-list { display:flex; flex-direction:column; gap:10px; }
+  .flt-row { display:flex; flex-direction:column; gap:6px; padding:8px; border:1px solid #eef1f5; border-radius:8px; background:#fafbfc; }
+  .flt-attr {
+    width:100%; padding:6px 9px; border:1px solid #d7dce5; border-radius:6px;
+    font-size:13px; background:#fff; color:#2c3e50; cursor:pointer; display:flex;
+    align-items:center; justify-content:space-between; gap:4px;
+  }
+  .flt-attr.empty { color:#aab3c0; }
+  .flt-attr:hover { border-color:#2f6fed; }
+  .flt-attr .cat-tag { font-size:10px; color:#2f6fed; background:#eef4ff; padding:1px 5px; border-radius:8px; flex:none; }
+  .flt-attr .a-name { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .flt-attr .caret { color:#b0bac7; font-size:10px; flex:none; }
+  .flt-row2 { display:flex; align-items:center; gap:8px; }
+  .flt-op { color:#95a3b3; font-size:13px; flex:none; }
+  .flt-val { flex:1; min-width:0; padding:6px 8px; border:1px solid #d7dce5; border-radius:6px; font-size:13px; background:#fff; color:#2c3e50; }
+  .flt-del { flex:none; width:22px; height:22px; line-height:20px; text-align:center; border-radius:50%; color:#b0bac7; cursor:pointer; font-size:15px; }
+  .flt-del:hover { background:#ffe9e9; color:#d03050; }
+  .flt-add { margin-top:4px; font-size:12px; color:#2f6fed; cursor:pointer; display:inline-flex; align-items:center; gap:4px; padding:5px 0; }
+  .flt-add:hover { color:#2560d8; }
+  /* 下拉面板 */
+  .attr-pop {
+    position:fixed; z-index:50; width:340px; background:#fff; border:1px solid #e6e9ef;
+    border-radius:10px; box-shadow:0 8px 28px rgba(31,45,61,.16); display:none; overflow:hidden;
+  }
+  .attr-pop.show { display:block; }
+  .attr-pop .ap-search { padding:10px; border-bottom:1px solid #eef1f5; }
+  .attr-pop .ap-search input { width:100%; padding:7px 10px; border:1px solid #d7dce5; border-radius:6px; font-size:13px; }
+  .attr-pop .ap-body { display:flex; height:280px; }
+  .attr-pop .ap-cats { width:90px; background:#f7f9fc; border-right:1px solid #eef1f5; flex:none; overflow-y:auto; }
+  .attr-pop .ap-cat { padding:11px 10px; font-size:13px; color:#7f8c9b; cursor:pointer; }
+  .attr-pop .ap-cat:hover { color:#2c3e50; }
+  .attr-pop .ap-cat.on { background:#fff; color:#2f6fed; font-weight:600; box-shadow:inset 3px 0 0 #2f6fed; }
+  .attr-pop .ap-items { flex:1; overflow-y:auto; padding:6px 0; }
+  .attr-pop .ap-hd { font-size:12px; color:#95a3b3; padding:6px 14px; }
+  .attr-pop .ap-hd b { background:#eef1f5; color:#7f8c9b; border-radius:8px; padding:0 6px; margin-left:6px; font-weight:600; }
+  .attr-pop .ap-item { padding:8px 14px; font-size:13px; color:#2c3e50; cursor:pointer; display:flex; align-items:center; gap:7px; }
+  .attr-pop .ap-item:hover { background:#f2f6ff; }
+  .attr-pop .ap-item.on { background:#eef4ff; color:#2f6fed; }
+  .attr-pop .ap-item .ic { color:#b0bac7; font-style:normal; }
+  .attr-pop .ap-empty { padding:20px 14px; font-size:12px; color:#aab3c0; text-align:center; }
+  /* ===== 节点点击信息浮层 ===== */
+  .node-pop { position:fixed; z-index:60; width:264px; background:#fff; border:1px solid #e6e9ef; border-radius:10px; box-shadow:0 12px 32px rgba(31,45,61,.2); display:none; overflow:hidden; }
+  .node-pop.show { display:block; }
+  .np-hd { padding:11px 14px; border-bottom:1px solid #eef1f5; font-weight:600; font-size:14px; color:#1f2d3d; display:flex; justify-content:space-between; align-items:center; }
+  .np-close { color:#b0bac7; cursor:pointer; font-size:18px; line-height:1; }
+  .np-close:hover { color:#d03050; }
+  .np-thumb { height:128px; background:linear-gradient(135deg,#eef2fb,#f7f9fc); border-bottom:1px solid #eef1f5; position:relative; display:flex; align-items:center; justify-content:center; }
+  .np-mock { width:78px; background:#fff; border:1px solid #e2e8f2; border-radius:8px; padding:8px 8px 10px; box-shadow:0 2px 8px rgba(31,45,61,.08); }
+  .np-mock .m-bar { height:10px; background:#8ea9f3; border-radius:3px; margin-bottom:6px; }
+  .np-mock .m-line { height:5px; background:#e2e8f2; border-radius:3px; margin-bottom:4px; }
+  .np-mock .m-line.short { width:60%; }
+  .np-mock .m-block { height:22px; background:#f0f3fa; border-radius:4px; margin:6px 0; }
+  .np-mock .m-btn { height:9px; width:50%; background:#ffcc80; border-radius:3px; margin-top:6px; }
+  .np-thumb-tag { position:absolute; right:8px; bottom:6px; font-size:11px; color:#95a3b3; background:rgba(255,255,255,.75); padding:1px 6px; border-radius:8px; }
+  .np-stats { padding:12px 14px; display:flex; flex-direction:column; gap:9px; }
+  .np-stat { display:flex; justify-content:space-between; font-size:13px; }
+  .np-stat .k { color:#7f8c9b; } .np-stat .v { font-weight:600; color:#1f2d3d; }
+  .np-acts { padding:10px 12px; border-top:1px solid #eef1f5; display:flex; gap:8px; }
+  .np-btn { flex:1; padding:7px 0; border-radius:6px; font-size:12px; cursor:pointer; border:1px solid #d7dce5; background:#fff; color:#2c3e50; text-align:center; white-space:nowrap; }
+  .np-btn.primary { background:#2f6fed; border-color:#2f6fed; color:#fff; }
+  .np-btn:hover { opacity:.88; }
+  /* KPI 卡片 */
+  .kpis { display: flex; gap: 16px; margin-bottom: 18px; flex-wrap: wrap; }
+  .kpi {
+    background: #fff; border-radius: 10px; padding: 16px 20px; flex: 1; min-width: 140px;
+    box-shadow: 0 1px 4px rgba(0,0,0,.05);
+  }
+  .kpi .v { font-size: 22px; font-weight: 700; color: #1f2d3d; }
+  .kpi .l { font-size: 12px; color: #95a3b3; margin-top: 4px; }
+  .kpi .d { font-size: 12px; margin-top: 6px; }
+  .up { color: #18a058; } .down { color: #d03050; }
+  #sankey { width: 100%; height: 600px; }
+  /* 桑吉图卡片头部 + 紧凑展示设置 */
+  .sankey-hd { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:10px; flex-wrap:wrap; }
+  .disp-set { display:flex; gap:16px; flex:none; padding-top:2px; }
+  .ds-item { display:flex; align-items:center; gap:6px; font-size:12px; color:#7f8c9b; }
+  .ds-item input[type=range]{ width:88px; height:3px; accent-color:#2f6fed; }
+  .ds-item .ds-l { white-space:nowrap; }
+  .ds-item .ds-v { min-width:16px; text-align:center; color:#2f6fed; font-weight:600; }
+  /* 元素点击率表格 */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eef1f5; }
+  th { color: #7f8c9b; font-weight: 600; font-size: 12px; background: #fafbfc; }
+  tr:hover td { background: #f7f9fc; cursor: pointer; }
+  tr.sel td { background: #eef4ff; }
+  #modTable tr:hover td:first-child { background:#f7f9fc !important; }
+  #modTable tr.hov td:first-child { background:#f7f9fc !important; }
+  #modTable tr.sel td:first-child { background:#eef4ff !important; }
+  .bar { height: 8px; border-radius: 4px; background: #2f6fed; display: inline-block; vertical-align: middle; }
+  .barbg { background: #edf1f7; border-radius: 4px; display: inline-block; width: 90px; vertical-align: middle; }
+  .two-col { display: flex; gap: 18px; }
+  .two-col > * { flex: 1; }
+  /* 用户路径时间线 */
+  .timeline { position: relative; padding-left: 24px; }
+  .timeline::before { content:''; position:absolute; left:8px; top:6px; bottom:6px; width:2px; background:#e0e6ef; }
+  .tl-item { position: relative; padding: 10px 0; }
+  .tl-item .dot { position:absolute; left:-20px; top:14px; width:12px; height:12px; border-radius:50%; border:2px solid #fff; }
+  .tl-pv .dot { background:#2f6fed; } .tl-click .dot { background:#f0a020; }
+  .tl-box { background:#f7f9fc; border-radius:8px; padding:10px 14px; }
+  .tl-box .t { font-size:12px; color:#95a3b3; }
+  .tl-box .n { font-weight:600; margin: 2px 0; }
+  .tl-box .gap { font-size:11px; color:#b0bac7; }
+  .tag { display:inline-block; padding:1px 8px; border-radius:10px; font-size:11px; margin-left:6px; }
+  .tag-pv { background:#e6f0ff; color:#2f6fed; } .tag-click { background:#fff2e0; color:#d98a00; }
+  .path-row { display:flex; align-items:center; gap:8px; padding:10px 0; border-bottom:1px solid #eef1f5; flex-wrap: wrap;}
+  .path-step { background:#eef4ff; color:#2f6fed; padding:4px 10px; border-radius:6px; font-size:12px; white-space:nowrap;}
+  .path-arrow { color:#b0bac7; }
+  .path-uv { margin-left:auto; font-weight:600; color:#1f2d3d; }
+  .breadcrumb { font-size:12px; color:#95a3b3; margin-bottom:12px; }
+  .breadcrumb b { color:#2f6fed; }
+  /* 版本对比下拉 */
+  .ver-sel { padding:8px 12px; border:1px solid #d7dce5; border-radius:6px; font-size:13px; color:#2c3e50; background:#fff; cursor:pointer; }
+  /* ===== 手机页面热力图（询价页） ===== */
+  .phone { width:200px; height:433px; margin:0 auto; border:6px solid #1f2d3d; border-radius:22px; overflow:hidden; background:#fff; font-size:11px; position:relative; }
+  .phone .ph-shot { display:block; width:100%; height:auto; }
+  .phone .shot-wrap { position:relative; width:100%; font-size:0; }
+  .phone .zone { position:absolute; box-sizing:border-box; border-radius:4px; background:rgba(255,59,48,var(--heat,.2)); font-size:11px; }
+  .phone .zone .hot { position:absolute; left:0; top:0; transform:translateY(-55%); background:#fff; color:#1f2d3d; padding:1px 6px; border-radius:9px; font-size:9px; font-weight:600; white-space:nowrap; box-shadow:0 1px 3px rgba(0,0,0,.18); z-index:4; }
+  .phone .zone .hot.hot-l { left:auto; right:0; }
+  .phone .zone.sel { outline:2px solid #2f6fed; outline-offset:1px; box-shadow:0 0 0 4px rgba(47,111,237,.28); z-index:5; }
+  .phone .zone.sel .hot { background:#2f6fed; color:#fff; }
+  .phone .zone.hover { outline:2px solid #ff3b30; outline-offset:1px; box-shadow:0 0 0 4px rgba(255,59,48,.25); z-index:6; }
+  .phone .ph-status { display:flex; justify-content:space-between; align-items:center; padding:5px 14px; font-size:11px; color:#222; font-weight:600; }
+  /* 地图区 */
+  .phone .ph-map { position:relative; height:148px; background:linear-gradient(135deg,#e6edf5,#eef2f7); overflow:hidden; }
+  .phone .map-road { position:absolute; height:3px; background:#cdd7e3; }
+  .phone .map-btn { position:absolute; width:26px; height:26px; border-radius:50%; background:#fff; box-shadow:0 1px 5px rgba(0,0,0,.18); display:flex; align-items:center; justify-content:center; color:#3a4554; font-size:16px; }
+  .phone .map-btn.back { left:8px; top:8px; }
+  .phone .map-btn.plus { left:8px; bottom:10px; color:#2f6fed; }
+  .phone .map-btn.locate { right:8px; bottom:10px; }
+  .phone .map-pill { position:absolute; background:#fff; border-radius:12px; padding:3px 9px; box-shadow:0 1px 5px rgba(0,0,0,.12); white-space:nowrap; color:#5a6675; }
+  .phone .map-pill b { color:#1f2d3d; }
+  .phone .map-pill.eta { right:10px; top:14px; }
+  .phone .map-pill.board { left:50%; transform:translateX(-50%); top:64px; }
+  .phone .map-dot { position:absolute; left:46%; top:104px; width:9px; height:9px; border-radius:50%; background:#2f6fed; box-shadow:0 0 0 4px rgba(47,111,237,.2); }
+  /* 优惠 banner */
+  .phone .ph-banner { position:relative; background:linear-gradient(90deg,#ff7a4d,#ff9a52); color:#fff; padding:9px 12px; font-weight:600; display:flex; align-items:center; gap:6px; }
+  .phone .ph-banner b { font-size:15px; }
+  .phone .ph-banner .gift { font-size:14px; }
+  /* 费用提示 */
+  .phone .ph-fee { position:relative; background:#fff5e6; padding:7px 12px; color:#a86b1a; }
+  .phone .ph-fee b { color:#d98a00; }
+  /* 品类 + 商品 */
+  .phone .ph-cat { display:flex; background:#fff; }
+  .phone .cat-col { position:relative; width:54px; background:#f6f7f9; padding:6px 3px; flex:none; }
+  .phone .cat-item { position:relative; padding:9px 2px; text-align:center; color:#7a7a7a; border-radius:6px; margin-bottom:2px; }
+  .phone .cat-item.on { background:#fff; color:#2f6fed; font-weight:600; box-shadow:inset 2px 0 0 #2f6fed; }
+  .phone .cat-badge { position:absolute; top:2px; right:6px; background:#2f6fed; color:#fff; border-radius:7px; font-size:8px; padding:0 4px; line-height:13px; }
+  .phone .cat-main { flex:1; padding:6px 8px; min-width:0; }
+  .phone .grp-title { font-weight:600; color:#1f2d3d; margin:4px 0 6px; }
+  .phone .grp-title em { font-style:normal; font-size:9px; color:#ff7a4d; border:1px solid #ffc8b0; border-radius:4px; padding:0 3px; margin-left:5px; }
+  .phone .prod { display:flex; align-items:center; gap:6px; padding:7px 6px; margin-bottom:5px; background:#fafbfc; border-radius:8px; }
+  .phone .prod .pn { flex:1; color:#2c3e50; }
+  .phone .prod .pp { color:#9aa3af; white-space:nowrap; }
+  .phone .prod .pp b { color:#ff5a36; font-size:13px; }
+  .phone .prod .cbox { width:14px; height:14px; border:1px solid #c8cfd9; border-radius:3px; flex:none; position:relative; }
+  .phone .prod .cbox.on { background:#2f6fed; border-color:#2f6fed; }
+  .phone .prod .cbox.on::after { content:'✓'; color:#fff; font-size:10px; position:absolute; left:1.5px; top:-2px; }
+  /* 底部 */
+  .phone .ph-bottom { background:#fff; padding:8px 12px; border-top:1px solid #f0f2f5; }
+  .phone .coupon { position:relative; display:flex; align-items:center; gap:5px; background:#fff7ea; border:1px solid #ffe2b8; border-radius:8px; padding:5px 8px; margin-bottom:10px; flex-wrap:wrap; }
+  .phone .coupon .cp-tag { background:#ffd9a8; color:#a86b1a; border-radius:4px; padding:1px 5px; font-weight:600; }
+  .phone .coupon .cp-a, .phone .coupon .cp-b { color:#d98a00; }
+  .phone .coupon .cp-r { margin-left:auto; color:#a86b1a; font-weight:600; }
+  .phone .opt { display:flex; gap:6px; flex-wrap:wrap; color:#666; margin-bottom:10px; }
+  .phone .opt > span { position:relative; background:#f4f6f8; padding:4px 8px; border-radius:12px; }
+  .phone .ph-pay { display:flex; align-items:center; justify-content:space-between; }
+  .phone .ph-pay .est { color:#ff5a36; font-weight:700; }
+  .phone .ph-pay .est b { font-size:14px; }
+  .phone .paybtn { position:relative; background:linear-gradient(90deg,#36c5ff,#2f8bff); color:#fff; padding:8px 18px; border-radius:18px; font-weight:600; }
+  /* 热力标注气泡 */
+  .hot { background:rgba(255,77,46,.92); color:#fff; padding:1px 6px; border-radius:9px; font-size:9px; font-weight:600; white-space:nowrap; z-index:4; box-shadow:0 1px 3px rgba(0,0,0,.18); }
+  .phone .hot { position:absolute; }
+  .phone .back-hot { left:34px; top:11px; }
+  .phone .map-hot { right:10px; top:58px; }
+  .phone .banner-hot { right:8px; top:8px; }
+  .phone .fee-hot { right:30px; top:6px; }
+  .phone .cat-hot { left:4px; bottom:10px; }
+  .phone .cp-hot { right:8px; top:-8px; }
+  .phone .opt > span .hot { right:0; top:-9px; }
+  .phone .pay-hot { right:8px; top:-9px; }
+  /* 模块高亮（与点击排行表格双向联动） */
+  .phone [data-mod] { cursor:pointer; transition:box-shadow .2s, outline .2s; }
+  .phone [data-mod].mod-hl { outline:2px solid #2f6fed; outline-offset:1px; box-shadow:0 0 0 4px rgba(47,111,237,.28); border-radius:6px; z-index:5; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div style="display:flex;align-items:baseline;">
+    <h1>用户行为分析平台</h1>
+    <span class="sub">Demo · 模拟数据</span>
+  </div>
+  <div class="sub">埋点平台数据接入</div>
+</div>
+
+<!-- Tab 导航 -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab(0)">① 页面流分析</div>
+  <div class="tab" onclick="switchTab(1)">② 核心页面分析</div>
+  <div class="tab" onclick="switchTab(2)">③ 用户分析</div>
+</div>
+
+<!-- ===== 模块一：查询配置 + 桑吉图 ===== -->
+<div class="panel active" id="panel0">
+  <!-- 顶部：查询配置模块（横向） -->
+  <div class="card">
+    <div class="cfg-row">
+      <!-- 查询设置 -->
+      <div class="cfg-group" style="flex:1 1 100%;">
+        <div class="gt">查询设置</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:11px 18px;align-items:start;">
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>起始页面 / 事件（正推）</label>
+            <select>
+              <option>平台首页</option><option>乘客首页</option><option>登录页</option>
+              <option>POI页</option><option>询价页</option><option>发单动画</option>
+              <option>等待接单页</option><option>确认同行页</option><option>履约页</option>
+              <option>不限</option>
+            </select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>终止页面 / 事件（倒推）</label>
+            <select>
+              <option>不限</option><option>平台首页</option><option>乘客首页</option>
+              <option>登录页</option><option>POI页</option><option>询价页</option>
+              <option>发单动画</option><option>等待接单页</option><option>确认同行页</option>
+              <option>履约页</option>
+            </select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;grid-column:span 2;">
+            <label>会话类型</label>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <select id="sessType" onchange="document.getElementById('sessGapBox').style.display=this.value==='order'?'none':'flex'" style="flex:1;min-width:0;">
+                <option value="time">会话时间分割</option>
+                <option value="order">订单分割</option>
+              </select>
+              <div class="sess-gap" id="sessGapBox" style="flex:none;">
+                <input type="number" min="1" value="40" id="gapNum" style="width:64px;">
+                <select id="gapUnit"><option>分</option><option>时</option><option>天</option></select>
+              </div>
+            </div>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;grid-column:span 2;">
+            <label>时间范围</label>
+            <div style="display:flex;align-items:center;gap:6px;border:1px solid #d7dce5;border-radius:6px;padding:2px 8px;background:#fff;">
+              <input type="date" value="2026-06-01" style="border:none;outline:none;flex:1;min-width:0;font-size:13px;color:#2c3e50;background:transparent;padding:4px 0;">
+              <span style="color:#95a3b3;">→</span>
+              <input type="date" value="2026-06-21" style="border:none;outline:none;flex:1;min-width:0;font-size:13px;color:#2c3e50;background:transparent;padding:4px 0;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 筛选设置（筛选项平铺展示） -->
+      <div class="cfg-group" style="flex:1 1 100%;">
+        <div class="gt">筛选设置</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:11px 18px;">
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>平台来源</label>
+            <select><option>全部</option><option>Android</option><option>iOS</option><option>微信小程序</option><option>支付宝</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>同跨城</label>
+            <select><option>全部</option><option>同城</option><option>跨城</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>里程段</label>
+            <select><option>全部</option><option>0-10km</option><option>10-30km</option><option>30km+</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>预约/实时单</label>
+            <select><option>全部</option><option>预约单</option><option>实时单</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>出发时间段</label>
+            <select><option>全部</option><option>早高峰</option><option>平峰</option><option>晚高峰</option><option>夜间</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>品类</label>
+            <select><option>全部</option><option>独享</option><option>特惠独享</option><option>拼座</option><option>只拼一单</option><option>双端履约</option><option>同呼打车</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>是否同呼</label>
+            <select><option>全部</option><option>是</option><option>否</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>乘客/车主</label>
+            <select><option>全部</option><option>乘客</option><option>车主</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>新老客</label>
+            <select><option>全部</option><option>新客</option><option>老客</option></select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cfg-actions"><button class="btn" style="width:auto;padding:9px 32px;" onclick="renderSankey()">查询</button></div>
+  </div>
+
+  <!-- 下方：桑吉图结果 -->
+  <div class="card">
+    <div class="sankey-hd">
+      <div>
+        <h2>页面流转桑吉图</h2>
+      </div>
+      <div class="disp-set">
+        <div class="ds-item">
+          <span class="ds-l">每步 Top</span>
+          <input type="range" min="3" max="10" value="5" id="topRange" oninput="setTopX(this.value)">
+          <span class="ds-v" id="topVal">5</span>
+        </div>
+        <div class="ds-item">
+          <span class="ds-l">展示步数</span>
+          <input type="range" min="2" max="10" value="4" id="stepRange" oninput="setSteps(this.value)">
+          <span class="ds-v" id="stepVal">4</span>
+        </div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;width:100%;">
+      <div id="sankey"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 模块二：页面下钻 ===== -->
+<div class="panel" id="panel1">
+  <div class="breadcrumb">桑吉图 &nbsp;›&nbsp; <b id="drillPageName">搜索结果页</b> &nbsp;·&nbsp; 页面功能下钻</div>
+
+  <!-- 查询配置模块（与路径分析一致：查询设置 + 筛选设置） -->
+  <div class="card">
+    <div class="cfg-row">
+      <!-- 查询设置 -->
+      <div class="cfg-group" style="flex:1 1 100%;">
+        <div class="gt">查询设置</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:11px 18px;align-items:start;">
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>页面选择</label>
+            <select id="pageSelect" onchange="onPageSelectChange(this.value)">
+              <option>平台首页</option><option>乘客首页</option><option>登录页</option>
+              <option>POI页</option><option selected>询价页</option><option>发单动画</option>
+              <option>等待接单页</option><option>确认同行页</option><option>履约页</option>
+            </select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;grid-column:span 2;">
+            <label>时间范围</label>
+            <div style="display:flex;align-items:center;gap:6px;border:1px solid #d7dce5;border-radius:6px;padding:2px 8px;background:#fff;">
+              <input type="date" value="2026-06-01" style="border:none;outline:none;flex:1;min-width:0;font-size:13px;color:#2c3e50;background:transparent;padding:4px 0;">
+              <span style="color:#95a3b3;">→</span>
+              <input type="date" value="2026-06-21" style="border:none;outline:none;flex:1;min-width:0;font-size:13px;color:#2c3e50;background:transparent;padding:4px 0;">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 筛选设置（筛选项平铺展示，与页面流分析一致） -->
+      <div class="cfg-group" style="flex:1 1 100%;">
+        <div class="gt">筛选设置</div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:11px 18px;">
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>平台来源</label>
+            <select><option>全部</option><option>Android</option><option>iOS</option><option>微信小程序</option><option>支付宝</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>同跨城</label>
+            <select><option>全部</option><option>同城</option><option>跨城</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>里程段</label>
+            <select><option>全部</option><option>0-10km</option><option>10-30km</option><option>30km+</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>预约/实时单</label>
+            <select><option>全部</option><option>预约单</option><option>实时单</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>出发时间段</label>
+            <select><option>全部</option><option>早高峰</option><option>平峰</option><option>晚高峰</option><option>夜间</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>品类</label>
+            <select><option>全部</option><option>独享</option><option>特惠独享</option><option>拼座</option><option>只拼一单</option><option>双端履约</option><option>同呼打车</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>是否同呼</label>
+            <select><option>全部</option><option>是</option><option>否</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>乘客/车主</label>
+            <select><option>全部</option><option>乘客</option><option>车主</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>新老客</label>
+            <select><option>全部</option><option>新客</option><option>老客</option></select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="cfg-actions"><button class="btn" style="width:auto;padding:9px 32px;" onclick="renderModTable();">查询</button></div>
+  </div>
+
+  <!-- 页面数据（KPI + 上下游流量） -->
+  <div class="card">
+    <h2>页面数据</h2>
+    <div style="display:flex;flex-wrap:wrap;align-items:stretch;margin:14px 0 6px;">
+      <div style="flex:1;min-width:120px;padding:4px 18px;"><div style="font-size:22px;font-weight:700;color:#1f2d3d;">29,690</div><div style="font-size:12px;color:#95a3b3;margin-top:4px;">页面总 PV</div></div>
+      <div style="flex:1;min-width:120px;padding:4px 18px;border-left:1px solid #eef1f5;"><div style="font-size:22px;font-weight:700;color:#1f2d3d;">21,430</div><div style="font-size:12px;color:#95a3b3;margin-top:4px;">页面总 UV</div></div>
+      <div style="flex:1;min-width:120px;padding:4px 18px;border-left:1px solid #eef1f5;"><div style="font-size:22px;font-weight:700;color:#1f2d3d;">58,420</div><div style="font-size:12px;color:#95a3b3;margin-top:4px;">页面总点击次数</div></div>
+      <div style="flex:1;min-width:120px;padding:4px 18px;border-left:1px solid #eef1f5;"><div style="font-size:22px;font-weight:700;color:#1f2d3d;">1.39</div><div style="font-size:12px;color:#95a3b3;margin-top:4px;">人均浏览量</div></div>
+      <div style="flex:1;min-width:120px;padding:4px 18px;border-left:1px solid #eef1f5;"><div style="font-size:22px;font-weight:700;color:#1f2d3d;">18.4s</div><div style="font-size:12px;color:#95a3b3;margin-top:4px;">平均停留时长</div></div>
+      <div style="flex:1;min-width:120px;padding:4px 18px;border-left:1px solid #eef1f5;"><div style="font-size:22px;font-weight:700;color:#1f2d3d;">27.3%</div><div style="font-size:12px;color:#95a3b3;margin-top:4px;">跳出率</div></div>
+      <div style="flex:1;min-width:120px;padding:4px 18px;border-left:1px solid #eef1f5;"><div style="font-size:22px;font-weight:700;color:#1f2d3d;">62.4%</div><div style="font-size:12px;color:#95a3b3;margin-top:4px;">跳转率</div></div>
+    </div>
+    <div class="two-col" style="gap:24px;margin-top:6px;">
+      <div style="flex:1;min-width:0;">
+        <h2 style="font-size:14px;margin-top:8px;">上一层页面来源</h2>
+        <table id="srcTable"></table>
+      </div>
+      <div style="flex:1;min-width:0;">
+        <h2 style="font-size:14px;margin-top:8px;">后续流量去向</h2>
+        <table id="dstTable"></table>
+      </div>
+    </div>
+  </div>
+
+  <!-- 下方：左热力图 + 右点击排行 -->
+  <div class="two-col">
+    <!-- 页面热力图 -->
+    <div class="card" id="hmCard" style="flex:0 0 360px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;">
+        <h2 style="margin:0;">页面热力图</h2>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <select class="ver-sel" id="verCompare" onchange="switchVer(this.value)" style="width:130px;flex:none;font-size:12px;padding:5px 8px;">
+            <option value="">版本对比</option>
+            <option value="品类中心询价页">品类中心询价页</option>
+          </select>
+          <div class="hm-tools">
+            <span class="hm-ic" id="btnZoom" title="放大查看" onclick="openZoom()">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
+            </span>
+            <span class="hm-ic on" id="btnHeat" title="隐藏/显示热力图" onclick="toggleHeat(this)">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 3 21 8 12 13 3 8"/><polyline points="3 13 12 18 21 13"/></svg>
+            </span>
+            <span class="hm-ic on" id="btnData" title="隐藏/显示点击数据" onclick="toggleData(this)">
+              <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10z"/><circle cx="7.5" cy="7.5" r="1"/></svg>
+            </span>
+          </div>
+        </div>
+      </div>
+      <!-- 主图 + 对比图（左右排列） -->
+      <div id="phonesRow" style="display:flex;gap:16px;align-items:flex-start;justify-content:center;margin-top:24px;">
+      <!-- 主热力图（电梯询价页） -->
+      <div class="cmp-phone-wrap">
+        <div style="display:flex;align-items:center;justify-content:center;font-size:12px;color:#7f8c9b;margin-bottom:8px;padding:0 4px;"><span>电梯询价页</span></div>
+        <div class="phone">
+        <div class="shot-wrap">
+          <img class="ph-shot" src="image/询价页.png" alt="询价页">
+          <!-- 地图区按钮 -->
+          <div class="zone" data-mod="返回"       style="left:5%;top:3.7%;width:16%;height:7%;--heat:.49"><span class="hot">返回 30.1%</span></div>
+          <div class="zone" data-mod="安全中心"   style="left:5%;top:17.5%;width:16%;height:7.2%;--heat:.30"><span class="hot">安全中心 16.8%</span></div>
+          <div class="zone" data-mod="地图"       style="left:83%;top:17.5%;width:14%;height:7.2%;--heat:.30"><span class="hot hot-l">地图 16.8%</span></div>
+          <!-- 优惠 banner -->
+          <div class="zone" data-mod="优惠banner" style="left:1%;top:25.5%;width:98%;height:7%;--heat:.38"><span class="hot hot-l">优惠 22.5%</span></div>
+          <!-- 高速费提示 -->
+          <div class="zone" data-mod="高速费"     style="left:1%;top:33%;width:98%;height:4.6%;--heat:.22"><span class="hot">高速费 12.3%</span></div>
+          <!-- 左侧电梯列 -->
+          <div class="zone" data-mod="电梯-组"   style="left:1%;top:38%;width:16%;height:38.5%;--heat:.67"><span class="hot">电梯-组 42.3%</span></div>
+          <!-- 右侧品类列表 -->
+          <div class="zone" data-mod="品类列表-组"   style="left:17.5%;top:38%;width:81.5%;height:40.5%;--heat:.80"><span class="hot">品类列表-组 58.6%</span></div>
+          <!-- 省钱券包 -->
+          <div class="zone" data-mod="券包"       style="left:1%;top:79%;width:98%;height:6%;--heat:.67"><span class="hot hot-l">券包 42.3%</span></div>
+          <!-- 底部操作 -->
+          <div class="zone" data-mod="时间人数弹窗" style="left:1%;top:85.5%;width:42%;height:5%;--heat:.67"><span class="hot">时间人数 42.3%</span></div>
+          <div class="zone" data-mod="代叫"       style="left:44%;top:85.5%;width:25%;height:5%;--heat:.20"><span class="hot">代叫 11.4%</span></div>
+          <div class="zone" data-mod="备注"       style="left:70%;top:85.5%;width:29%;height:5%;--heat:.10"><span class="hot">备注 5.3%</span></div>
+          <!-- 立即呼叫 -->
+          <div class="zone" data-mod="发单按钮"   style="left:55%;top:90%;width:44%;height:7%;--heat:.75"><span class="hot">发单 54.3%</span></div>
+        </div>
+      </div>
+      </div>
+      <!-- 对比版页面（仅展示图片，可关闭，左右排列） -->
+      <div class="cmp-phone" id="cmpPhone" style="display:none;flex:none;">
+        <div style="position:relative;display:flex;align-items:center;justify-content:center;font-size:12px;color:#7f8c9b;margin-bottom:8px;padding:0 4px;">
+          <span>品类中心询价页</span>
+          <span title="关闭对比" onclick="closeCompare()" style="position:absolute;right:4px;cursor:pointer;color:#b0bac7;font-size:18px;line-height:1;">×</span>
+        </div>
+        <div class="phone"><div class="shot-wrap"><img class="ph-shot" src="image/询价页2.png" alt="对比页"></div></div>
+      </div>
+      </div><!-- /phonesRow -->
+    </div>
+
+    <!-- 右侧：点击排行 -->
+    <div class="result" style="display:flex;flex-direction:column;gap:18px;min-width:0;">
+      <div class="card" style="min-width:0;overflow:hidden;height:600px;display:flex;flex-direction:column;">
+        <div style="display:flex;gap:24px;border-bottom:1px solid #eef1f5;margin-bottom:12px;flex:none;">
+          <div id="mdTab0" onclick="switchModTab(0)" style="padding:8px 0;cursor:pointer;font-size:15px;font-weight:600;color:#2f6fed;border-bottom:2px solid #2f6fed;margin-bottom:-1px;">模块数据</div>
+          <div id="mdTab1" onclick="switchModTab(1)" style="padding:8px 0;cursor:pointer;font-size:15px;font-weight:600;color:#7f8c9b;border-bottom:2px solid transparent;margin-bottom:-1px;">行为数据</div>
+        </div>
+        <div id="mdPane0" style="flex:1;min-height:0;display:flex;flex-direction:column;">
+          <div class="desc" style="flex:none;">点击表格行可在左侧热力图高亮对应模块，反向也可联动。</div>
+          <div style="overflow:auto;width:100%;flex:1;min-height:0;">
+            <table id="modTable" style="min-width:440px;"></table>
+          </div>
+        </div>
+        <div id="mdPane1" style="display:none;flex:1;min-height:0;flex-direction:column;">
+          <div class="desc" style="flex:none;">页面内滑动、切换等行为的次数与深度（模拟数据）。</div>
+          <div style="overflow:auto;width:100%;flex:1;min-height:0;">
+            <table id="behTable" style="min-width:440px;"></table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 模块操作步骤桑吉图（点击热力图模块后展示，以该模块为起始节点） -->
+  <div class="card" id="modSankeyCard" style="display:none;">
+    <h2>模块操作步骤桑吉图</h2>
+    <div style="display:flex;gap:24px;align-items:flex-end;margin:6px 0 16px;flex-wrap:wrap;">
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:4px;">起始节点</label>
+        <select id="modStartSel" onchange="renderModSankey(this.value)" style="padding:7px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;min-width:150px;background:#fff;color:#2c3e50;"></select>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:4px;">会话间隔（超过则切分新会话 / 判为流失）</label>
+        <div style="display:flex;gap:8px;">
+          <input type="number" min="1" value="30" id="modGapNum" onchange="renderModSankey()" style="width:80px;padding:7px 9px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+          <select id="modGapUnit" onchange="renderModSankey()" style="width:66px;padding:7px 9px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;background:#fff;color:#2c3e50;"><option>分</option><option>时</option><option>天</option></select>
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:4px;">每步 Top</label>
+        <div style="display:flex;align-items:center;gap:8px;height:32px;">
+          <input type="range" min="3" max="6" value="5" id="modTopRange" oninput="document.getElementById('modTopVal').innerText=this.value;renderModSankey()" style="width:100px;accent-color:#2f6fed;">
+          <span id="modTopVal" style="color:#2f6fed;font-weight:600;min-width:14px;">5</span>
+        </div>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:4px;">展示步数</label>
+        <div style="display:flex;align-items:center;gap:8px;height:32px;">
+          <input type="range" min="2" max="5" value="4" id="modStepRange" oninput="document.getElementById('modStepVal').innerText=this.value;renderModSankey()" style="width:100px;accent-color:#2f6fed;">
+          <span id="modStepVal" style="color:#2f6fed;font-weight:600;min-width:14px;">4</span>
+        </div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;width:100%;">
+      <div id="modSankey" style="width:100%;height:440px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 模块三：用户路径 ===== -->
+<div class="panel" id="panel2">
+  <div class="card">
+    <h2>分群路径检索</h2>
+    <div class="desc">指定起点页与终点页，查看中间高频路径 Top N。</div>
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;flex-wrap:wrap;">
+      <span><label style="color:#7f8c9b;font-size:12px;">起点</label>
+        <select><option>搜索</option></select></span>
+      <span class="path-arrow">→</span>
+      <span><label style="color:#7f8c9b;font-size:12px;">终点</label>
+        <select><option>支付</option></select></span>
+      <button class="btn" style="width:auto;padding:6px 20px;" onclick="alert('Demo 演示 — 实际会查询 Top 路径')">检索</button>
+    </div>
+    <div id="pathList"></div>
+  </div>
+  <div class="card">
+    <h2>单用户路径回放</h2>
+    <div class="desc">用户 #88213 · iOS · v8.2.0 — 会话内完整事件时间线。（模拟数据）</div>
+    <div class="timeline" id="timeline"></div>
+  </div>
+</div>
+
+<!-- 属性选择下拉面板（全局共用一个） -->
+<div class="attr-pop" id="attrPop">
+  <div class="ap-search"><input type="text" id="apSearch" placeholder="🔍 搜索属性" oninput="renderAttrItems()"></div>
+  <div class="ap-body">
+    <div class="ap-cats" id="apCats"></div>
+    <div class="ap-items" id="apItems"></div>
+  </div>
+</div>
+
+<!-- 节点点击信息浮层 -->
+<div class="node-pop" id="nodePop">
+  <div class="np-hd"><span id="npName">页面</span><span class="np-close" onclick="closeNodePop()">×</span></div>
+  <div class="np-thumb">
+    <div class="np-mock">
+      <div class="m-bar"></div><div class="m-line"></div><div class="m-line short"></div>
+      <div class="m-block"></div><div class="m-line"></div><div class="m-btn"></div>
+    </div>
+    <span class="np-thumb-tag" id="npThumbName">页面缩略图</span>
+  </div>
+  <div class="np-stats">
+    <div class="np-stat"><span class="k">页面总 PV</span><span class="v" id="npTotalPv">-</span></div>
+    <div class="np-stat"><span class="k">页面总 UV</span><span class="v" id="npTotalUv">-</span></div>
+    <div class="np-stat"><span class="k">流转 PV</span><span class="v" id="npPv">-</span></div>
+    <div class="np-stat"><span class="k">流失量</span><span class="v" id="npLoss">-</span></div>
+    <div class="np-stat"><span class="k">流失率</span><span class="v" id="npRate">-</span></div>
+  </div>
+  <div class="np-acts">
+    <div class="np-btn primary" id="npHlBtn" onclick="onHlBtn()">高亮节点</div>
+    <div class="np-btn" onclick="drillNode()">查看页面详情</div>
+  </div>
+</div>
+
+<!-- 热力图放大查看遮罩（纯静态图片展示） -->
+<div id="zoomMask" onclick="if(event.target===this)closeZoom()" style="display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:200;align-items:center;justify-content:center;">
+  <div style="position:relative;background:#fff;border-radius:14px;padding:16px 18px;box-shadow:0 16px 48px rgba(0,0,0,.3);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;gap:24px;">
+      <span style="font-size:14px;font-weight:600;color:#1f2d3d;">页面热力图 · 电梯询价页</span>
+      <span onclick="closeZoom()" style="cursor:pointer;color:#b0bac7;font-size:22px;line-height:1;">×</span>
+    </div>
+    <div id="zoomBody"></div>
+  </div>
+</div>
+
+<!-- 品类列表-组 明细弹窗 -->
+<div id="catMask" onclick="if(event.target===this)closeCatDetail()" style="display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:200;align-items:center;justify-content:center;">
+  <div style="position:relative;background:#fff;border-radius:14px;padding:18px 22px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:760px;max-width:92vw;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <span style="font-size:15px;font-weight:600;color:#1f2d3d;">品类列表 · 各品类点击明细</span>
+      <span onclick="closeCatDetail()" style="cursor:pointer;color:#b0bac7;font-size:22px;line-height:1;">×</span>
+    </div>
+    <div style="overflow:auto;max-height:60vh;">
+      <table id="catTable" style="min-width:680px;"></table>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ 全局配置状态 ============ */
+let cfg = { metric:'pv', topX:5, steps:4, dir:'fwd' };
+function setTopX(v){ cfg.topX=+v; document.getElementById('topVal').innerText=v; pathHL=null; renderSankey(); }
+function setSteps(v){ cfg.steps=+v; document.getElementById('stepVal').innerText=v; pathHL=null; renderSankey(); }
+// chip 单选/多选交互
+document.addEventListener('click',e=>{
+  if(!e.target.classList.contains('chip')) return;
+  const box=e.target.parentElement;
+  if(box.hasAttribute('data-single')){ box.querySelectorAll('.chip').forEach(c=>c.classList.remove('on')); e.target.classList.add('on'); }
+  else { e.target.classList.toggle('on'); }
+});
+
+/* ============ 属性筛选器组件 ============ */
+// 分类 → 属性列表
+const filterSchema = {
+  '事件属性': ['平台来源'],
+  '订单属性': ['同跨城','里程段','预约/实时单','出发时间段','品类'],
+  '用户属性': ['乘客/车主','新老客']
+};
+// 属性 → 可选值（首项默认「全部」，无定义则降级为「全部」）
+const attrValues = {
+  '平台来源':['全部','Android','iOS','微信小程序','支付宝'],
+  '同跨城':['全部','同城','跨城'],
+  '里程段':['全部','0-10km','10-30km','30km+'],
+  '预约/实时单':['全部','预约单','实时单'],
+  '出发时间段':['全部','早高峰','平峰','晚高峰','夜间'],
+  '品类':['全部','顺风车','拼车','打车','送货'],
+  '乘客/车主':['全部','乘客','车主'],
+  '新老客':['全部','新客','老客']
+};
+function attrCat(attr){ for(const c in filterSchema){ if(filterSchema[c].includes(attr)) return c; } return ''; }
+
+let activeFilters = [];          // {id, attr, op:'=', val}
+let pickerState = { cat:'事件属性', editId:null }; // 当前选择中的目标
+let fid = 0;
+
+function renderFilters(){
+  const box = document.getElementById('fltList');
+  if(!box) return;
+  box.innerHTML = activeFilters.map(f=>{
+    const vals = attrValues[f.attr] || ['全部'];
+    const opts = vals.map(v=>`<option ${v===f.val?'selected':''}>${v}</option>`).join('');
+    return `<div class="flt-row" data-id="${f.id}">
+      <div class="flt-attr" onclick="openAttrPicker(this,${f.id},event)">
+        <span class="cat-tag">${attrCat(f.attr)}</span>
+        <span class="a-name">${f.attr}</span><span class="caret">▾</span>
+      </div>
+      <div class="flt-row2">
+        <span class="flt-op">=</span>
+        <select class="flt-val" onchange="setFilterVal(${f.id},this.value)">${opts}</select>
+        <span class="flt-del" title="删除" onclick="removeFilter(${f.id})">×</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+function setFilterVal(id,v){ const f=activeFilters.find(x=>x.id===id); if(f) f.val=v; }
+function removeFilter(id){ activeFilters=activeFilters.filter(x=>x.id!==id); renderFilters(); }
+
+// 打开下拉面板：trigger=触发元素, editId=编辑已有条件(null=新增)
+function openAttrPicker(trigger, editId, ev){
+  if(ev) ev.stopPropagation();
+  pickerState.editId = editId;
+  if(editId!=null){ const f=activeFilters.find(x=>x.id===editId); pickerState.cat = attrCat(f.attr) || '事件属性'; }
+  const pop = document.getElementById('attrPop');
+  document.getElementById('apSearch').value='';
+  renderAttrCats(); renderAttrItems();
+  // 定位到触发元素下方
+  const r = trigger.getBoundingClientRect();
+  pop.style.left = Math.min(r.left, window.innerWidth-360) + 'px';
+  pop.style.top = (r.bottom + 6) + 'px';
+  pop.classList.add('show');
+  setTimeout(()=>document.getElementById('apSearch').focus(),30);
+}
+function closeAttrPicker(){ document.getElementById('attrPop').classList.remove('show'); }
+function renderAttrCats(){
+  document.getElementById('apCats').innerHTML = Object.keys(filterSchema).map(c=>
+    `<div class="ap-cat ${c===pickerState.cat?'on':''}" onclick="pickCat('${c}',event)">${c}</div>`).join('');
+}
+function pickCat(c,ev){ if(ev) ev.stopPropagation(); pickerState.cat=c; renderAttrCats(); renderAttrItems(); }
+function renderAttrItems(){
+  const kw = document.getElementById('apSearch').value.trim();
+  const usedExceptSelf = activeFilters.filter(f=>f.id!==pickerState.editId).map(f=>f.attr);
+  let list = filterSchema[pickerState.cat] || [];
+  if(kw) list = list.filter(a=>a.includes(kw));
+  const curAttr = pickerState.editId!=null ? (activeFilters.find(x=>x.id===pickerState.editId)||{}).attr : null;
+  let html = `<div class="ap-hd">${pickerState.cat} <b>${(filterSchema[pickerState.cat]||[]).length}</b></div>`;
+  if(!list.length){ html += `<div class="ap-empty">未找到匹配属性</div>`; }
+  else html += list.map(a=>{
+    const used = usedExceptSelf.includes(a);
+    return `<div class="ap-item ${a===curAttr?'on':''}" style="${used?'opacity:.4;pointer-events:none;':''}"
+      onclick="chooseAttr('${a}')"><i class="ic">◷</i>${a}${used?' · 已选':''}</div>`;
+  }).join('');
+  document.getElementById('apItems').innerHTML = html;
+}
+function chooseAttr(attr){
+  const defVal = (attrValues[attr]||['全部'])[0];
+  if(pickerState.editId!=null){
+    const f=activeFilters.find(x=>x.id===pickerState.editId); f.attr=attr; f.val=defVal;
+  } else {
+    activeFilters.push({id:++fid, attr, op:'=', val:defVal});
+  }
+  closeAttrPicker(); renderFilters();
+}
+// 点击面板外关闭
+document.addEventListener('click',e=>{
+  const pop=document.getElementById('attrPop');
+  if(pop.classList.contains('show') && !pop.contains(e.target) && !e.target.closest('.flt-attr') && !e.target.closest('.flt-add'))
+    closeAttrPicker();
+});
+window.addEventListener('resize',closeAttrPicker);
+
+/* ============ 模块一：桑吉图数据 ============ */
+// 每步的页面节点（按流量从大到小），最后两位固定为 更多 / 流失
+// 结构：steps[i] = [{name, val}], 末尾自动补 更多 + 流失
+const rawSteps = [
+  // 第0步（起点）
+  [{name:'平台首页', val:120000}],
+  // 第1步
+  [{name:'乘客首页',val:78000},{name:'登录页',val:24000},{name:'POI页',val:12000},
+   {name:'询价页',val:6000},{name:'平台首页',val:4200}],
+  // 第2步
+  [{name:'登录页',val:42000},{name:'POI页',val:30000},{name:'乘客首页',val:14000},
+   {name:'询价页',val:9000},{name:'发单动画',val:3000}],
+  // 第3步
+  [{name:'POI页',val:48000},{name:'询价页',val:22000},{name:'登录页',val:8000},
+   {name:'乘客首页',val:5000}],
+  // 第4步
+  [{name:'询价页',val:46000},{name:'发单动画',val:18000},{name:'POI页',val:9000},
+   {name:'等待接单页',val:4000}],
+  // 第5步
+  [{name:'发单动画',val:40000},{name:'等待接单页',val:16000},{name:'询价页',val:7000}],
+  // 第6步
+  [{name:'等待接单页',val:38000},{name:'确认同行页',val:15000},{name:'发单动画',val:5000}],
+  // 第7步
+  [{name:'确认同行页',val:34000},{name:'履约页',val:14000},{name:'等待接单页',val:4000}],
+  // 第8步
+  [{name:'履约页',val:30000},{name:'确认同行页',val:6000}],
+  // 第9步
+  [{name:'履约页',val:26000},{name:'确认同行页',val:3000}],
+  // 第10步
+  [{name:'履约页',val:22000}]
+];
+
+// 各页面的总 PV / UV（页面维度汇总，模拟数据）
+const pageStats = {
+  '平台首页':   {pv:240000, uv:182000},
+  '乘客首页':   {pv:162000, uv:121000},
+  '登录页':     {pv:96000,  uv:74000},
+  'POI页':      {pv:112000, uv:84000},
+  '询价页':     {pv:99000,  uv:71000},
+  '发单动画':   {pv:86000,  uv:62000},
+  '等待接单页': {pv:80000,  uv:58000},
+  '确认同行页': {pv:72000,  uv:53000},
+  '履约页':     {pv:64000,  uv:48000}
+};
+
+// 根据 topX 切分 Top 节点与「更多」，并计算每步流失
+function buildSankey(){
+  const nodes=[], links=[];
+  const nameSet=new Set();
+  const addNode=(n)=>{ if(!nameSet.has(n)){ nameSet.add(n); nodes.push({name:n}); } };
+  const factor = cfg.metric==='pv'?1.6:1;
+  const stepCount = Math.min(cfg.steps, rawSteps.length-1);
+
+  // 为每步生成"展示节点列表"（带唯一后缀避免跨步重名），保留 topX + 更多 + 流失
+  const stepNodes=[]; // 每步: [{key, label, val}]
+  for(let s=0;s<=stepCount;s++){
+    const arr = rawSteps[s].map(x=>({label:x.name, val:Math.round(x.val*factor)}));
+    arr.sort((a,b)=>b.val-a.val);
+    let shown, moreVal=0;
+    if(s===0){ shown=arr; }
+    else{
+      shown = arr.slice(0, cfg.topX);
+      moreVal = arr.slice(cfg.topX).reduce((s,x)=>s+x.val,0);
+    }
+    const list = shown.map(x=>({key:`S${s}·${x.label}`, label:x.label, val:x.val}));
+    if(moreVal>0) list.push({key:`S${s}·更多`, label:'更多分组', val:moreVal, kind:'more'});
+    stepNodes.push(list);
+  }
+
+  // 注册节点
+  stepNodes.forEach(list=>list.forEach(n=>addNode(n.key)));
+  // 每步追加流失节点（除最后一步）
+  for(let s=0;s<stepCount;s++) addNode(`S${s}·流失`);
+
+  // 生成相邻步连线：上一步总流量按下一步节点占比分配，剩余记为流失
+  for(let s=0;s<stepCount;s++){
+    const cur = stepNodes[s];
+    const next = stepNodes[s+1];
+    const curTotal = cur.reduce((a,b)=>a+b.val,0);
+    const nextTotal = next.reduce((a,b)=>a+b.val,0);
+    const flowTotal = Math.min(curTotal, nextTotal); // 流向下一步的总量
+    const lossTotal = Math.max(curTotal-flowTotal, Math.round(curTotal*0.18)); // 流失量
+    // 把 flowTotal 按 cur 各节点比例切分，再按 next 占比落到 next 节点
+    cur.forEach(cn=>{
+      const cShare = cn.val/curTotal;
+      next.forEach(nn=>{
+        const v = Math.round(flowTotal*cShare*(nn.val/nextTotal));
+        if(v>0) links.push({source:cn.key, target:nn.key, value:v});
+      });
+      // 该节点的流失
+      const lv = Math.round(lossTotal*cShare);
+      if(lv>0) links.push({source:cn.key, target:`S${s}·流失`, value:lv, loss:true});
+    });
+  }
+  return {nodes, links, stepNodes, stepCount};
+}
+
+let sankeyChart;
+let nodeMeta = {};       // 节点名 -> {label, pv, loss, lossRate}
+let curNodeName = null;  // 当前浮层选中的节点 key
+let curLinks = [];       // 当前渲染的链路（供路径追踪）
+let pathHL = null;       // {nodeKeys:Set, linkKeys:Set} 高亮的主干路径，null=不高亮
+let popOpen = false;     // 节点浮层是否打开（打开时屏蔽 hover 效果）
+// 屏蔽/恢复 hover（emphasis 聚焦 + tooltip）
+function lockHover(lock){
+  if(!sankeyChart) return;
+  sankeyChart.dispatchAction({type:'hideTip'});
+  if(lock) sankeyChart.dispatchAction({type:'downplay', seriesIndex:0}); // 先清掉 hover 残留的高亮态
+  sankeyChart.setOption({ tooltip:{show:!lock},
+    series:[{type:'sankey', emphasis: lock?{disabled:true}:{disabled:false, focus:'adjacency'}}] });
+}
+// 颜色：按页面类型(label)分配，跨步保持一致，形成连贯彩带
+const sankeyPalette = ['#8ea9f3','#b39ddb','#f48fb1','#80cbc4','#ffcc80','#90caf9','#ce93d8','#80deea','#bcaaa4','#9fa8da','#f6a5c0','#a5d6a7'];
+let labelColorMap = {};
+function hexRgba(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+function colorForLabel(label){
+  if(label==='更多分组') return '#7cc18a';
+  if(label==='流失') return '#9aa3af';
+  if(!(label in labelColorMap)) labelColorMap[label] = sankeyPalette[Object.keys(labelColorMap).length % sankeyPalette.length];
+  return labelColorMap[label];
+}
+function renderSankey(){
+  if(!sankeyChart){
+    sankeyChart = echarts.init(document.getElementById('sankey'));
+    sankeyChart.getZr().on('click', e=>{ if(!e.target){ closeNodePop(); if(pathHL){ pathHL=null; renderSankey(); } } }); // 点击空白处关闭浮层并取消高亮
+  }
+  const {nodes, links, stepCount} = buildSankey();
+  curLinks = links;
+  // 计算每个节点的流量(取进/出较大值)用于展示 PV
+  const inSum={}, outSum={}, nodeVal={}, lossByNode={};
+  links.forEach(l=>{ outSum[l.source]=(outSum[l.source]||0)+l.value; inSum[l.target]=(inSum[l.target]||0)+l.value;
+    if(l.loss) lossByNode[l.source]=(lossByNode[l.source]||0)+l.value; });
+  nodes.forEach(n=>{ nodeVal[n.name] = Math.max(inSum[n.name]||0, outSum[n.name]||0); });
+  // 记录每个节点的元信息，供点击浮层使用
+  nodeMeta = {};
+  nodes.forEach(n=>{
+    const pv = nodeVal[n.name]||0, loss = lossByNode[n.name]||0;
+    const label = n.name.split('·').pop();
+    const ps = (typeof pageStats!=='undefined') ? pageStats[label] : null;
+    nodeMeta[n.name] = { label, pv, loss, lossRate: pv>0 ? loss/pv : 0,
+      totalPv: ps?ps.pv:null, totalUv: ps?ps.uv:null };
+  });
+
+  labelColorMap = {}; // 每次渲染重置，保证配色稳定
+  const dimNode = k => pathHL && !pathHL.nodeKeys.has(k);
+  const styledNodes = nodes.map(n=>{
+    const label = n.name.split('·').pop();
+    const c = colorForLabel(label);
+    const dim = dimNode(n.name);
+    return {
+      name:n.name, value: nodeVal[n.name]||0,
+      itemStyle:{ color: hexRgba(c, dim?0.06:0.18), borderColor:c, borderWidth:1.4, opacity: dim?0.3:1 },
+      label:{ color: dim?'#c2c8d0':'#3a4554' }
+    };
+  });
+  const grad=(c1,c2,a)=>({type:'linear',x:0,y:0,x2:1,y2:0,
+    colorStops:[{offset:0,color:hexRgba(c1,a)},{offset:1,color:hexRgba(c2,a)}]});
+  const styledLinks = links.map(l=>{
+    const dim = pathHL && !pathHL.linkKeys.has(l.source+'__'+l.target);
+    const sc = colorForLabel(l.source.split('·').pop());
+    if(l.loss) return {...l, lineStyle:{ color:grad(sc,'#9aa3af', dim?0.05:0.42) }};
+    const tc = colorForLabel(l.target.split('·').pop());
+    return {...l, lineStyle:{ color:grad(sc,tc, dim?0.06:0.72) }};
+  });
+  // 节点宽度按步数自适应：步数少则更宽，文字居中放在方框里
+  const nodeW = Math.round(Math.max(78, Math.min(120, 880/(stepCount+1))));
+  // 步数多时按需加宽画布，超出容器则在外层横向滚动
+  (function(){ const el=document.getElementById('sankey'); const wrapW=el.parentElement?el.parentElement.clientWidth:el.clientWidth;
+    el.style.width = Math.max(wrapW, (stepCount+1)*150) + 'px'; if(sankeyChart) sankeyChart.resize(); })();
+  sankeyChart.setOption({
+    tooltip:{trigger:'item',triggerOn:'mousemove',
+      formatter:p=>{
+        if(p.dataType==='edge')
+          return `${p.data.source.split('·').pop()} → ${p.data.target.split('·').pop()}<br/>PV: <b>${p.data.value.toLocaleString()}</b>`;
+        const m = nodeMeta[p.name] || {pv:p.value||0, loss:0, lossRate:0};
+        const totalLine = (m.totalPv!=null)
+          ? `页面总PV：${m.totalPv.toLocaleString()}<br/>页面总UV：${(m.totalUv||0).toLocaleString()}<br/>`
+          : '';
+        return `<b>${p.name.split('·').pop()}</b><br/>`+
+               totalLine+
+               `流转 PV：${(m.pv||0).toLocaleString()}<br/>`+
+               `流失量：${(m.loss||0).toLocaleString()}<br/>`+
+               `流失率：${((m.lossRate||0)*100).toFixed(1)}%`;
+      }},
+    series:[{
+      type:'sankey', emphasis: pathHL?{disabled:true}:{disabled:false, focus:'adjacency'}, draggable:false,
+      left:'3%', right:'4%', top:'4%', bottom:'4%',
+      nodeWidth:nodeW, nodeGap:11, nodeAlign:'left', layoutIterations:0,
+      data:styledNodes, links:styledLinks,
+      label:{ color:'#3a4554', fontSize:11, lineHeight:15, position:'inside',
+        formatter:p=>`${p.name.split('·').pop()}\n${(p.value||0).toLocaleString()}` },
+      lineStyle:{ curveness:.5 }
+    }]
+  });
+  sankeyChart.off('click');
+  sankeyChart.on('click', p=>{
+    if(p.dataType==='node'){
+      const label=p.name.split('·').pop();
+      if(label==='流失'||label==='更多分组') return;
+      const ev = p.event && p.event.event;
+      openNodePop(p.name, ev?ev.clientX:window.innerWidth/2, ev?ev.clientY:200);
+    }
+  });
+}
+
+/* ---- 节点点击浮层 ---- */
+function openNodePop(nodeName, x, y){
+  curNodeName = nodeName;
+  const m = nodeMeta[nodeName] || {label:nodeName.split('·').pop(), pv:0, loss:0, lossRate:0};
+  const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.innerText=val; };
+  set('npName', m.label);
+  set('npThumbName', m.label);
+  set('npTotalPv', m.totalPv!=null ? m.totalPv.toLocaleString() : '-');
+  set('npTotalUv', m.totalUv!=null ? m.totalUv.toLocaleString() : '-');
+  set('npPv', (m.pv||0).toLocaleString());
+  set('npLoss', (m.loss||0).toLocaleString());
+  set('npRate', ((m.lossRate||0)*100).toFixed(1) + '%');
+  set('npHlBtn', pathHL ? '取消全部高亮' : '高亮节点');
+  const pop = document.getElementById('nodePop');
+  pop.classList.add('show');
+  popOpen = true;
+  lockHover(true);
+  const w = 264, h = pop.offsetHeight || 320;
+  pop.style.left = Math.min(x+12, window.innerWidth - w - 12) + 'px';
+  pop.style.top  = Math.min(y+8, window.innerHeight - h - 12) + 'px';
+}
+function closeNodePop(){
+  document.getElementById('nodePop').classList.remove('show');
+  popOpen = false;
+  lockHover(!!pathHL); // 仍处于高亮态则保持锁定，否则恢复 hover
+}
+function onHlBtn(){ if(pathHL) clearHighlight(); else highlightNode(); }
+function clearHighlight(){ pathHL=null; renderSankey(); closeNodePop(); }
+function highlightNode(){
+  if(!curNodeName) return;
+  // 从当前节点出发，向前/向后各沿 PV 最大的连线追踪主干路径
+  const nodeKeys=new Set([curNodeName]), linkKeys=new Set();
+  let cur=curNodeName;
+  while(true){ // 向后
+    const outs=curLinks.filter(l=>l.source===cur && !l.loss);
+    if(!outs.length) break;
+    const best=outs.reduce((a,b)=>b.value>a.value?b:a);
+    linkKeys.add(best.source+'__'+best.target);
+    if(nodeKeys.has(best.target)) break;
+    nodeKeys.add(best.target); cur=best.target;
+  }
+  cur=curNodeName;
+  while(true){ // 向前
+    const ins=curLinks.filter(l=>l.target===cur && !l.loss);
+    if(!ins.length) break;
+    const best=ins.reduce((a,b)=>b.value>a.value?b:a);
+    linkKeys.add(best.source+'__'+best.target);
+    if(nodeKeys.has(best.source)) break;
+    nodeKeys.add(best.source); cur=best.source;
+  }
+  pathHL = {nodeKeys, linkKeys};
+  renderSankey();
+  closeNodePop();
+}
+function drillNode(){
+  if(!curNodeName) return;
+  document.getElementById('drillPageName').innerText = curNodeName.split('·').pop();
+  closeNodePop();
+  switchTab(1);
+}
+
+/* ============ 模块二：页面下钻 ============ */
+// 模块点击排行数据（与左侧热力区块名称对齐）
+const modules = [
+  {name:'返回',       expo:21430, ctr:0.301, action:'查看'},
+  {name:'安全中心',   expo:21430, ctr:0.168, action:'查看'},
+  {name:'地图',       expo:21430, ctr:0.168, action:'查看'},
+  {name:'优惠banner', expo:21430, ctr:0.225, action:'查看'},
+  {name:'高速费',     expo:21430, ctr:0.123, action:'查看'},
+  {name:'电梯-组',   expo:21430, ctr:0.423, action:'点击和反选'},
+  {name:'品类列表-组',   expo:21430, ctr:0.586, action:'点击和反选'},
+  {name:'券包',       expo:21430, ctr:0.423, action:'查看'},
+  {name:'时间人数弹窗', expo:21430, ctr:0.423, action:'查看'},
+  {name:'代叫',       expo:21430, ctr:0.114, action:'查看'},
+  {name:'备注',       expo:21430, ctr:0.053, action:'查看'},
+  {name:'发单按钮',   expo:21430, ctr:0.543, action:'查看'}
+];
+function modClick(m){ return Math.round(m.expo*m.ctr); }
+// 上游来源 / 下游去向（模拟数据）
+const pageSources = [
+  {name:'平台首页', pv:11200, uv:8600, pct:0.38},
+  {name:'乘客首页', pv:7600,  uv:5900, pct:0.26},
+  {name:'POI页',    pv:5300,  uv:4100, pct:0.18},
+  {name:'登录页',   pv:3200,  uv:2700, pct:0.11},
+  {name:'其他',     pv:2090,  uv:1600, pct:0.07}
+];
+const pageDests = [
+  {name:'发单动画',   pv:9800, uv:7400, pct:0.33},
+  {name:'等待接单页', pv:6400, uv:5000, pct:0.22},
+  {name:'POI页',      pv:4700, uv:3600, pct:0.16},
+  {name:'流失',       pv:5900, uv:4800, pct:0.20},
+  {name:'其他',       pv:2690, uv:2100, pct:0.09}
+];
+function renderFlowTable(id, rows){
+  const el = document.getElementById(id);
+  if(!el) return;
+  const max = Math.max(...rows.map(r=>r.pct));
+  let html = '<tr><th>页面 / 行为</th><th>PV</th><th>UV</th><th>占比</th></tr>';
+  rows.forEach(r=>{
+    const barW = Math.round(r.pct/max*72);
+    html += `<tr><td>${r.name}</td><td>${r.pv.toLocaleString()}</td><td>${(r.uv||0).toLocaleString()}</td>
+      <td style="white-space:nowrap;"><span class="barbg" style="width:72px;"><span class="bar" style="width:${barW}px;"></span></span> ${(r.pct*100).toFixed(1)}%</td></tr>`;
+  });
+  el.innerHTML = html;
+}
+function renderFlows(){ renderFlowTable('srcTable', pageSources); renderFlowTable('dstTable', pageDests); }
+// 行为数据（滑动 / 切换深度，模拟数据）
+const behaviors = [
+  {name:'品类列表 · 滑动',      cnt:9070, vDepth:'2.1 屏/人', hDepth:'—'},
+  {name:'地图 · 滑动',          cnt:6320, vDepth:'1.8 屏/人', hDepth:'1.4 段/人'},
+  {name:'电梯 · 1段滑动',       cnt:4200, vDepth:'—',         hDepth:'—'},
+  {name:'电梯 · 2段滑动',       cnt:2800, vDepth:'—',         hDepth:'—'},
+  {name:'电梯 · 3段滑动',       cnt:1500, vDepth:'—',         hDepth:'—'}
+];
+function renderBehTable(){
+  const el = document.getElementById('behTable');
+  if(!el) return;
+  let html = '<tr>'
+    + '<th style="position:sticky;left:0;top:0;background:#fafbfc;z-index:3;">行为名称</th>'
+    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">滑动次数</th>'
+    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">纵向深度</th>'
+    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">横向深度</th></tr>';
+  behaviors.forEach(b=>{
+    html += `<tr><td style="position:sticky;left:0;background:#fff;z-index:1;">${b.name}</td>
+      <td>${b.cnt.toLocaleString()}</td><td>${b.vDepth}</td><td>${b.hDepth}</td></tr>`;
+  });
+  el.innerHTML = html;
+}
+function switchModTab(i){
+  document.getElementById('mdPane0').style.display = i===0 ? 'flex' : 'none';
+  document.getElementById('mdPane1').style.display = i===1 ? 'flex' : 'none';
+  const t0=document.getElementById('mdTab0'), t1=document.getElementById('mdTab1');
+  [t0,t1].forEach(t=>{ t.style.color='#7f8c9b'; t.style.borderBottomColor='transparent'; });
+  const on = i===0?t0:t1; on.style.color='#2f6fed'; on.style.borderBottomColor='#2f6fed';
+  if(i===1) renderBehTable();
+}
+let modSort = {key:'share', dir:'desc'};
+function setModSort(key){
+  if(modSort.key===key) modSort.dir = (modSort.dir==='desc'?'asc':'desc');
+  else { modSort.key = key; modSort.dir = 'desc'; }
+  renderModTable();
+}
+function renderModTable(){
+  const totalClicks = modules.reduce((s,m)=>s+modClick(m),0) || 1;
+  const maxShare = Math.max(...modules.map(m=>modClick(m)/totalClicks));
+  const canView = ['电梯-组','品类列表-组'];
+  const repeat = {'品类列表':2.4,'品类列表-组':2.4,'商品列表':2.1,'电梯':1.8,'电梯-组':1.8,'时间人数弹窗':1.4,'地图':1.5,'返回':1.2};
+  // 计算各模块行数据
+  const rows = modules.map(m=>{
+    const share = modClick(m)/totalClicks;
+    const expoPv = m.expo, expoUv = Math.round(m.expo*0.78);
+    const clickPv = modClick(m);
+    const rep = repeat[m.name] || 1.15;
+    const clickUv = Math.max(1, Math.round(clickPv/rep));
+    const ctrUv = expoUv>0 ? clickUv/expoUv : 0;
+    return {m, share, expoPv, expoUv, clickPv, clickUv, ctrUv};
+  });
+  // 按当前排序键排序
+  const cmp = {
+    name:    (a,b)=>a.m.name.localeCompare(b.m.name,'zh'),
+    expo:    (a,b)=>a.expoPv - b.expoPv,
+    click:   (a,b)=>a.clickPv - b.clickPv,
+    ctr:     (a,b)=>a.ctrUv - b.ctrUv,
+    share:   (a,b)=>a.share - b.share
+  }[modSort.key] || ((a,b)=>0);
+  rows.sort((a,b)=> modSort.dir==='asc' ? cmp(a,b) : cmp(b,a));
+  // 表头：可排序列加箭头与点击
+  const arrow = k => modSort.key===k ? (modSort.dir==='asc'?' ↑':' ↓') : ' ⇅';
+  const th = (k,label)=>`<th style="position:sticky;top:0;background:#fafbfc;z-index:2;cursor:pointer;user-select:none;" onclick="setModSort('${k}')">${label}<span style="color:#b0bac7;font-size:11px;">${arrow(k)}</span></th>`;
+  let html = '<tr>'
+    + `<th style="position:sticky;left:0;top:0;background:#fafbfc;z-index:3;cursor:pointer;user-select:none;" onclick="setModSort('name')">模块名<span style="color:#b0bac7;font-size:11px;">${arrow('name')}</span></th>`
+    + th('expo','曝光')
+    + th('click','点击')
+    + th('ctr','点击率')
+    + th('share','点击占比')
+    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">操作</th></tr>';
+  rows.forEach(({m,share,expoPv,expoUv,clickPv,clickUv,ctrUv})=>{
+    const barW = Math.round(share/maxShare*72);
+    const opCell = m.name==='品类列表-组'
+      ? `<a href="javascript:void(0)" style="color:#2f6fed;text-decoration:underline;cursor:pointer;font-weight:600;" onclick="event.stopPropagation();(window.openCategoryDetail?window.openCategoryDetail():alert('函数未定义'));return false;">查看</a>`
+      : canView.includes(m.name)
+        ? `<a href="javascript:void(0)" style="color:#2f6fed;text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();selectModule('${m.name}');return false;">查看</a>`
+        : '';
+    const pvUv = (pv,uv)=>`<div style="line-height:1.35;">${pv.toLocaleString()}<div style="font-size:11px;color:#95a3b3;">${uv.toLocaleString()} UV</div></div>`;
+    html += `<tr data-name="${m.name}" onclick="selectModule('${m.name}')">
+      <td style="position:sticky;left:0;background:#fff;z-index:1;">${m.name}</td>
+      <td>${pvUv(expoPv, expoUv)}</td>
+      <td>${pvUv(clickPv, clickUv)}</td>
+      <td><b>${(ctrUv*100).toFixed(1)}%</b></td>
+      <td style="white-space:nowrap;"><span class="barbg" style="width:72px;"><span class="bar" style="width:${barW}px;"></span></span> ${(share*100).toFixed(1)}%</td>
+      <td>${opCell}</td></tr>`;
+  });
+  document.getElementById('modTable').innerHTML = html;
+}
+// 区块 ↔ 表格双向联动
+function selectModule(name){
+  document.querySelectorAll('#modTable tr').forEach(tr=>tr.classList.toggle('sel', tr.dataset.name===name));
+  document.querySelectorAll('.phone .zone').forEach(z=>z.classList.toggle('sel', z.dataset.mod===name));
+  const row = document.querySelector(`#modTable tr[data-name="${name}"]`);
+  if(row) row.scrollIntoView({block:'nearest',behavior:'smooth'});
+  const zone = document.querySelector(`.phone .zone[data-mod="${name}"]`);
+  if(zone) zone.scrollIntoView({block:'nearest',behavior:'smooth'});
+  showModSankey(name);
+}
+// ===== 模块操作步骤桑吉图（样式同路径分析，点击模块后以其为起始节点展开） =====
+let modSankeyChart, modLabelColorMap={};
+const modSankeyPalette = ['#8ea9f3','#b39ddb','#f48fb1','#80cbc4','#ffcc80','#90caf9','#ce93d8','#80deea','#bcaaa4','#9fa8da','#f6a5c0','#a5d6a7'];
+function modHexRgba(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+function modColor(label){
+  if(label==='流失') return '#9aa3af';
+  if(!(label in modLabelColorMap)) modLabelColorMap[label]=modSankeyPalette[Object.keys(modLabelColorMap).length%modSankeyPalette.length];
+  return modLabelColorMap[label];
+}
+// 从起始模块向后展开的操作步骤（下游分布为模拟数据，按展示步数/每步Top裁剪）
+function buildModSteps(startName, stepsCount, topN){
+  const base = (function(){ const m=modules.find(x=>x.name===startName); return m?Math.max(modClick(m),6000):12000; })();
+  const dist = [
+    [[startName,1]],
+    [['品类列表-组',.30],['品类列表-组',.22],['时间人数弹窗',.18],['券包',.14],['安全中心',.10],['代叫',.08],['备注',.06]],
+    [['发单按钮',.34],['时间人数弹窗',.18],['券包',.14],['品类列表-组',.12],['代叫',.08],['备注',.06]],
+    [['发单按钮',.50],['券包',.14],['时间人数弹窗',.12],['备注',.08],['代叫',.06]],
+    [['发单按钮',.60],['券包',.12],['备注',.08]],
+    [['发单按钮',.40]]
+  ];
+  const used = dist.slice(0, Math.min((stepsCount||4)+1, dist.length));
+  return used.map((step,si)=>{
+    let arr = step.map(([label,p])=>({label, val:Math.round(base*p)}));
+    if(si>0){ arr.sort((a,b)=>b.val-a.val); arr = arr.slice(0, topN||5); }
+    return arr;
+  });
+}
+function showModSankey(startName){
+  const card = document.getElementById('modSankeyCard');
+  if(card) card.style.display='';
+  const sel = document.getElementById('modStartSel');
+  if(sel){
+    if(!sel.options.length) sel.innerHTML = modules.map(m=>`<option value="${m.name}">${m.name}</option>`).join('');
+    sel.value = startName;
+  }
+  renderModSankey(startName);
+}
+function renderModSankey(startName){
+  const sel = document.getElementById('modStartSel');
+  if(!startName && sel) startName = sel.value;
+  if(!startName) return;
+  const el = document.getElementById('modSankey');
+  if(!el || typeof echarts==='undefined') return;
+  if(!modSankeyChart) modSankeyChart = echarts.init(el);
+  const topN = +((document.getElementById('modTopRange')||{}).value || 5);
+  const stepsCount = +((document.getElementById('modStepRange')||{}).value || 4);
+  const steps = buildModSteps(startName, stepsCount, topN);
+  const stepCount = steps.length-1;
+  modLabelColorMap = {};
+  // 每步生成带唯一 key 的节点
+  const stepNodes = steps.map((arr,s)=>arr.map(x=>({key:`S${s}·${x.label}`, label:x.label, val:x.val})));
+  const nodes=[], nameSet=new Set();
+  const addNode=n=>{ if(!nameSet.has(n)){ nameSet.add(n); nodes.push({name:n}); } };
+  stepNodes.forEach(list=>list.forEach(n=>addNode(n.key)));
+  for(let s=0;s<stepCount;s++) addNode(`S${s}·流失`);
+  const links=[];
+  for(let s=0;s<stepCount;s++){
+    const cur=stepNodes[s], next=stepNodes[s+1];
+    const curTotal=cur.reduce((a,b)=>a+b.val,0), nextTotal=next.reduce((a,b)=>a+b.val,0);
+    const flowTotal=Math.min(curTotal,nextTotal);
+    const lossTotal=Math.max(curTotal-flowTotal, Math.round(curTotal*0.15));
+    cur.forEach(cn=>{ const cShare=cn.val/curTotal;
+      next.forEach(nn=>{ const v=Math.round(flowTotal*cShare*(nn.val/nextTotal)); if(v>0) links.push({source:cn.key,target:nn.key,value:v}); });
+      const lv=Math.round(lossTotal*cShare); if(lv>0) links.push({source:cn.key,target:`S${s}·流失`,value:lv,loss:true});
+    });
+  }
+  const inSum={},outSum={},nodeVal={};
+  links.forEach(l=>{ outSum[l.source]=(outSum[l.source]||0)+l.value; inSum[l.target]=(inSum[l.target]||0)+l.value; });
+  nodes.forEach(n=>{ nodeVal[n.name]=Math.max(inSum[n.name]||0,outSum[n.name]||0); });
+  const styledNodes = nodes.map(n=>{ const label=n.name.split('·').pop(); const c=modColor(label);
+    return {name:n.name, value:nodeVal[n.name]||0,
+      itemStyle:{color:modHexRgba(c,0.18), borderColor:c, borderWidth:1.4}, label:{color:'#3a4554'}}; });
+  const grad=(c1,c2,a)=>({type:'linear',x:0,y:0,x2:1,y2:0,colorStops:[{offset:0,color:modHexRgba(c1,a)},{offset:1,color:modHexRgba(c2,a)}]});
+  const styledLinks = links.map(l=>{ const sc=modColor(l.source.split('·').pop());
+    if(l.loss) return {...l, lineStyle:{color:grad(sc,'#9aa3af',0.42)}};
+    const tc=modColor(l.target.split('·').pop());
+    return {...l, lineStyle:{color:grad(sc,tc,0.72)}};
+  });
+  const nodeW = Math.round(Math.max(78, Math.min(120, 880/(stepCount+1))));
+  (function(){ const el=document.getElementById('modSankey'); const wrapW=el.parentElement?el.parentElement.clientWidth:el.clientWidth;
+    el.style.width = Math.max(wrapW, (stepCount+1)*150) + 'px'; if(modSankeyChart) modSankeyChart.resize(); })();
+  modSankeyChart.setOption({
+    tooltip:{trigger:'item', triggerOn:'mousemove', formatter:p=> p.dataType==='edge'
+      ? `${p.data.source.split('·').pop()} → ${p.data.target.split('·').pop()}<br/>操作量: <b>${p.data.value.toLocaleString()}</b>`
+      : `<b>${p.name.split('·').pop()}</b><br/>操作量: ${(p.value||0).toLocaleString()}`},
+    series:[{type:'sankey', emphasis:{focus:'adjacency'}, draggable:false,
+      left:'3%',right:'4%',top:'4%',bottom:'4%',
+      nodeWidth:nodeW, nodeGap:11, nodeAlign:'left', layoutIterations:0,
+      data:styledNodes, links:styledLinks,
+      label:{color:'#3a4554',fontSize:11,lineHeight:15,position:'inside',
+        formatter:p=>`${p.name.split('·').pop()}\n${(p.value||0).toLocaleString()}`},
+      lineStyle:{curveness:.5}}]
+  });
+  modSankeyChart.resize();
+}
+function bindZoneClicks(){
+  document.querySelectorAll('.phone').forEach(ph=>{
+    ph.addEventListener('click', e=>{
+      const z = e.target.closest('.zone[data-mod]');
+      if(z && ph.contains(z)) selectModule(z.dataset.mod);
+    });
+    // hover 区块 -> 对应表格行进入 hover 态
+    ph.addEventListener('mouseover', e=>{
+      const z = e.target.closest('.zone[data-mod]');
+      if(z && ph.contains(z)) hoverRow(z.dataset.mod, true);
+    });
+    ph.addEventListener('mouseout', e=>{
+      const z = e.target.closest('.zone[data-mod]');
+      if(z && ph.contains(z)) hoverRow(z.dataset.mod, false);
+    });
+  });
+}
+// 高亮/取消高亮对应表格行
+function hoverRow(name,on){
+  const row = document.querySelector(`#modTable tr[data-name="${name}"]`);
+  if(row) row.classList.toggle('hov', on);
+}
+// 热力图状态切换（点击率/点击量/曝光）—— 演示：切换标注文案
+function setHeatMode(el,mode){
+  el.parentElement.querySelectorAll('div').forEach(d=>d.classList.remove('on'));
+  el.classList.add('on');
+}
+// 放大查看：直接展示已渲染好的静态热力预览图（自适应高度，完整展示）
+function openZoom(){
+  const box = document.getElementById('zoomBody');
+  if(box) box.innerHTML = `<img src="image/询价页预览.png" alt="页面热力图" style="display:block;height:80vh;width:auto;border-radius:8px;">`;
+  const mask = document.getElementById('zoomMask');
+  if(mask) mask.style.display='flex';
+}
+function closeZoom(){ const mask=document.getElementById('zoomMask'); if(mask) mask.style.display='none'; }
+// 品类列表-组 各品类明细
+const categories = [
+  {name:'独享',       expoPv:21430, expoUv:16715, clickPv:10410, clickUv:6890,  order:0.58},
+  {name:'特惠独享',   expoPv:21430, expoUv:16715, clickPv:7820,  clickUv:5360,  order:0.52},
+  {name:'拼座',       expoPv:21430, expoUv:16715, clickPv:6280,  clickUv:4480,  order:0.41},
+  {name:'只拼一单',   expoPv:21430, expoUv:16715, clickPv:3640,  clickUv:2710,  order:0.34},
+  {name:'双端履约',   expoPv:21430, expoUv:16715, clickPv:2150,  clickUv:1680,  order:0.46},
+  {name:'同呼打车',   expoPv:21430, expoUv:16715, clickPv:4490,  clickUv:3220,  order:0.61}
+];
+function openCategoryDetail(){
+  const totalClick = categories.reduce((s,c)=>s+c.clickPv,0) || 1;
+  const maxShare = Math.max(...categories.map(c=>c.clickPv/totalClick));
+  let html = '<tr>'
+    + '<th>品类</th><th>曝光 PV/UV</th><th>点击 PV/UV</th><th>点击率</th><th>点击占比</th><th>发单选择率</th></tr>';
+  categories.slice().sort((a,b)=>b.clickPv-a.clickPv).forEach(c=>{
+    const ctr = c.expoUv>0 ? c.clickUv/c.expoUv : 0;
+    const share = c.clickPv/totalClick;
+    const barW = Math.round(share/maxShare*72);
+    const pvUv = (pv,uv)=>`<div style="line-height:1.35;">${pv.toLocaleString()}<div style="font-size:11px;color:#95a3b3;">${uv.toLocaleString()} UV</div></div>`;
+    html += `<tr><td>${c.name}</td>
+      <td>${pvUv(c.expoPv,c.expoUv)}</td>
+      <td>${pvUv(c.clickPv,c.clickUv)}</td>
+      <td><b>${(ctr*100).toFixed(1)}%</b></td>
+      <td style="white-space:nowrap;"><span class="barbg" style="width:72px;"><span class="bar" style="width:${barW}px;"></span></span> ${(share*100).toFixed(1)}%</td>
+      <td><b>${(c.order*100).toFixed(1)}%</b></td></tr>`;
+  });
+  document.getElementById('catTable').innerHTML = html;
+  document.getElementById('catMask').style.display='flex';
+}
+function closeCatDetail(){ const m=document.getElementById('catMask'); if(m) m.style.display='none'; }
+window.openCategoryDetail = openCategoryDetail;
+window.closeCatDetail = closeCatDetail;
+// 隐藏/显示 热力色块（直接操作内联样式，不依赖 CSS）
+let heatOn = true;
+function toggleHeat(btn){
+  heatOn = !heatOn;
+  document.querySelectorAll('.phone .zone').forEach(z=>{
+    z.style.background = heatOn ? '' : 'transparent';
+  });
+  btn.classList.toggle('off', !heatOn);
+  btn.style.opacity = heatOn ? '' : '.4';
+}
+// 隐藏/显示 点击数据气泡
+let dataOn = true;
+function toggleData(btn){
+  dataOn = !dataOn;
+  document.querySelectorAll('.phone .zone .hot').forEach(h=>{
+    h.style.display = dataOn ? '' : 'none';
+  });
+  btn.classList.toggle('off', !dataOn);
+  btn.style.opacity = dataOn ? '' : '.4';
+}
+// 版本对比选择：选中则在右侧展示对比页，可关闭（直接操作内联样式，不依赖 CSS）
+function switchVer(ver){
+  const card = document.getElementById('hmCard');
+  const cmp = document.getElementById('cmpPhone');
+  if(ver){ if(cmp) cmp.style.display='block'; if(card) card.style.flex='0 0 560px'; }
+  else { if(cmp) cmp.style.display='none'; if(card) card.style.flex='0 0 360px'; }
+}
+function closeCompare(){
+  const cmp = document.getElementById('cmpPhone'); if(cmp) cmp.style.display='none';
+  const card = document.getElementById('hmCard'); if(card) card.style.flex='0 0 360px';
+  const sel = document.getElementById('verCompare'); if(sel) sel.value='';
+}
+
+
+/* ============ 模块三：用户路径 ============ */
+const topPaths = [
+  {steps:['搜索','搜索结果页','点击结果','订单确认','支付'],uv:5840},
+  {steps:['搜索','搜索结果页','支付'],uv:3120},
+  {steps:['搜索','签到','搜索结果页','订单确认','支付'],uv:1760},
+  {steps:['搜索','优惠券','搜索结果页','支付'],uv:980}
+];
+function renderPaths(){
+  let html='';
+  topPaths.forEach(p=>{
+    html+='<div class="path-row">';
+    p.steps.forEach((s,i)=>{
+      html+=`<span class="path-step">${s}</span>`;
+      if(i<p.steps.length-1) html+='<span class="path-arrow">→</span>';
+    });
+    html+=`<span class="path-uv">${p.uv.toLocaleString()} UV</span></div>`;
+  });
+  document.getElementById('pathList').innerHTML=html;
+}
+const events=[
+  {type:'pv',name:'搜索页',time:'10:02:11',gap:''},
+  {type:'click',name:'搜索框 → 关键词"机场"',time:'10:02:18',gap:'+7s'},
+  {type:'pv',name:'搜索结果页',time:'10:02:19',gap:'+1s'},
+  {type:'click',name:'结果卡片 #1',time:'10:02:33',gap:'+14s'},
+  {type:'pv',name:'订单确认页',time:'10:02:35',gap:'+2s'},
+  {type:'click',name:'领取优惠券',time:'10:02:48',gap:'+13s'},
+  {type:'pv',name:'支付页',time:'10:02:51',gap:'+3s'},
+  {type:'click',name:'确认支付',time:'10:03:09',gap:'+18s'}
+];
+function renderTimeline(){
+  let html='';
+  events.forEach(e=>{
+    const cls = e.type==='pv'?'tl-pv':'tl-click';
+    const tag = e.type==='pv'?'<span class="tag tag-pv">页面曝光</span>':'<span class="tag tag-click">点击</span>';
+    html+=`<div class="tl-item ${cls}"><span class="dot"></span>
+      <div class="tl-box"><div class="t">${e.time} ${e.gap?'<span class="gap">'+e.gap+'</span>':''}</div>
+      <div class="n">${e.name}${tag}</div></div></div>`;
+  });
+  document.getElementById('timeline').innerHTML=html;
+}
+
+/* ============ Tab 切换 ============ */
+function switchTab(i){
+  document.querySelectorAll('.tab').forEach((t,idx)=>t.classList.toggle('active',idx===i));
+  document.querySelectorAll('.panel').forEach((p,idx)=>p.classList.toggle('active',idx===i));
+  setTimeout(()=>{ if(i===0&&sankeyChart)sankeyChart.resize(); },50);
+}
+
+/* ============ 初始化 ============ */
+// 预置一条筛选条件示例
+activeFilters = [
+  {id:++fid, attr:'平台类型', op:'=', val:'全部'}
+];
+renderFilters();
+[renderSankey, renderModTable, bindZoneClicks, renderModSankey, renderFlows, renderPaths, renderTimeline]
+  .forEach(fn=>{ try{ fn(); }catch(e){ console.error('[init]', fn.name, e); } });
+window.addEventListener('resize',()=>{ sankeyChart&&sankeyChart.resize(); });
+</script>
+</body>
+</html>

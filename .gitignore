@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon?
+
+# 编辑器
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# 压缩包
+*.zip
+*.tar.gz
+
+# 日志 / 临时
+*.log
+.tmp/
