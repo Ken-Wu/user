@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>用户行为分析平台 · Demo</title>
+<title>天眼用户行为分析平台 · Demo</title>
 <script src="echarts.min.js"></script>
 <script>if(!window.echarts){document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"><\/scr'+'ipt>');}</script>
 <style>
@@ -254,7 +254,7 @@
 <body>
 <div class="topbar">
   <div style="display:flex;align-items:baseline;">
-    <h1>用户行为分析平台</h1>
+    <h1>天眼用户行为分析平台</h1>
     <span class="sub">Demo · 模拟数据</span>
   </div>
   <div class="sub">埋点平台数据接入</div>
@@ -264,7 +264,7 @@
 <div class="tabs">
   <div class="tab active" onclick="switchTab(0)">① 页面流分析</div>
   <div class="tab" onclick="switchTab(1)">② 核心页面分析</div>
-  <div class="tab" onclick="switchTab(2)">③ 用户分析</div>
+  <div class="tab" onclick="switchTab(2)" style="display:none;">③ 用户分析</div>
 </div>
 
 <!-- ===== 模块一：查询配置 + 桑吉图 ===== -->
@@ -598,7 +598,7 @@
         <select id="modStartSel" onchange="renderModSankey(this.value)" style="padding:7px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;min-width:150px;background:#fff;color:#2c3e50;"></select>
       </div>
       <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:4px;">会话间隔（超过则切分新会话 / 判为流失）</label>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:4px;">会话间隔（超过则切分新会话 / 判为终止）</label>
         <div style="display:flex;gap:8px;">
           <input type="number" min="1" value="30" id="modGapNum" onchange="renderModSankey()" style="width:80px;padding:7px 9px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
           <select id="modGapUnit" onchange="renderModSankey()" style="width:66px;padding:7px 9px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;background:#fff;color:#2c3e50;"><option>分</option><option>时</option><option>天</option></select>
@@ -670,8 +670,8 @@
     <div class="np-stat"><span class="k">页面总 PV</span><span class="v" id="npTotalPv">-</span></div>
     <div class="np-stat"><span class="k">页面总 UV</span><span class="v" id="npTotalUv">-</span></div>
     <div class="np-stat"><span class="k">流转 PV</span><span class="v" id="npPv">-</span></div>
-    <div class="np-stat"><span class="k">流失量</span><span class="v" id="npLoss">-</span></div>
-    <div class="np-stat"><span class="k">流失率</span><span class="v" id="npRate">-</span></div>
+    <div class="np-stat"><span class="k">终止量</span><span class="v" id="npLoss">-</span></div>
+    <div class="np-stat"><span class="k">终止率</span><span class="v" id="npRate">-</span></div>
   </div>
   <div class="np-acts">
     <div class="np-btn primary" id="npHlBtn" onclick="onHlBtn()">高亮节点</div>
@@ -816,8 +816,8 @@ document.addEventListener('click',e=>{
 window.addEventListener('resize',closeAttrPicker);
 
 /* ============ 模块一：桑吉图数据 ============ */
-// 每步的页面节点（按流量从大到小），最后两位固定为 更多 / 流失
-// 结构：steps[i] = [{name, val}], 末尾自动补 更多 + 流失
+// 每步的页面节点（按流量从大到小），最后两位固定为 更多 / 终止
+// 结构：steps[i] = [{name, val}], 末尾自动补 更多 + 终止
 const rawSteps = [
   // 第0步（起点）
   [{name:'平台首页', val:120000}],
@@ -866,7 +866,7 @@ const pageStats = {
   '履约-行程完成':        {pv:27000, uv:23000}
 };
 
-// 根据 topX 切分 Top 节点与「更多」，并计算每步流失
+// 根据 topX 切分 Top 节点与「更多」，并计算每步终止
 function buildSankey(){
   const nodes=[], links=[];
   const nameSet=new Set();
@@ -874,7 +874,7 @@ function buildSankey(){
   const factor = cfg.metric==='pv'?1.6:1;
   const stepCount = Math.min(cfg.steps, rawSteps.length-1);
 
-  // 为每步生成"展示节点列表"（带唯一后缀避免跨步重名），保留 topX + 更多 + 流失
+  // 为每步生成"展示节点列表"（带唯一后缀避免跨步重名），保留 topX + 更多 + 终止
   const stepNodes=[]; // 每步: [{key, label, val}]
   for(let s=0;s<=stepCount;s++){
     const arr = rawSteps[s].map(x=>({label:x.name, val:Math.round(x.val*factor)}));
@@ -892,17 +892,17 @@ function buildSankey(){
 
   // 注册节点
   stepNodes.forEach(list=>list.forEach(n=>addNode(n.key)));
-  // 每步追加流失节点（除最后一步）
-  for(let s=0;s<stepCount;s++) addNode(`S${s}·流失`);
+  // 每步追加终止节点（除最后一步）
+  for(let s=0;s<stepCount;s++) addNode(`S${s}·终止`);
 
-  // 生成相邻步连线：上一步总流量按下一步节点占比分配，剩余记为流失
+  // 生成相邻步连线：上一步总流量按下一步节点占比分配，剩余记为终止
   for(let s=0;s<stepCount;s++){
     const cur = stepNodes[s];
     const next = stepNodes[s+1];
     const curTotal = cur.reduce((a,b)=>a+b.val,0);
     const nextTotal = next.reduce((a,b)=>a+b.val,0);
     const flowTotal = Math.min(curTotal, nextTotal); // 流向下一步的总量
-    const lossTotal = Math.max(curTotal-flowTotal, Math.round(curTotal*0.18)); // 流失量
+    const lossTotal = Math.max(curTotal-flowTotal, Math.round(curTotal*0.18)); // 终止量
     // 把 flowTotal 按 cur 各节点比例切分，再按 next 占比落到 next 节点
     cur.forEach(cn=>{
       const cShare = cn.val/curTotal;
@@ -910,9 +910,9 @@ function buildSankey(){
         const v = Math.round(flowTotal*cShare*(nn.val/nextTotal));
         if(v>0) links.push({source:cn.key, target:nn.key, value:v});
       });
-      // 该节点的流失
+      // 该节点的终止
       const lv = Math.round(lossTotal*cShare);
-      if(lv>0) links.push({source:cn.key, target:`S${s}·流失`, value:lv, loss:true});
+      if(lv>0) links.push({source:cn.key, target:`S${s}·终止`, value:lv, loss:true});
     });
   }
   return {nodes, links, stepNodes, stepCount};
@@ -938,7 +938,7 @@ let labelColorMap = {};
 function hexRgba(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
 function colorForLabel(label){
   if(label==='更多分组') return '#7cc18a';
-  if(label==='流失') return '#9aa3af';
+  if(label==='终止') return '#9aa3af';
   if(!(label in labelColorMap)) labelColorMap[label] = sankeyPalette[Object.keys(labelColorMap).length % sankeyPalette.length];
   return labelColorMap[label];
 }
@@ -1002,8 +1002,8 @@ function renderSankey(){
         return `<b>${p.name.split('·').pop()}</b><br/>`+
                totalLine+
                `流转 PV：${(m.pv||0).toLocaleString()}<br/>`+
-               `流失量：${(m.loss||0).toLocaleString()}<br/>`+
-               `流失率：${((m.lossRate||0)*100).toFixed(1)}%`;
+               `终止量：${(m.loss||0).toLocaleString()}<br/>`+
+               `终止率：${((m.lossRate||0)*100).toFixed(1)}%`;
       }},
     series:[{
       type:'sankey', emphasis: pathHL?{disabled:true}:{disabled:false, focus:'adjacency'}, draggable:false,
@@ -1019,7 +1019,7 @@ function renderSankey(){
   sankeyChart.on('click', p=>{
     if(p.dataType==='node'){
       const label=p.name.split('·').pop();
-      if(label==='流失'||label==='更多分组') return;
+      if(label==='终止'||label==='更多分组') return;
       const ev = p.event && p.event.event;
       openNodePop(p.name, ev?ev.clientX:window.innerWidth/2, ev?ev.clientY:200);
     }
@@ -1116,7 +1116,7 @@ const pageDests = [
   {name:'发单动画',   pv:9800, uv:7400, pct:0.33},
   {name:'等待接单页', pv:6400, uv:5000, pct:0.22},
   {name:'POI页',      pv:4700, uv:3600, pct:0.16},
-  {name:'流失',       pv:5900, uv:4800, pct:0.20},
+  {name:'终止',       pv:5900, uv:4800, pct:0.20},
   {name:'其他',       pv:2690, uv:2100, pct:0.09}
 ];
 function renderFlowTable(id, rows){
@@ -1235,7 +1235,7 @@ let modSankeyChart, modLabelColorMap={};
 const modSankeyPalette = ['#8ea9f3','#b39ddb','#f48fb1','#80cbc4','#ffcc80','#90caf9','#ce93d8','#80deea','#bcaaa4','#9fa8da','#f6a5c0','#a5d6a7'];
 function modHexRgba(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
 function modColor(label){
-  if(label==='流失') return '#9aa3af';
+  if(label==='终止') return '#9aa3af';
   if(!(label in modLabelColorMap)) modLabelColorMap[label]=modSankeyPalette[Object.keys(modLabelColorMap).length%modSankeyPalette.length];
   return modLabelColorMap[label];
 }
@@ -1284,7 +1284,7 @@ function renderModSankey(startName){
   const nodes=[], nameSet=new Set();
   const addNode=n=>{ if(!nameSet.has(n)){ nameSet.add(n); nodes.push({name:n}); } };
   stepNodes.forEach(list=>list.forEach(n=>addNode(n.key)));
-  for(let s=0;s<stepCount;s++) addNode(`S${s}·流失`);
+  for(let s=0;s<stepCount;s++) addNode(`S${s}·终止`);
   const links=[];
   for(let s=0;s<stepCount;s++){
     const cur=stepNodes[s], next=stepNodes[s+1];
@@ -1293,7 +1293,7 @@ function renderModSankey(startName){
     const lossTotal=Math.max(curTotal-flowTotal, Math.round(curTotal*0.15));
     cur.forEach(cn=>{ const cShare=cn.val/curTotal;
       next.forEach(nn=>{ const v=Math.round(flowTotal*cShare*(nn.val/nextTotal)); if(v>0) links.push({source:cn.key,target:nn.key,value:v}); });
-      const lv=Math.round(lossTotal*cShare); if(lv>0) links.push({source:cn.key,target:`S${s}·流失`,value:lv,loss:true});
+      const lv=Math.round(lossTotal*cShare); if(lv>0) links.push({source:cn.key,target:`S${s}·终止`,value:lv,loss:true});
     });
   }
   const inSum={},outSum={},nodeVal={};
