@@ -7,7 +7,7 @@
 直接用浏览器打开：
 
 ```
-用户行为分析/user_path_demo.html
+app/user_path_demo.html
 ```
 
 ## 功能概览
@@ -28,7 +28,7 @@
 ├── 用户行为分析平台_需求文档.md   # 产品功能 + 数据需求
 ├── 用户路径分析工具_PRD.md         # 早期 PRD
 ├── 需求讨论纪要.md
-└── 用户行为分析/
+└── app/
     ├── user_path_demo.html         # 原型主入口
     ├── echarts.min.js              # 本地 ECharts（避免外网依赖）
     └── image/                       # 截图素材（询价页等）
@@ -45,7 +45,7 @@
 无需安装依赖，直接打开 HTML 即可。如需通过 HTTP 访问（避免某些浏览器对 `file://` 的限制）：
 
 ```bash
-cd 用户行为分析
+cd app
 python3 -m http.server 8000
 # 然后访问 http://localhost:8000/user_path_demo.html
 ```
