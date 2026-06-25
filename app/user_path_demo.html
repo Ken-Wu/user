@@ -702,6 +702,19 @@
   </div>
 </div>
 
+<!-- 模块策略明细弹窗 -->
+<div id="stratMask" onclick="if(event.target===this)closeStratDetail()" style="display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:200;align-items:center;justify-content:center;">
+  <div style="position:relative;background:#fff;border-radius:14px;padding:18px 22px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:620px;max-width:92vw;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <span id="stratTitle" style="font-size:15px;font-weight:600;color:#1f2d3d;">策略明细</span>
+      <span onclick="closeStratDetail()" style="cursor:pointer;color:#b0bac7;font-size:22px;line-height:1;">×</span>
+    </div>
+    <div style="overflow:auto;max-height:60vh;">
+      <table id="stratTable" style="min-width:520px;"></table>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ============ 全局配置状态 ============ */
 let cfg = { metric:'pv', topX:5, steps:4, dir:'fwd' };
@@ -1253,6 +1266,7 @@ function renderModTable(){
     + th('click','日均点击')
     + th('ctr','点击率')
     + th('share','点击占比')
+    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">策略数量</th>'
     + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">操作</th></tr>';
   rows.forEach(({m,share,shareUv,expoPv,expoUv,clickPv,clickUv,ctrPv,ctrUv})=>{
     const barW = Math.round(share/maxShare*72);
@@ -1261,6 +1275,10 @@ function renderModTable(){
       : canView.includes(m.name)
         ? `<a href="javascript:void(0)" style="color:#2f6fed;text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();selectModule('${m.name}');return false;">查看</a>`
         : '';
+    const stratCount = (window.strategyCounts||{})[m.name];
+    const stratCell = stratCount
+      ? `<a href="javascript:void(0)" style="color:#2f6fed;text-decoration:underline;cursor:pointer;font-weight:600;" onclick="event.stopPropagation();openStrategyDetail('${m.name}');return false;">${stratCount}</a>`
+      : '—';
     const pvUv = (pv,uv)=>{ const D=getDays(); return `<div style="line-height:1.35;">${Math.round(pv/D).toLocaleString()} PV<div style="font-size:11px;color:#95a3b3;">${Math.round((uv||0)/D).toLocaleString()} UV</div></div>`; };
     const ratePvUv = (pvRate,uvRate)=>`<div style="line-height:1.35;"><b>${(pvRate*100).toFixed(1)}%</b> PV<div style="font-size:11px;color:#95a3b3;font-weight:normal;">${(uvRate*100).toFixed(1)}% UV</div></div>`;
     const sharePvUv = (pvShare,uvShare,maxPv,maxUv)=>{
@@ -1276,6 +1294,7 @@ function renderModTable(){
       <td>${pvUv(clickPv, clickUv)}</td>
       <td>${ratePvUv(ctrPv, ctrUv)}</td>
       <td>${sharePvUv(share, shareUv, maxShare, maxShareUv)}</td>
+      <td>${stratCell}</td>
       <td>${opCell}</td></tr>`;
   });
   document.getElementById('modTable').innerHTML = html;
@@ -1464,6 +1483,46 @@ function openCategoryDetail(){
 function closeCatDetail(){ const m=document.getElementById('catMask'); if(m) m.style.display='none'; }
 window.openCategoryDetail = openCategoryDetail;
 window.closeCatDetail = closeCatDetail;
+
+// ====== 模块策略明细 ======
+const strategyCounts = {'券包':10, '优惠banner':5};
+// 各模块的策略明细（模拟数据）
+function makeStrategies(prefix, n, baseExpo, baseClick){
+  const arr = [];
+  for(let i=1;i<=n;i++){
+    const k = 1 - (i-1)*0.06; // 第1条最热，依次递减
+    const expoPv = Math.round(baseExpo * (0.6+k*0.4));
+    const expoUv = Math.round(expoPv*0.78);
+    const clickPv = Math.round(baseClick * (0.5+k*0.5));
+    const clickUv = Math.round(clickPv/1.2);
+    arr.push({name:`${prefix}${i}`, expoPv, expoUv, clickPv, clickUv});
+  }
+  return arr;
+}
+const strategiesMap = {
+  '券包':       makeStrategies('券包策略 #', 10, 21430, 9065),
+  '优惠banner': makeStrategies('优惠策略 #',  5, 21430, 4822)
+};
+window.strategyCounts = strategyCounts;
+function openStrategyDetail(modName){
+  const list = strategiesMap[modName];
+  if(!list){ alert('暂无策略明细'); return; }
+  const D = getDays();
+  const pvUv = (pv,uv)=>`<div style="line-height:1.35;">${Math.round(pv/D).toLocaleString()} PV<div style="font-size:11px;color:#95a3b3;">${Math.round((uv||0)/D).toLocaleString()} UV</div></div>`;
+  const ratePvUv = (pv,uv)=>`<div style="line-height:1.35;"><b>${(pv*100).toFixed(1)}%</b> PV<div style="font-size:11px;color:#95a3b3;font-weight:normal;">${(uv*100).toFixed(1)}% UV</div></div>`;
+  let html = '<tr><th>策略名</th><th>日均曝光 PV/UV</th><th>点击率</th></tr>';
+  list.slice().sort((a,b)=>b.clickPv-a.clickPv).forEach(s=>{
+    const ctrPv = s.expoPv>0 ? s.clickPv/s.expoPv : 0;
+    const ctrUv = s.expoUv>0 ? s.clickUv/s.expoUv : 0;
+    html += `<tr><td>${s.name}</td><td>${pvUv(s.expoPv,s.expoUv)}</td><td>${ratePvUv(ctrPv,ctrUv)}</td></tr>`;
+  });
+  document.getElementById('stratTitle').innerText = modName + ' · 策略明细';
+  document.getElementById('stratTable').innerHTML = html;
+  document.getElementById('stratMask').style.display = 'flex';
+}
+function closeStratDetail(){ const m=document.getElementById('stratMask'); if(m) m.style.display='none'; }
+window.openStrategyDetail = openStrategyDetail;
+window.closeStratDetail = closeStratDetail;
 // 隐藏/显示 热力色块（直接操作内联样式，不依赖 CSS）
 let heatOn = true;
 function toggleHeat(btn){
