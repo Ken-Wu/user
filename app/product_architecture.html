@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>用户行为分析平台 · 产品架构图</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,Arial,sans-serif;background:#eef1f6;color:#2c3e50;padding:28px 22px;}
+  .canvas{max-width:1180px;margin:0 auto;background:#fff;border-radius:14px;box-shadow:0 4px 18px rgba(31,45,61,.08);padding:26px 28px 30px;}
+
+  /* 顶部标题 */
+  .hd{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:6px;}
+  .hd h1{font-size:21px;color:#1f2d3d;letter-spacing:.3px;}
+  .hd .sub{font-size:12px;color:#95a3b3;margin-top:6px;}
+  .hd .legend{display:flex;gap:14px;align-items:center;font-size:11px;color:#7f8c9b;flex-wrap:wrap;}
+  .hd .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:5px;vertical-align:-1px;}
+
+  /* 布局:左轴标签 + 主体层 + 右侧贯穿能力 */
+  .frame{display:flex;gap:12px;margin-top:18px;}
+  .axis{flex:0 0 30px;display:flex;flex-direction:column;gap:12px;}
+  .axis .ax{flex:1;display:flex;align-items:center;justify-content:center;border-radius:8px;color:#fff;font-size:12px;font-weight:600;writing-mode:vertical-rl;letter-spacing:3px;padding:8px 0;}
+  .layers{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0;}
+  .cross{flex:0 0 92px;display:flex;flex-direction:column;gap:12px;}
+  .cross .cband{flex:1;border:1.5px dashed #c7d2e6;border-radius:10px;background:#f7f9fd;padding:10px 8px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;}
+  .cross .cband .ct{font-size:12px;font-weight:700;color:#3a5fb0;writing-mode:horizontal-tb;}
+  .cross .cband .ci{font-size:10.5px;color:#7f8c9b;line-height:1.5;}
+
+  /* 层 band */
+  .band{border-radius:10px;padding:12px 14px;position:relative;}
+  .band .bt{font-size:13px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px;}
+  .band .bt .tag{font-size:10px;font-weight:600;padding:1px 7px;border-radius:8px;background:rgba(255,255,255,.6);}
+  .row{display:flex;gap:10px;flex-wrap:wrap;}
+  .row > .col{flex:1;min-width:0;}
+
+  /* 卡片(模块块) */
+  .box{background:#fff;border:1px solid #e3e8f0;border-radius:8px;padding:9px 11px;font-size:12.5px;color:#2c3e50;box-shadow:0 1px 2px rgba(31,45,61,.04);}
+  .box .bx-t{font-weight:600;font-size:13px;color:#1f2d3d;margin-bottom:2px;}
+  .box .bx-d{font-size:11px;color:#95a3b3;line-height:1.5;}
+  .chips{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px;}
+  .chip{font-size:11px;padding:2px 8px;border-radius:11px;background:#eef4ff;color:#2f6fed;white-space:nowrap;}
+
+  /* 各层配色 */
+  .L-user{background:#eaf2ff;}            .ax-user{background:#5b8def;}
+  .L-scene{background:#eafaf3;}           .ax-scene{background:#27ae8f;}
+  .L-app{background:#fff5ea;}             .ax-app{background:#e8943a;}
+  .L-cap{background:#f3eefe;}             .ax-cap{background:#8a63d2;}
+  .L-svc{background:#eef6fb;}             .ax-svc{background:#3aa0c9;}
+  .L-data{background:#f1f3f7;}            .ax-data{background:#5a6b86;}
+
+  .L-app .col-head{font-size:12px;font-weight:700;color:#c2701a;margin-bottom:7px;display:flex;align-items:center;gap:6px;}
+  .L-app .col-head .no{width:18px;height:18px;border-radius:50%;background:#e8943a;color:#fff;font-size:11px;display:flex;align-items:center;justify-content:center;}
+  .col-card{background:#fff;border:1px solid #f0e0cb;border-radius:9px;padding:10px;height:100%;}
+
+  .down{display:flex;justify-content:center;margin:-6px 0;}
+  .down svg{opacity:.5;}
+
+  .foot{margin-top:16px;font-size:11px;color:#aab3c0;text-align:center;line-height:1.7;}
+  .foot b{color:#7f8c9b;}
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="hd">
+    <div>
+      <h1>用户行为分析平台 · 产品架构图</h1>
+      <div class="sub">面向出行业务(顺风车 / 打车)的埋点行为分析 · 宏观流转 → 中观页面 → 微观个体的下钻闭环</div>
+    </div>
+    <div class="legend">
+      <span><i style="background:#5b8def;"></i>用户</span>
+      <span><i style="background:#27ae8f;"></i>场景</span>
+      <span><i style="background:#e8943a;"></i>应用功能</span>
+      <span><i style="background:#8a63d2;"></i>通用能力</span>
+      <span><i style="background:#3aa0c9;"></i>计算服务</span>
+      <span><i style="background:#5a6b86;"></i>数据底座</span>
+    </div>
+  </div>
+
+  <div class="frame">
+    <!-- 左侧层轴 -->
+    <div class="axis">
+      <div class="ax ax-user">使用者</div>
+      <div class="ax ax-scene">场景</div>
+      <div class="ax ax-app">应用功能</div>
+      <div class="ax ax-cap">通用能力</div>
+      <div class="ax ax-svc">计算服务</div>
+      <div class="ax ax-data">数据底座</div>
+    </div>
+
+    <!-- 主体分层 -->
+    <div class="layers">
+
+      <!-- 使用者 -->
+      <div class="band L-user">
+        <div class="bt" style="color:#2f6fed;">目标使用者 <span class="tag" style="color:#2f6fed;">谁来用</span></div>
+        <div class="row">
+          <div class="col box"><div class="bx-t">产品经理</div><div class="bx-d">转化漏斗诊断 · 功能价值评估 · 改版前后对比</div></div>
+          <div class="col box"><div class="bx-t">运营</div><div class="bx-d">活动落地页路径分析 · 流失节点定位</div></div>
+          <div class="col box"><div class="bx-t">数据分析师</div><div class="bx-d">路径探索 · 自定义路径漏斗</div></div>
+        </div>
+      </div>
+
+      <!-- 核心场景 -->
+      <div class="band L-scene">
+        <div class="bt" style="color:#1f8f72;">核心分析场景 <span class="tag" style="color:#1f8f72;">解决什么问题</span></div>
+        <div class="row">
+          <div class="col box"><div class="bx-t">从哪来 / 到哪去 / 在哪流失</div></div>
+          <div class="col box"><div class="bx-t">页面内功能是否有效</div></div>
+          <div class="col box"><div class="bx-t">布局是否合理</div></div>
+          <div class="col box"><div class="bx-t">改版前后效果对比</div></div>
+          <div class="col box"><div class="bx-t">还原真实路径 / 异常路径</div></div>
+        </div>
+      </div>
+
+      <!-- 应用功能(三大模块) -->
+      <div class="band L-app">
+        <div class="bt" style="color:#c2701a;">应用功能层 · 三大分析视角 <span class="tag" style="color:#c2701a;">产品做什么</span></div>
+        <div class="row">
+          <!-- ① -->
+          <div class="col">
+            <div class="col-card">
+              <div class="col-head"><span class="no">1</span>页面流分析</div>
+              <div class="bx-d" style="margin-bottom:8px;">用户在页面之间怎么走、在哪一步流失</div>
+              <div class="chips">
+                <span class="chip">页面流转桑吉图</span>
+                <span class="chip">TopN + 更多聚合</span>
+                <span class="chip">每步流失节点</span>
+                <span class="chip">节点点击浮层</span>
+                <span class="chip">路径高亮追踪</span>
+                <span class="chip">节点下钻</span>
+              </div>
+            </div>
+          </div>
+          <!-- ② -->
+          <div class="col">
+            <div class="col-card">
+              <div class="col-head"><span class="no">2</span>事件分析(页面下钻)</div>
+              <div class="bx-d" style="margin-bottom:8px;">单页面内各模块的点击热力与操作步骤</div>
+              <div class="chips">
+                <span class="chip">页面 KPI</span>
+                <span class="chip">点击热力图</span>
+                <span class="chip">模块数据表</span>
+                <span class="chip">上下游流量</span>
+                <span class="chip">版本对比</span>
+                <span class="chip">模块操作步骤桑吉图</span>
+                <span class="chip">模块行为路径图</span>
+                <span class="chip">热力↔表格联动</span>
+              </div>
+            </div>
+          </div>
+          <!-- ③ -->
+          <div class="col">
+            <div class="col-card">
+              <div class="col-head"><span class="no">3</span>用户分析</div>
+              <div class="bx-d" style="margin-bottom:8px;">分群高频路径 + 单用户行为回放</div>
+              <div class="chips">
+                <span class="chip">分群路径检索</span>
+                <span class="chip">单用户路径回放</span>
+                <span class="chip">路径漏斗</span>
+                <span class="chip">异常路径识别</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="down"><svg width="22" height="16" viewBox="0 0 22 16"><path d="M11 0 v10 M5 7 l6 7 6-7" stroke="#9aa8c0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+      <!-- 通用能力 -->
+      <div class="band L-cap">
+        <div class="bt" style="color:#6c3fc0;">通用能力层 · 贯穿各模块 <span class="tag" style="color:#6c3fc0;">怎么查</span></div>
+        <div class="row">
+          <div class="col box"><div class="bx-t">查询设置</div><div class="bx-d">正推/倒推起止 · 时间范围</div></div>
+          <div class="col box"><div class="bx-t">会话切分</div><div class="bx-d">会话间隔(分/时/天) · 流失判定</div></div>
+          <div class="col box"><div class="bx-t">统一属性筛选器</div><div class="bx-d">事件 / 订单 / 用户属性</div></div>
+          <div class="col box"><div class="bx-t">指标体系</div><div class="bx-d">PV/UV · CTR · 流失率 · 操作量</div></div>
+          <div class="col box"><div class="bx-t">模块联动下钻</div><div class="bx-d">桑吉图→页面→用户闭环</div></div>
+        </div>
+      </div>
+
+      <div class="down"><svg width="22" height="16" viewBox="0 0 22 16"><path d="M11 0 v10 M5 7 l6 7 6-7" stroke="#9aa8c0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+      <!-- 计算服务 -->
+      <div class="band L-svc">
+        <div class="bt" style="color:#2a7f9e;">数据与计算服务 <span class="tag" style="color:#2a7f9e;">怎么算</span></div>
+        <div class="row">
+          <div class="col box"><div class="bx-t">查询服务</div><div class="bx-d">配置解析 · 异步任务</div></div>
+          <div class="col box"><div class="bx-t">路径计算引擎</div><div class="bx-d">会话内排序 · 相邻边生成</div></div>
+          <div class="col box"><div class="bx-t">TopN 聚合</div><div class="bx-d">每步 Top + 更多归并</div></div>
+          <div class="col box"><div class="bx-t">UV 去重</div><div class="bx-d">COUNT(DISTINCT) / HLL 近似</div></div>
+          <div class="col box"><div class="bx-t">结果缓存</div><div class="bx-d">高频查询 Redis 缓存</div></div>
+        </div>
+      </div>
+
+      <div class="down"><svg width="22" height="16" viewBox="0 0 22 16"><path d="M11 0 v10 M5 7 l6 7 6-7" stroke="#9aa8c0" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+
+      <!-- 数据底座 -->
+      <div class="band L-data">
+        <div class="bt" style="color:#46566f;">数据底座 <span class="tag" style="color:#46566f;">数据从哪来</span></div>
+        <div class="row" style="margin-bottom:10px;">
+          <div class="col box"><div class="bx-t">dwd_track_event</div><div class="bx-d">埋点明细清洗层</div></div>
+          <div class="col box"><div class="bx-t">dws_page_edge_di</div><div class="bx-d">页面流转边预聚合</div></div>
+          <div class="col box"><div class="bx-t">dws_page_element_di</div><div class="bx-d">元素点击预聚合</div></div>
+        </div>
+        <div class="row">
+          <div class="col box" style="background:#e9edf3;border-color:#d4dae4;">
+            <div class="bx-t">埋点平台(数据接入)</div>
+            <div class="chips" style="margin-top:6px;">
+              <span class="chip" style="background:#dfe5ee;color:#46566f;">page_view 页面曝光</span>
+              <span class="chip" style="background:#dfe5ee;color:#46566f;">element_view 元素曝光</span>
+              <span class="chip" style="background:#dfe5ee;color:#46566f;">element_click 元素点击</span>
+              <span class="chip" style="background:#dfe5ee;color:#46566f;">pos_x/pos_y 坐标</span>
+              <span class="chip" style="background:#dfe5ee;color:#46566f;">user/session/属性透传</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 右侧贯穿能力 -->
+    <div class="cross">
+      <div class="cband" style="flex:3;">
+        <div class="ct">全局筛选<br>状态同步</div>
+        <div class="ci">时间 / 端 / 版本 / 人群<br>在三模块间保持一致</div>
+      </div>
+      <div class="cband" style="flex:2;">
+        <div class="ct">数据校验</div>
+        <div class="ci">桑吉图流量守恒<br>占比合计 100%<br>模块名三处一致</div>
+      </div>
+      <div class="cband" style="flex:2;">
+        <div class="ct">权限 & 时效</div>
+        <div class="ci">取数权限<br>T+1 离线 / 按天可查</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    数据流向:埋点采集 → 明细清洗 → 预聚合 → 计算服务 → 通用能力 → 三大应用功能 → 支撑使用者完成分析场景。<br>
+    <b>宏观(整体流转) → 中观(页面功能) → 微观(个体路径)</b> 逐层下钻闭环 · 本图依据《用户行为分析平台需求文档》与《用户路径分析工具 PRD》绘制。
+  </div>
+</div>
+</body>
+</html>

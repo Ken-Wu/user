@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>模块行为路径图 · 预览</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;background:#f5f6fa;color:#2c3e50;padding:24px;}
+  .wrap{max-width:1180px;margin:0 auto;background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.06);padding:22px 26px;}
+  .hd{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:18px;}
+  h1{font-size:17px;color:#1f2d3d;margin-bottom:6px;}
+  .desc{font-size:12px;color:#95a3b3;max-width:540px;line-height:1.55;}
+  .controls{display:flex;gap:16px;align-items:center;flex-wrap:wrap;font-size:12px;color:#7f8c9b;}
+  .controls .seg{display:flex;border:1px solid #d7dce5;border-radius:6px;overflow:hidden;}
+  .controls .seg div{padding:4px 12px;cursor:pointer;background:#fff;}
+  .controls .seg div.on{background:#2f6fed;color:#fff;}
+  .controls label{display:flex;align-items:center;gap:5px;cursor:pointer;}
+
+  .body{display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap;}
+
+  /* 放大版手机 */
+  .phone-lg{position:relative;width:380px;flex:0 0 380px;border:7px solid #1f2d3d;border-radius:32px;overflow:hidden;background:#fff;box-shadow:0 8px 22px rgba(31,45,61,.18);}
+  .phone-lg img{display:block;width:100%;height:auto;}
+  .phone-lg svg.overlay{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+  .phone-lg svg.overlay .interactive{pointer-events:auto;}
+
+  /* 右侧信息 */
+  .side{flex:1;min-width:260px;display:flex;flex-direction:column;gap:14px;}
+  .legend{background:#fafbfc;border:1px solid #eef1f5;border-radius:10px;padding:14px 16px;}
+  .legend .lt{font-size:13px;font-weight:600;color:#1f2d3d;margin-bottom:10px;}
+  .legend .row{display:flex;align-items:center;gap:14px;margin-bottom:10px;}
+  .legend .row:last-child{margin-bottom:0;}
+  .legend .row .lab{font-size:12px;color:#7f8c9b;flex:1;}
+  .scale-circles{display:flex;align-items:center;gap:6px;}
+  .scale-circles .c{border-radius:50%;background:rgba(47,111,237,.18);border:1.6px solid #2f6fed;}
+  .top-flows{background:#fff;border:1px solid #eef1f5;border-radius:10px;padding:4px 0;}
+  .top-flows .ft{font-size:13px;font-weight:600;color:#1f2d3d;padding:12px 14px 6px;}
+  table.flows{width:100%;border-collapse:collapse;font-size:12px;}
+  table.flows th,table.flows td{padding:8px 14px;text-align:left;border-bottom:1px solid #f1f3f7;}
+  table.flows th{color:#95a3b3;font-weight:500;font-size:11px;background:#fafbfc;}
+  table.flows tr:last-child td{border-bottom:none;}
+  .barbg{display:inline-block;width:64px;height:6px;background:#edf1f7;border-radius:3px;vertical-align:middle;margin-right:6px;}
+  .barbg .bar{display:block;height:100%;background:#2f6fed;border-radius:3px;}
+  .src,.dst{display:inline-block;padding:1px 8px;background:#eef4ff;color:#2f6fed;border-radius:10px;font-size:11px;}
+  .arrow-i{color:#b0bac7;margin:0 4px;}
+
+  /* 路径步骤(右侧链路) */
+  .chain-list{padding:6px 0 10px;}
+  .chain-step{display:flex;align-items:center;gap:10px;padding:6px 14px;}
+  .chain-step .badge{flex:none;width:22px;height:22px;border-radius:50%;background:#eef4ff;color:#2f6fed;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;}
+  .chain-step .badge.start{background:#1f5fe0;color:#fff;}
+  .chain-step .nm{flex:1;font-size:13px;color:#1f2d3d;font-weight:600;}
+  .chain-step .ck{font-size:11px;color:#7f8c9b;}
+  .chain-link{display:flex;align-items:center;gap:8px;padding:2px 14px 2px 32px;font-size:11px;color:#7f8c9b;line-height:1;}
+  .chain-link .ln{flex:1;height:0;border-top:1.5px dashed #c5d5f5;position:relative;}
+  .chain-link .v{color:#2f6fed;font-weight:600;background:#eef4ff;padding:2px 7px;border-radius:9px;}
+  .chain-empty{padding:14px;color:#95a3b3;font-size:12px;text-align:center;}
+  .chain-summary{margin:10px 14px 4px;padding:10px 12px;background:#f4f7fc;border-radius:8px;font-size:11px;color:#7f8c9b;line-height:1.6;}
+  .chain-summary b{color:#1f2d3d;font-size:13px;}
+
+  /* SVG 元素样式 */
+  /* 节点圆 */
+  .overlay .node-c{fill:rgba(47,111,237,.85);stroke:#fff;stroke-width:2.5;transition:fill .25s,opacity .25s,filter .25s;}
+  .overlay .node-c.dim{fill:rgba(160,170,180,.55);stroke:#fff;}
+  .overlay .node-c.start{fill:#1f5fe0;stroke:#fff;stroke-width:3.5;filter:drop-shadow(0 0 6px rgba(47,111,237,.6));}
+  .overlay .node-c.on-chain{fill:#2f6fed;stroke:#fff;stroke-width:3;}
+  .overlay .node-c.interactive{cursor:pointer;}
+  .overlay .node-c.interactive:hover{filter:drop-shadow(0 0 8px rgba(47,111,237,.75));}
+
+  /* 节点文字 */
+  .overlay .node-label{fill:#fff;font-size:11px;font-weight:700;text-anchor:middle;dominant-baseline:central;pointer-events:none;transition:opacity .25s;}
+  .overlay .node-label.dim{opacity:.45;}
+  .overlay .node-tag{fill:#1f2d3d;font-size:10px;font-weight:700;text-anchor:middle;pointer-events:none;transition:opacity .25s;}
+  .overlay .node-tag-bg{fill:#fff;stroke:#2f6fed;stroke-width:1;transition:opacity .25s,stroke .25s;}
+  .overlay .node-tag.dim,
+  .overlay .node-tag-bg.dim{opacity:.4;}
+  .overlay .node-tag-bg.start{stroke:#1f5fe0;stroke-width:1.6;}
+
+  /* 链路边(整体偏淡) */
+  .overlay .edge{fill:none;stroke:#9bbbf5;opacity:.55;stroke-linecap:round;}
+  .overlay .edge.faint{opacity:.1;}
+  .overlay .edge.hl{stroke:#5b8def;opacity:.72;}
+  .overlay .edge-arrow{fill:#9bbbf5;opacity:.6;}
+  .overlay .edge-arrow.faint{opacity:.14;}
+  .overlay .edge-arrow.hl{fill:#5b8def;opacity:.82;}
+
+  /* 链路标签 */
+  .overlay .flow-tag,
+  .overlay .flow-tag-bg{transition:opacity .25s;}
+  .overlay .flow-tag.faint,
+  .overlay .flow-tag-bg.faint{opacity:.4;}
+
+  .footer-tip{font-size:11px;color:#aab3c0;margin-top:14px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hd">
+    <div>
+      <h1>模块行为路径图 · 询价页</h1>
+      <div class="desc">鼠标移到任一<b style="color:#2f6fed;">蓝色圆</b>(模块) → 高亮显示从该模块出发的<b style="color:#2f6fed;">所有后续路径</b>(下游全部去向)。用户点击随机、来回跳转,故连线很密。圆 = 点击量,连线粗细 = 该跳流转量。点击模块可固定。</div>
+    </div>
+    <div class="controls">
+      <label><input type="checkbox" id="showLabel" checked> 显示点击量</label>
+      <span style="font-size:11px;color:#95a3b3;">默认显示全部流转,鼠标移到模块查看后续最高频路径,点击可固定</span>
+      <span id="pinHint" style="display:none;font-size:11px;color:#7e57c2;padding:2px 8px;border:1px solid #c5b1e0;border-radius:4px;background:#f4eefd;">📌 已固定 · 再次点击取消</span>
+    </div>
+  </div>
+
+  <div class="body">
+    <!-- 左侧:放大手机 + SVG -->
+    <div class="phone-lg" id="phoneLg">
+      <img id="bgImg" src="image/询价页.png" alt="询价页">
+      <svg class="overlay" id="overlay" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+
+    <!-- 右侧:图例 + Top 流转 -->
+    <div class="side">
+      <div class="legend">
+        <div class="lt">图例说明</div>
+        <div class="row">
+          <div class="scale-circles">
+            <span class="c" style="width:10px;height:10px;"></span>
+            <span class="c" style="width:18px;height:18px;"></span>
+            <span class="c" style="width:30px;height:30px;"></span>
+          </div>
+          <div class="lab">蓝色圆 = 模块点击量(√ 缩放),数值标在圆下方</div>
+        </div>
+        <div class="row">
+          <svg width="56" height="22" viewBox="0 0 56 22">
+            <path d="M 3 16 Q 28 -2 53 16" stroke="#9bbbf5" stroke-width="1.2" fill="none" opacity=".7"/>
+            <path d="M 3 19 Q 28 -2 53 19" stroke="#9bbbf5" stroke-width="9" fill="none" opacity=".7"/>
+          </svg>
+          <div class="lab">连线 = 模块→模块流转量,从圆边出发,粗细 ∝ 流转量(差距越大线越粗)</div>
+        </div>
+        <div class="row">
+          <svg width="56" height="22" viewBox="0 0 56 22">
+            <path d="M 6 4 C 30 4, 30 18, 50 18" stroke="#5b8def" stroke-width="3.5" fill="none" opacity=".8"/>
+            <path d="M 50 4 C 30 4, 30 18, 8 18" stroke="#5b8def" stroke-width="3.5" fill="none" opacity=".45"/>
+          </svg>
+          <div class="lab">折返:路径可 A→B 再回到 A,来回两条线走不同侧弧</div>
+        </div>
+      </div>
+
+      <div class="top-flows">
+        <div class="ft" id="chainTitle">当前路径 · 后续最高频流转</div>
+        <div id="chainSteps"></div>
+      </div>
+
+      <div class="footer-tip">提示:鼠标移到任一模块,高亮其后续所有可达路径;点击模块固定,再点取消。所有数据为模拟数据。</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============ 数据 ============ */
+// 模块矩形(与热力图同款的 x/y/w/h % 坐标)+ 热度(0-1) + 短名 + 自回环朝向(度)
+const RECTS = {
+  '返回':         {x:5,    y:3.7,  w:16,   h:7,    heat:.49, short:'返回',  loopDir:-90},
+  '安全中心':     {x:5,    y:17.5, w:16,   h:7.2,  heat:.30, short:'安全',  loopDir:180},
+  '地图':         {x:83,   y:17.5, w:14,   h:7.2,  heat:.30, short:'地图',  loopDir:0},
+  '优惠banner':   {x:1,    y:25.5, w:98,   h:7,    heat:.38, short:'优惠',  loopDir:-90},
+  '高速费':       {x:1,    y:33,   w:98,   h:4.6,  heat:.22, short:'高速费',loopDir:-90},
+  '电梯-组':      {x:1,    y:38,   w:16,   h:38.5, heat:.67, short:'电梯',  loopDir:180},
+  '品类列表-组':  {x:17.5, y:38,   w:81.5, h:40.5, heat:.80, short:'品类',  loopDir:0},
+  '券包':         {x:1,    y:79,   w:98,   h:6,    heat:.67, short:'券包',  loopDir:180},
+  '时间人数弹窗': {x:1,    y:85.5, w:42,   h:5,    heat:.67, short:'时间',  loopDir:-100},
+  '代叫':         {x:44,   y:85.5, w:25,   h:5,    heat:.20, short:'代叫',  loopDir:-90},
+  '备注':         {x:70,   y:85.5, w:29,   h:5,    heat:.10, short:'备注',  loopDir:-90},
+  '发单按钮':     {x:55,   y:90,   w:44,   h:7,    heat:.75, short:'发单',  loopDir: 90},
+};
+
+// 模块点击量(基于 ctr × expo)
+const CLICKS = {
+  '返回':6450,'安全中心':3600,'地图':5200,'优惠banner':4820,'高速费':2640,
+  '电梯-组':9065,'品类列表-组':12560,'券包':9065,'时间人数弹窗':9065,
+  '代叫':2440,'备注':1140,'发单按钮':11640
+};
+
+// 模块间流转量 [from, to, count]
+// 真实用户点击随机、来回跳转,因此连线很密。发单按钮为转化终点(无出边)。
+const FLOWS = [
+  // —— 顶部栏 ——
+  ['返回','优惠banner',820],
+  ['返回','品类列表-组',1340],
+  ['返回','电梯-组',760],
+  ['安全中心','返回',1100],
+  ['安全中心','地图',980],
+  ['安全中心','品类列表-组',640],
+  ['地图','优惠banner',2400],
+  ['地图','品类列表-组',1860],
+  ['地图','电梯-组',1280],
+  ['地图','返回',900],
+  ['地图','安全中心',520],
+  ['地图','高速费',680],
+  // —— 优惠 banner ——
+  ['优惠banner','高速费',2100],
+  ['优惠banner','品类列表-组',2680],
+  ['优惠banner','电梯-组',1520],
+  ['优惠banner','券包',1740],
+  ['优惠banner','时间人数弹窗',860],
+  ['优惠banner','发单按钮',1180],
+  // —— 高速费 ——
+  ['高速费','电梯-组',1900],
+  ['高速费','品类列表-组',1460],
+  ['高速费','优惠banner',720],
+  ['高速费','发单按钮',640],
+  // —— 电梯-组(左侧品类组,枢纽)——
+  ['电梯-组','品类列表-组',4200],
+  ['电梯-组','时间人数弹窗',3000],
+  ['电梯-组','券包',2260],
+  ['电梯-组','发单按钮',2400],
+  ['电梯-组','优惠banner',980],
+  ['电梯-组','代叫',640],
+  ['电梯-组','备注',420],
+  // —— 品类列表-组(右侧列表,最大枢纽)——
+  ['品类列表-组','电梯-组',3800],
+  ['品类列表-组','券包',3600],
+  ['品类列表-组','发单按钮',4400],
+  ['品类列表-组','时间人数弹窗',2480],
+  ['品类列表-组','优惠banner',1120],
+  ['品类列表-组','代叫',880],
+  ['品类列表-组','备注',620],
+  ['品类列表-组','高速费',540],
+  // —— 时间人数弹窗 ——
+  ['时间人数弹窗','券包',3100],
+  ['时间人数弹窗','发单按钮',2600],
+  ['时间人数弹窗','品类列表-组',1980],
+  ['时间人数弹窗','电梯-组',1240],
+  ['时间人数弹窗','代叫',560],
+  // —— 券包 ——
+  ['券包','发单按钮',4600],
+  ['券包','品类列表-组',1860],
+  ['券包','电梯-组',1020],
+  ['券包','时间人数弹窗',1380],
+  // —— 代叫 ——
+  ['代叫','发单按钮',1120],
+  ['代叫','品类列表-组',780],
+  ['代叫','备注',460],
+  ['代叫','时间人数弹窗',520],
+  // —— 备注 ——
+  ['备注','发单按钮',880],
+  ['备注','品类列表-组',640],
+  ['备注','代叫',380],
+];
+
+// 邻接表(不含自回环,用于链路追溯)
+const ADJ = {};
+FLOWS.forEach(([s,t,v])=>{
+  if(s===t) return;
+  (ADJ[s] = ADJ[s] || []).push({to:t, value:v});
+});
+Object.values(ADJ).forEach(arr=>arr.sort((a,b)=>b.value-a.value));
+
+// 从某模块出发,BFS 收集所有"后续可达"的边与节点(下游全部路径)。
+// 用 visited 节点去重保证终止;收集每个可达节点的全部出边。
+function downstreamFrom(name){
+  const nodes = new Set([name]);
+  const edges = new Set();
+  const visited = new Set([name]);
+  const queue = [name];
+  while(queue.length){
+    const cur = queue.shift();
+    (ADJ[cur] || []).forEach(e=>{
+      edges.add(cur+'|'+e.to);
+      nodes.add(e.to);
+      if(!visited.has(e.to)){ visited.add(e.to); queue.push(e.to); }
+    });
+  }
+  return { nodes, edges };
+}
+
+/* ============ 渲染 ============ */
+const overlay = document.getElementById('overlay');
+const img = document.getElementById('bgImg');
+const SVGNS = 'http://www.w3.org/2000/svg';
+let showLabel = true;
+let hoverNode = null;    // 鼠标悬停的节点
+let pinnedNode = null;   // 点击固定的节点
+let W = 0, H = 0;        // 实际像素尺寸
+
+function init(){
+  const r = document.getElementById('phoneLg').getBoundingClientRect();
+  W = r.width; H = r.height;
+  overlay.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  overlay.setAttribute('preserveAspectRatio','none');
+  render();
+}
+
+// 半径(像素):基于 sqrt(clicks) 映射
+function radiusFor(name){
+  const v = CLICKS[name] || 0;
+  const max = Math.max(...Object.values(CLICKS));
+  const min = Math.min(...Object.values(CLICKS));
+  const t = (Math.sqrt(v) - Math.sqrt(min)) / (Math.sqrt(max) - Math.sqrt(min));
+  return 8 + t * 20; // 8 ~ 28 px
+}
+// 线宽:非线性放大,粗细对比更明显(细 1 ~ 粗 20)
+function widthFor(v){
+  const vals = FLOWS.filter(f=>f[0]!==f[1]).map(f=>f[2]);
+  const max = Math.max(...vals), min = Math.min(...vals);
+  const t = (v - min) / ((max - min) || 1);
+  return 1 + Math.pow(t, 1.7) * 19;
+}
+
+// 模块矩形中心(像素)
+function center(name){
+  const r = RECTS[name];
+  return { x: (r.x + r.w/2)/100 * W, y: (r.y + r.h/2)/100 * H };
+}
+// 矩形边上"朝向某点"的锚点:从中心向目标做射线,与矩形边的交点
+function rectAnchor(name, tx, ty){
+  const r = RECTS[name];
+  const left = r.x/100 * W, top = r.y/100 * H;
+  const halfW = r.w/100 * W / 2, halfH = r.h/100 * H / 2;
+  const cx = left + halfW, cy = top + halfH;
+  const dx = tx - cx, dy = ty - cy;
+  const adx = Math.abs(dx), ady = Math.abs(dy);
+  // 射线参数 t:到达左右边 vs 上下边的最小值
+  const tH = adx > 0.001 ? halfW / adx : Infinity;
+  const tV = ady > 0.001 ? halfH / ady : Infinity;
+  const t = Math.min(tH, tV);
+  return { x: cx + dx*t, y: cy + dy*t };
+}
+
+// 两点曲线:右手法则向一侧偏移,A→B 与 B→A 不重叠
+function curvePath(sx, sy, tx, ty, side=1, strength=.22){
+  const dx = tx-sx, dy = ty-sy;
+  const d = Math.hypot(dx,dy);
+  if(d<1) return '';
+  // 单位法向量(向右手侧)
+  const nx = -dy/d * side, ny = dx/d * side;
+  const off = d * strength;
+  const c1x = sx + dx*0.35 + nx*off;
+  const c1y = sy + dy*0.35 + ny*off;
+  const c2x = sx + dx*0.65 + nx*off;
+  const c2y = sy + dy*0.65 + ny*off;
+  return `M ${sx} ${sy} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${tx} ${ty}`;
+}
+// 把曲线缩短:停在目标圆边缘前 pad 像素处
+function shortenEnd(sx, sy, tx, ty, dstR, pad=4){
+  const dx = tx-sx, dy = ty-sy;
+  const d = Math.hypot(dx,dy);
+  const ratio = Math.max(0, (d - dstR - pad) / d);
+  return { x: sx + dx*ratio, y: sy + dy*ratio };
+}
+// 起点也缩短一点,让线从圆边出发,而不是从圆心
+function shortenStart(sx, sy, tx, ty, srcR, pad=2){
+  const dx = tx-sx, dy = ty-sy;
+  const d = Math.hypot(dx,dy);
+  const r = (srcR + pad) / d;
+  return { x: sx + dx*r, y: sy + dy*r };
+}
+
+// 自回环:在节点旁画一个小圆环
+function selfLoopPath(cx, cy, r, dirDeg, loopR){
+  const a = dirDeg * Math.PI/180;
+  // 起点 / 终点:在节点圆边上,左右各偏 16°
+  const sa = a - 0.32, ea = a + 0.32;
+  const sx = cx + r * Math.cos(sa), sy = cy + r * Math.sin(sa);
+  const ex = cx + r * Math.cos(ea), ey = cy + r * Math.sin(ea);
+  // 用一个大角度弧(sweep=1, large-arc=1)绕到外侧
+  return { d: `M ${sx} ${sy} A ${loopR} ${loopR} 0 1 1 ${ex} ${ey}`, ex, ey, ea };
+}
+
+// 三角箭头(指向 tx,ty,以 from 方向)
+function arrow(fromX, fromY, tx, ty, size=6, cls=''){
+  const dx = tx-fromX, dy = ty-fromY;
+  const d = Math.hypot(dx,dy) || 1;
+  const ux = dx/d, uy = dy/d;
+  // 垂直
+  const px = -uy, py = ux;
+  const bx = tx - ux*size, by = ty - uy*size;
+  const p1x = bx + px*size*0.55, p1y = by + py*size*0.55;
+  const p2x = bx - px*size*0.55, p2y = by - py*size*0.55;
+  const el = document.createElementNS(SVGNS,'polygon');
+  el.setAttribute('points', `${tx},${ty} ${p1x},${p1y} ${p2x},${p2y}`);
+  el.setAttribute('class', 'edge-arrow ' + cls);
+  return el;
+}
+
+function clearSvg(){ while(overlay.firstChild) overlay.removeChild(overlay.firstChild); }
+
+// 画一条有向边(s→t)。faint=淡显背景边;hl=高亮链路边(更粗更实)
+function drawEdge(s, t, v, {side=1, faint=false, hl=false}={}){
+  const sc = center(s), tc = center(t);
+  const sr = radiusFor(s), tr = radiusFor(t);
+  const a = shortenStart(sc.x, sc.y, tc.x, tc.y, sr, 1);
+  const b = shortenEnd(sc.x, sc.y, tc.x, tc.y, tr, 5);
+  let sw = widthFor(v);
+  if(faint) sw = Math.max(0.8, sw*0.55);
+  const d = curvePath(a.x, a.y, b.x, b.y, side, .22);
+  const path = document.createElementNS(SVGNS,'path');
+  path.setAttribute('d', d);
+  path.setAttribute('class', 'edge' + (faint?' faint':'') + (hl?' hl':''));
+  path.setAttribute('stroke-width', sw);
+  path.dataset.from = s; path.dataset.to = t;
+  overlay.appendChild(path);
+  // 箭头
+  const midX = (a.x + b.x)/2, midY = (a.y + b.y)/2;
+  const dx = b.x - a.x, dy = b.y - a.y;
+  const dd = Math.hypot(dx,dy) || 1;
+  const nx = -dy/dd * side, ny = dx/dd * side;
+  const ctrlX = midX + nx * dd * .22, ctrlY = midY + ny * dd * .22;
+  const ah = arrow(ctrlX, ctrlY, b.x, b.y, Math.max(5, sw*0.95));
+  ah.setAttribute('class', 'edge-arrow' + (faint?' faint':'') + (hl?' hl':''));
+  ah.dataset.from = s; ah.dataset.to = t;
+  overlay.appendChild(ah);
+}
+
+// 自回环(同模块内反复点击)
+function drawSelfLoop(s, v, {faint=false, hl=false}={}){
+  const c = center(s), r = radiusFor(s);
+  const loopR = Math.max(8, r*0.55);
+  const lp = selfLoopPath(c.x, c.y, r, RECTS[s].loopDir, loopR);
+  let sw = widthFor(v);
+  if(faint) sw = Math.max(0.8, sw*0.55);
+  const path = document.createElementNS(SVGNS,'path');
+  path.setAttribute('d', lp.d);
+  path.setAttribute('class', 'edge self' + (faint?' faint':'') + (hl?' hl':''));
+  path.setAttribute('stroke-width', sw);
+  path.dataset.from = s; path.dataset.to = s;
+  overlay.appendChild(path);
+  const ang = lp.ea + Math.PI/2;
+  const fromX = lp.ex - Math.cos(ang)*4, fromY = lp.ey - Math.sin(ang)*4;
+  const ah = arrow(fromX, fromY, lp.ex, lp.ey, Math.max(5, sw*0.9), 'self');
+  ah.setAttribute('class', 'edge-arrow self' + (faint?' faint':'') + (hl?' hl':''));
+  ah.dataset.from = s; ah.dataset.to = s;
+  overlay.appendChild(ah);
+}
+
+// 画全部边(默认态正常;hover 态把链路外的边淡显并跳过链路边)
+// 画全部边。focusEdges 为空 → 全部正常;否则 focusEdges 内高亮,其余淡显。
+function drawAllEdges(focusEdges){
+  const seen = new Set();
+  FLOWS.forEach(([s,t,v])=>{
+    if(s===t) return;
+    const key = s+'|'+t, rev = t+'|'+s;
+    const side = seen.has(rev) ? -1 : 1;
+    seen.add(key);
+    let faint=false, hl=false;
+    if(focusEdges){
+      if(focusEdges.has(key)) hl = true;
+      else faint = true;
+    }
+    drawEdge(s, t, v, {side, faint, hl});
+  });
+}
+
+function render(){
+  clearSvg();
+
+  const active = pinnedNode || hoverNode; // 无 hover/pin 时为 null → 默认全量
+  let ds = null;
+  if(active) ds = downstreamFrom(active);
+
+  // ------- 边 -------
+  if(!active){
+    drawAllEdges(null);               // 默认:全部连线正常显示
+  } else {
+    drawAllEdges(ds.edges);           // hover:下游所有路径高亮,其余淡显
+  }
+
+  // ------- 节点(圆 + 标签) -------
+  Object.keys(RECTS).forEach(name=>{
+    const c = center(name);
+    const r = radiusFor(name);
+    const reachable = !active || (ds && ds.nodes.has(name));
+    const isStart = active && name === active;
+
+    // 圆
+    const cir = document.createElementNS(SVGNS,'circle');
+    cir.setAttribute('cx', c.x);
+    cir.setAttribute('cy', c.y);
+    cir.setAttribute('r', r);
+    let cls = 'node-c interactive';
+    if(isStart) cls += ' start';
+    else if(active && reachable) cls += ' on-chain';
+    else if(active) cls += ' dim';
+    cir.setAttribute('class', cls);
+    cir.dataset.name = name;
+    overlay.appendChild(cir);
+
+    // 圆内短名(大圆放得下)
+    if(r >= 11){
+      const lab = document.createElementNS(SVGNS,'text');
+      lab.setAttribute('x', c.x);
+      lab.setAttribute('y', c.y);
+      lab.setAttribute('class','node-label' + (reachable?'':' dim'));
+      lab.textContent = RECTS[name].short;
+      lab.style.fontSize = Math.max(9, r*0.55) + 'px';
+      overlay.appendChild(lab);
+    }
+
+    // 点击量徽章(只在圆上标流量)
+    if(showLabel){
+      const txt = (CLICKS[name]/1000).toFixed(1)+'k';
+      const tw = txt.length * 6.4 + 8;
+      const tagX = c.x, tagY = c.y + r + 9;
+      const bg = document.createElementNS(SVGNS,'rect');
+      bg.setAttribute('x', tagX - tw/2);
+      bg.setAttribute('y', tagY - 7);
+      bg.setAttribute('width', tw);
+      bg.setAttribute('height', 14);
+      bg.setAttribute('rx', 7);
+      let bgCls = 'node-tag-bg';
+      if(isStart) bgCls += ' start';
+      if(!reachable) bgCls += ' dim';
+      bg.setAttribute('class', bgCls);
+      overlay.appendChild(bg);
+      const t = document.createElementNS(SVGNS,'text');
+      t.setAttribute('x', tagX);
+      t.setAttribute('y', tagY);
+      t.setAttribute('class','node-tag' + (reachable?'':' dim'));
+      t.textContent = txt;
+      overlay.appendChild(t);
+    }
+
+    // hover/click
+    cir.addEventListener('mouseenter', ()=>{
+      if(pinnedNode) return;
+      hoverNode = name;
+      render();
+    });
+    cir.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      pinnedNode = (pinnedNode === name) ? null : name;
+      hoverNode = name;
+      render();
+    });
+  });
+
+  renderChainPanel();
+}
+
+// 取某条有向边的流量
+function edgeValue(s, t){
+  const f = FLOWS.find(x=>x[0]===s && x[1]===t);
+  return f ? f[2] : 0;
+}
+
+/* ============ 右侧:后续路径详情 ============ */
+function renderChainPanel(){
+  const active = pinnedNode || hoverNode;
+  const title = document.getElementById('chainTitle');
+  const hint = document.getElementById('pinHint');
+  if(hint) hint.style.display = pinnedNode ? 'inline-block' : 'none';
+  const el = document.getElementById('chainSteps');
+  if(!el) return;
+
+  // 默认态(无 hover/pin):全部流转 Top 概览
+  if(!active){
+    if(title) title.innerHTML = `全部流转总览 <span style="font-size:11px;font-weight:400;color:#95a3b3;margin-left:6px;">鼠标移到模块查看后续所有路径</span>`;
+    const top = FLOWS.filter(f=>f[0]!==f[1]).slice().sort((a,b)=>b[2]-a[2]).slice(0,8);
+    const max = top[0][2];
+    let h = '<div style="padding:6px 0 4px;">';
+    top.forEach(f=>{
+      const pct = Math.round(f[2]/max*100);
+      h += `<div style="display:flex;align-items:center;gap:8px;padding:6px 14px;font-size:12px;">
+        <span class="src">${f[0]}</span><span class="arrow-i">→</span><span class="dst">${f[1]}</span>
+        <span style="flex:1;"></span>
+        <span style="font-weight:600;color:#1f2d3d;">${f[2].toLocaleString()}</span>
+      </div>
+      <div style="padding:0 14px 4px 14px;"><span class="barbg" style="width:100%;"><span class="bar" style="width:${pct}%;"></span></span></div>`;
+    });
+    h += '</div>';
+    el.innerHTML = h;
+    return;
+  }
+
+  // hover/pin 态:展示从该模块出发的"下一步去向分布"+ 下游可达规模
+  const startNode = active;
+  const ds = downstreamFrom(startNode);
+  const outs = (ADJ[startNode] || []).slice().sort((a,b)=>b.value-a.value);
+  if(title){
+    const tag = pinnedNode ? '📌 已固定' : '悬停中';
+    title.innerHTML = `${startNode} · 后续去向 <span style="font-size:11px;font-weight:400;color:#95a3b3;margin-left:6px;">${tag}</span>`;
+  }
+
+  let html = '';
+  if(outs.length === 0){
+    html = `<div class="chain-empty">该模块为转化终点,无后续点击(如发单按钮)</div>`;
+  } else {
+    const total = outs.reduce((s,e)=>s+e.value,0);
+    const max = outs[0].value;
+    html += `<div style="padding:6px 0 2px;">`;
+    html += `<div style="font-size:11px;color:#95a3b3;padding:0 14px 8px;">下一步去向分布(共 ${total.toLocaleString()} 次后续点击,分流到 ${outs.length} 个模块):</div>`;
+    outs.forEach(e=>{
+      const pct = (e.value/total*100);
+      const barW = Math.round(e.value/max*100);
+      html += `<div style="display:flex;align-items:center;gap:8px;padding:5px 14px;font-size:12px;">
+        <span class="arrow-i">→</span><span class="dst">${e.to}</span>
+        <span style="flex:1;"></span>
+        <span style="color:#7f8c9b;">${e.value.toLocaleString()}</span>
+        <span style="font-weight:600;color:#2f6fed;min-width:42px;text-align:right;">${pct.toFixed(1)}%</span>
+      </div>
+      <div style="padding:0 14px 3px 30px;"><span class="barbg" style="width:calc(100% - 16px);"><span class="bar" style="width:${barW}%;"></span></span></div>`;
+    });
+    html += `</div>`;
+    // 下游规模总览
+    const reachNodes = ds.nodes.size - 1; // 去掉起点自身
+    html += `<div class="chain-summary">
+      从 <b>${startNode}</b> 出发,后续可达 <b>${reachNodes}</b> 个模块、<b>${ds.edges.size}</b> 条路径(高亮显示)。
+      用户点击随机,常在模块间来回跳转。
+    </div>`;
+  }
+
+  el.innerHTML = html;
+}
+
+/* ============ 交互 ============ */
+document.getElementById('showLabel').addEventListener('change', e=>{
+  showLabel = e.target.checked; render();
+});
+// 鼠标移出手机区域:未固定时恢复默认全量
+document.getElementById('phoneLg').addEventListener('mouseleave', ()=>{
+  if(pinnedNode) return;
+  if(hoverNode !== null){ hoverNode = null; render(); }
+});
+// 点击页面空白处:取消 pin
+document.addEventListener('click', e=>{
+  if(e.target.closest('.phone-lg')) return; // 让圆自身的 click 处理
+  if(pinnedNode){
+    pinnedNode = null;
+    document.getElementById('pinHint').style.display = 'none';
+    render();
+  }
+});
+// 更新 pin 提示由 renderChainPanel 内部处理
+
+/* ============ 启动 ============ */
+if(img.complete) init();
+else img.addEventListener('load', init);
+window.addEventListener('resize', ()=>{
+  // 一段延时,等 layout 稳定
+  clearTimeout(window._rt);
+  window._rt = setTimeout(init, 80);
+});
+</script>
+</body>
+</html>

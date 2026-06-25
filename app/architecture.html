@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天眼用户行为分析平台 · 产品功能架构图</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,Arial,sans-serif;background:#f5f6fa;color:#2c3e50;font-size:13px;line-height:1.5;padding:32px 28px;}
+  .wrap{max-width:1320px;margin:0 auto;}
+  .topbar{background:#1f2d3d;color:#fff;padding:18px 28px;border-radius:12px;display:flex;align-items:baseline;justify-content:space-between;margin-bottom:24px;}
+  .topbar h1{font-size:20px;font-weight:700;letter-spacing:.3px;}
+  .topbar .sub{font-size:12px;color:#8fa4b8;margin-left:12px;}
+  .topbar .meta{font-size:12px;color:#8fa4b8;}
+
+  /* 总体说明 */
+  .lead{background:#fff;border-radius:12px;padding:18px 22px;margin-bottom:20px;border-left:4px solid #2f6fed;box-shadow:0 1px 4px rgba(0,0,0,.04);}
+  .lead h2{font-size:15px;margin-bottom:6px;color:#1f2d3d;}
+  .lead p{font-size:13px;color:#5a6675;}
+
+  /* 三大模块 */
+  .lvl1{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:18px;margin-bottom:20px;}
+  .mod{background:#fff;border-radius:12px;padding:16px 18px;box-shadow:0 2px 8px rgba(31,45,61,.06);display:flex;flex-direction:column;}
+  .mod.hidden{opacity:.55;}
+  .mod-hd{display:flex;align-items:center;gap:10px;padding-bottom:12px;border-bottom:1px solid #eef1f5;margin-bottom:14px;}
+  .badge{flex:none;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-weight:700;font-size:14px;}
+  .b1{background:linear-gradient(135deg,#2f6fed,#4a8cff);}
+  .b2{background:linear-gradient(135deg,#f0a020,#ffb84d);}
+  .b3{background:linear-gradient(135deg,#9aa3af,#b8c0cc);}
+  .mod h3{font-size:16px;color:#1f2d3d;}
+  .mod .desc{font-size:12px;color:#95a3b3;margin-top:2px;}
+  .tag-hidden{margin-left:auto;font-size:11px;color:#95a3b3;background:#f2f4f7;padding:2px 8px;border-radius:10px;}
+
+  /* 二级分组 */
+  .grp{margin-bottom:12px;}
+  .grp-t{font-size:13px;font-weight:600;color:#1f2d3d;margin-bottom:8px;display:flex;align-items:center;gap:6px;}
+  .grp-t::before{content:'';width:3px;height:13px;background:#2f6fed;border-radius:2px;}
+  .b2 ~ .grp .grp-t::before, .mod:nth-child(2) .grp-t::before{background:#f0a020;}
+  .mod:nth-child(3) .grp-t::before{background:#9aa3af;}
+
+  /* 叶子卡片 */
+  .leaves{display:flex;flex-direction:column;gap:6px;}
+  .leaf{background:#f7f9fc;border:1px solid #eef1f5;border-radius:8px;padding:8px 10px;font-size:12px;color:#3a4554;}
+  .leaf b{color:#1f2d3d;font-weight:600;}
+  .leaf .li{display:block;color:#7f8c9b;font-size:11px;margin-top:3px;}
+  .leaf .li::before{content:'· ';color:#b0bac7;}
+
+  .mod:nth-child(1) .leaf{border-color:#dde7f9;background:#f4f7ff;}
+  .mod:nth-child(2) .leaf{border-color:#f8e4c2;background:#fff8ec;}
+
+  /* 通用能力底层 */
+  .lvl-base{background:#fff;border-radius:12px;padding:18px 22px;box-shadow:0 2px 8px rgba(31,45,61,.06);margin-bottom:18px;}
+  .lvl-base h3{font-size:15px;margin-bottom:12px;color:#1f2d3d;display:flex;align-items:center;gap:8px;}
+  .lvl-base h3::before{content:'';width:3px;height:14px;background:#80cbc4;border-radius:2px;}
+  .base-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+  .base-card{background:#f0faf8;border:1px solid #c8eae5;border-radius:8px;padding:10px 12px;font-size:12px;}
+  .base-card b{display:block;color:#1f2d3d;font-size:13px;margin-bottom:4px;}
+  .base-card span{color:#5a6675;}
+
+  /* 数据底座 */
+  .lvl-data{background:#1f2d3d;color:#fff;border-radius:12px;padding:16px 22px;display:flex;align-items:center;gap:16px;}
+  .lvl-data .t{font-size:14px;font-weight:600;flex:none;}
+  .lvl-data .pills{display:flex;flex-wrap:wrap;gap:8px;}
+  .pill{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);color:#cfd8e3;padding:5px 12px;border-radius:14px;font-size:12px;}
+
+  /* 图例 */
+  .legend{display:flex;justify-content:center;gap:18px;margin:12px 0 22px;font-size:11px;color:#95a3b3;}
+  .legend span::before{content:'';display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle;}
+  .lg1::before{background:#2f6fed;}
+  .lg2::before{background:#f0a020;}
+  .lg3::before{background:#9aa3af;}
+  .lg4::before{background:#80cbc4;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="topbar">
+    <div style="display:flex;align-items:baseline;">
+      <h1>天眼用户行为分析平台</h1>
+      <span class="sub">产品功能架构图</span>
+    </div>
+    <div class="meta">v1.0 · 基于埋点数据</div>
+  </div>
+
+  <div class="lead">
+    <h2>产品定位</h2>
+    <p>面向出行业务（顺风车 / 打车）的用户行为分析平台，基于埋点数据接入，帮助产品、运营、数据同学定位用户在<b>页面流转</b>、<b>页面内模块点击</b>、<b>用户路径</b>中的行为特征与转化漏斗，支撑异动定位、改版评估、ABTest 复盘。</p>
+  </div>
+
+  <div class="legend">
+    <span class="lg1">业务分析视角（Tab）</span>
+    <span class="lg2">核心分析能力</span>
+    <span class="lg3">未上线 / 隐藏</span>
+    <span class="lg4">通用能力 / 数据底座</span>
+  </div>
+
+  <!-- 三大模块 -->
+  <div class="lvl1">
+
+    <!-- ① 页面流分析 -->
+    <div class="mod">
+      <div class="mod-hd">
+        <div class="badge b1">①</div>
+        <div>
+          <h3>页面流分析</h3>
+          <div class="desc">看用户在<b>页面之间</b>怎么走、在哪一步终止</div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="grp-t">查询配置</div>
+        <div class="leaves">
+          <div class="leaf"><b>查询设置</b>
+            <span class="li">起始 / 终止页面（正推 / 倒推）</span>
+            <span class="li">会话类型：时间分割（默认 40 分钟）/ 订单分割</span>
+            <span class="li">时间范围（开始日期 → 截止日期）</span>
+          </div>
+          <div class="leaf"><b>筛选设置</b>
+            <span class="li">平铺 9 项：平台来源 / 同跨城 / 里程段 / 预约-实时 / 出发时间段 / 品类 / 是否同呼 / 乘客-车主 / 新老客</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="grp-t">页面流转桑吉图</div>
+        <div class="leaves">
+          <div class="leaf"><b>展示控制</b>
+            <span class="li">每步 Top（3-10），其余归"更多分组"</span>
+            <span class="li">展示步数（2-10），按步数自适应横向滚动</span>
+          </div>
+          <div class="leaf"><b>节点 hover</b>
+            <span class="li">页面总 PV / UV、流转 PV / UV、终止量 / 终止率</span>
+          </div>
+          <div class="leaf"><b>节点点击浮层</b>
+            <span class="li">页面缩略图 + 关键指标</span>
+            <span class="li">高亮主干路径（向前/向后 PV 最大）</span>
+            <span class="li">查看页面详情 → 下钻到「核心页面分析」并带入页面</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ② 核心页面分析 -->
+    <div class="mod">
+      <div class="mod-hd">
+        <div class="badge b2">②</div>
+        <div>
+          <h3>核心页面分析</h3>
+          <div class="desc">看<b>单个页面内</b>各模块的曝光、点击与操作流转</div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="grp-t">查询配置</div>
+        <div class="leaves">
+          <div class="leaf"><b>查询设置</b>
+            <span class="li">页面选择（默认从上层带入，如：询价页）</span>
+            <span class="li">时间范围（开始 → 截止）</span>
+          </div>
+          <div class="leaf"><b>筛选设置（与页面流分析一致）</b></div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="grp-t">页面数据 · 整体指标</div>
+        <div class="leaves">
+          <div class="leaf"><b>KPI 指标</b>
+            <span class="li">页面总 PV / UV、页面总点击次数</span>
+            <span class="li">人均浏览量、平均停留时长</span>
+            <span class="li">跳出率、跳转率</span>
+          </div>
+          <div class="leaf"><b>流量上下游</b>
+            <span class="li">上一层页面来源（PV / UV / 占比）</span>
+            <span class="li">后续流量去向（PV / UV / 占比）</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="grp-t">页面热力图</div>
+        <div class="leaves">
+          <div class="leaf"><b>区块热力 + 数据气泡</b>
+            <span class="li">颜色深浅 = 点击占比，气泡显示模块名与数值</span>
+            <span class="li">工具：放大查看、显隐热力、显隐气泡</span>
+          </div>
+          <div class="leaf"><b>区块 ↔ 模块表 双向联动</b>
+            <span class="li">hover 红色描边、click 蓝色高亮 + 自动滚动</span>
+          </div>
+          <div class="leaf"><b>版本对比</b>
+            <span class="li">电梯询价页 vs 品类中心询价页（左右并排）</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="grp-t">模块数据卡（Tab 切换）</div>
+        <div class="leaves">
+          <div class="leaf"><b>Tab 1 · 模块数据</b>
+            <span class="li">列：模块名 / 曝光 PV·UV / 点击 PV·UV / 点击率 / 点击占比 / 操作</span>
+            <span class="li">点击率 = 点击UV / 曝光UV；表头点击排序</span>
+            <span class="li">品类列表-组「查看」→ 弹窗：各品类明细 + 发单选择率</span>
+          </div>
+          <div class="leaf"><b>Tab 2 · 行为数据</b>
+            <span class="li">品类列表 / 地图：滑动次数 + 纵-横向深度</span>
+            <span class="li">电梯 1段 / 2段 / 3段 滑动次数</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="grp-t">模块操作步骤桑吉图（按需展示）</div>
+        <div class="leaves">
+          <div class="leaf"><b>点模块后向后展开</b>
+            <span class="li">起始节点：进入页面 / 任一模块</span>
+            <span class="li">会话类型、每步 Top、展示步数（同页面流分析）</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ③ 用户分析 -->
+    <div class="mod hidden">
+      <div class="mod-hd">
+        <div class="badge b3">③</div>
+        <div>
+          <h3>用户分析</h3>
+          <div class="desc">看<b>分群路径</b>与<b>单用户回放</b></div>
+        </div>
+        <span class="tag-hidden">暂未上线</span>
+      </div>
+
+      <div class="grp">
+        <div class="grp-t">分群路径检索</div>
+        <div class="leaves">
+          <div class="leaf"><b>Top N 路径</b>
+            <span class="li">指定起点 → 终点，看高频路径与各路径 UV</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <div class="grp-t">单用户路径回放</div>
+        <div class="leaves">
+          <div class="leaf"><b>时间线</b>
+            <span class="li">用户会话内完整事件序列（页面曝光 / 点击 + 间隔时长）</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="grp" style="margin-top:auto;padding-top:14px;">
+        <div class="grp-t" style="color:#95a3b3;">规划方向</div>
+        <div class="leaves">
+          <div class="leaf"><b>用户分群</b><span class="li">基于行为属性建立分析人群</span></div>
+          <div class="leaf"><b>转化漏斗</b><span class="li">自定义事件漏斗与各步转化率</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通用能力 -->
+  <div class="lvl-base">
+    <h3>通用能力</h3>
+    <div class="base-grid">
+      <div class="base-card"><b>统一筛选器</b><span>事件 / 订单 / 用户三类属性，下拉值与"全部"</span></div>
+      <div class="base-card"><b>会话切分</b><span>时间分割（分 / 时 / 天）或按订单切分</span></div>
+      <div class="base-card"><b>页面下钻</b><span>桑吉图节点 → 核心页面分析，自动带入页面</span></div>
+      <div class="base-card"><b>版本对比</b><span>同场景多版本截图并排，支持热力对照</span></div>
+    </div>
+  </div>
+
+  <!-- 数据底座 -->
+  <div class="lvl-data">
+    <span class="t">数据底座</span>
+    <div class="pills">
+      <span class="pill">埋点接入</span>
+      <span class="pill">页面曝光 / 停留 / 跳出</span>
+      <span class="pill">模块曝光 / 点击 / 选择</span>
+      <span class="pill">滑动 · 纵-横向深度</span>
+      <span class="pill">会话 ID & 事件序列</span>
+      <span class="pill">事件 / 订单 / 用户属性</span>
+      <span class="pill">页面版本</span>
+    </div>
+  </div>
+</div>
+</body>
+</html>
