@@ -332,6 +332,14 @@
             <select><option>全部</option><option>Android</option><option>iOS</option><option>微信小程序</option><option>支付宝</option></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
+            <label>城市群</label>
+            <select><option>全部</option><option>长三角</option><option>珠三角</option><option>京津冀</option><option>成渝</option><option>中部</option><option>西部</option><option>东北</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>城市</label>
+            <select><option>全部</option><option>杭州</option><option>上海</option><option>北京</option><option>深圳</option><option>广州</option><option>成都</option><option>武汉</option><option>南京</option><option>西安</option><option>苏州</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
             <label>同跨城</label>
             <select><option>全部</option><option>同城</option><option>跨城</option></select>
           </div>
@@ -439,6 +447,14 @@
           <div class="cfg-item" style="margin-bottom:0;">
             <label>平台来源</label>
             <select><option>全部</option><option>Android</option><option>iOS</option><option>微信小程序</option><option>支付宝</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>城市群</label>
+            <select><option>全部</option><option>长三角</option><option>珠三角</option><option>京津冀</option><option>成渝</option><option>中部</option><option>西部</option><option>东北</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>城市</label>
+            <select><option>全部</option><option>杭州</option><option>上海</option><option>北京</option><option>深圳</option><option>广州</option><option>成都</option><option>武汉</option><option>南京</option><option>西安</option><option>苏州</option></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
             <label>同跨城</label>
@@ -1266,7 +1282,6 @@ function renderModTable(){
     + th('click','日均点击')
     + th('ctr','点击率')
     + th('share','点击占比')
-    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">策略数量</th>'
     + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">操作</th></tr>';
   rows.forEach(({m,share,shareUv,expoPv,expoUv,clickPv,clickUv,ctrPv,ctrUv})=>{
     const barW = Math.round(share/maxShare*72);
@@ -1294,7 +1309,6 @@ function renderModTable(){
       <td>${pvUv(clickPv, clickUv)}</td>
       <td>${ratePvUv(ctrPv, ctrUv)}</td>
       <td>${sharePvUv(share, shareUv, maxShare, maxShareUv)}</td>
-      <td>${stratCell}</td>
       <td>${opCell}</td></tr>`;
   });
   document.getElementById('modTable').innerHTML = html;
