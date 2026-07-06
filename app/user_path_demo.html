@@ -36,19 +36,30 @@
   .card h2 { font-size: 15px; margin-bottom: 4px; }
   .card .desc { font-size: 12px; color: #95a3b3; margin-bottom: 14px; }
   /* 模块一布局：上配置 + 下结果（上下结构） */
-  .cfg-row { display:flex; gap:28px; flex-wrap:wrap; }
-  .cfg-group { flex:1; min-width:230px; margin-bottom: 4px; }
-  .cfg-group .gt { font-size: 13px; font-weight: 600; color: #1f2d3d; margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #eef1f5; display:flex; align-items:center; gap:6px;}
+  .cfg-row { display:flex; gap:12px; flex-wrap:wrap; }
+  .cfg-group { flex:1; min-width:230px; margin-bottom: 2px; }
+  .cfg-group .gt { font-size: 13px; font-weight: 600; color: #1f2d3d; margin-bottom: 8px; padding-bottom: 5px; display:flex; align-items:center; gap:6px;}
   .cfg-group .gt::before { content:''; width:3px; height:13px; background:#2f6fed; border-radius:2px; }
   .cfg-pair { display:flex; gap:14px; }
   .cfg-pair .cfg-item { flex:1; min-width:0; }
-  .cfg-item { margin-bottom: 11px; }
-  .cfg-item label { display:block; font-size:12px; color:#7f8c9b; margin-bottom:4px; }
+  .cfg-item { margin-bottom: 8px; }
+  .cfg-item label { display:block; font-size:12px; color:#7f8c9b; margin-bottom:2px; }
   .cfg-item select, .cfg-item input {
-    width:100%; padding:6px 9px; border:1px solid #d7dce5; border-radius:6px;
+    width:100%; padding:5px 8px; border:1px solid #d7dce5; border-radius:6px;
     font-size:13px; background:#fff; color:#2c3e50;
   }
-  .cfg-actions { margin-top:14px; padding-top:14px; border-top:1px solid #eef1f5; display:flex; justify-content:flex-start; }
+  .cfg-actions { margin-top:10px; padding-top:10px; display:flex; justify-content:flex-start; gap:10px; }
+  .btn-ghost { padding:7px 24px; background:#fff; color:#5a6675; border:1px solid #d7dce5; border-radius:6px; cursor:pointer; font-size:14px; }
+  .btn-ghost:hover { border-color:#2f6fed; color:#2f6fed; }
+  /* 筛选项：标签与下拉同一行 */
+  .fgrid .cfg-item { display:flex; align-items:center; gap:8px; margin-bottom:0; }
+  .fgrid .cfg-item label { flex:none; white-space:nowrap; margin-bottom:0; color:#5a6675; }
+  .fgrid .cfg-item select, .fgrid .cfg-item input { flex:1; min-width:0; font-size:12px; padding:4px 2px; color:#2c3e50; border:none; border-bottom:1px solid #d7dce5; border-radius:0; background:transparent; }
+  .fgrid .cfg-item select:focus, .fgrid .cfg-item input:focus { outline:none; border-bottom-color:#2f6fed; }
+  .fgrid .cfg-item > div { flex:1; min-width:0; border:none !important; border-bottom:1px solid #d7dce5 !important; border-radius:0 !important; padding:2px 0 !important; }
+  .fgrid .cfg-item > div { flex:1; min-width:0; }
+  /* 核心页面分析筛选：标签右对齐、定宽对齐 */
+  .fright .cfg-item label { width:78px; text-align:right; }
   .seg { display:flex; border:1px solid #d7dce5; border-radius:6px; overflow:hidden; }
   .seg div { flex:1; text-align:center; padding:6px 0; font-size:12px; cursor:pointer; color:#7f8c9b; background:#fff;}
   .seg div.on { background:#2f6fed; color:#fff; }
@@ -137,7 +148,7 @@
   .kpi .d { font-size: 12px; margin-top: 6px; }
   .up { color: #18a058; } .down { color: #d03050; }
   #sankey { width: 100%; height: 600px; }
-  /* 桑吉图卡片头部 + 紧凑展示设置 */
+  /* 桑基图卡片头部 + 紧凑展示设置 */
   .sankey-hd { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:10px; flex-wrap:wrap; }
   .disp-set { display:flex; gap:16px; flex:none; padding-top:2px; }
   .ds-item { display:flex; align-items:center; gap:6px; font-size:12px; color:#7f8c9b; }
@@ -263,11 +274,11 @@
 <!-- Tab 导航 -->
 <div class="tabs">
   <div class="tab active" onclick="switchTab(0)">① 路径分析</div>
-  <div class="tab" onclick="switchTab(1)">② 核心页面分析</div>
+  <div class="tab" onclick="switchTab(1)">② 页面分析</div>
   <div class="tab" onclick="switchTab(2)" style="display:none;">③ 用户分析</div>
 </div>
 
-<!-- ===== 模块一：查询配置 + 桑吉图 ===== -->
+<!-- ===== 模块一：查询配置 + 桑基图 ===== -->
 <div class="panel active" id="panel0">
   <!-- 顶部：查询配置模块（横向） -->
   <div class="card">
@@ -275,7 +286,7 @@
       <!-- 查询设置 -->
       <div class="cfg-group" style="flex:1 1 100%;">
         <div class="gt">查询设置</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:11px 18px;align-items:start;">
+        <div class="fgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 16px;align-items:center;">
           <div class="cfg-item" style="margin-bottom:0;">
             <label>用户类型</label>
             <select><option>乘客</option><option>车主</option></select>
@@ -326,7 +337,7 @@
       <!-- 筛选设置（筛选项平铺展示） -->
       <div class="cfg-group" style="flex:1 1 100%;">
         <div class="gt">筛选设置</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:11px 18px;">
+        <div class="fgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 16px;">
           <div class="cfg-item" style="margin-bottom:0;">
             <label>平台来源</label>
             <select><option>全部</option><option>APP</option><option>支付宝小程序</option><option>微信小程序</option></select>
@@ -346,14 +357,14 @@
         </div>
       </div>
     </div>
-    <div class="cfg-actions"><button class="btn" style="width:auto;padding:9px 32px;" onclick="renderSankey()">查询</button></div>
+    <div class="cfg-actions"><button class="btn-ghost" onclick="location.reload()">清空</button><button class="btn" style="width:auto;padding:9px 32px;" onclick="renderSankey()">查询</button></div>
   </div>
 
-  <!-- 下方：桑吉图结果 -->
+  <!-- 下方：桑基图结果 -->
   <div class="card">
     <div class="sankey-hd">
       <div style="display:flex;align-items:center;gap:10px;">
-        <h2>页面流转桑吉图</h2>
+        <h2>页面流转桑基图</h2>
         <span id="btnMultiHL" title="多选高亮：开启后点击节点叠加高亮该节点及邻接路径" onclick="toggleMultiHL(this)" style="cursor:pointer;border:1px solid #1f2d3d;border-radius:6px;padding:4px 6px;display:inline-flex;align-items:center;color:#1f2d3d;background:#fff;user-select:none;">
           <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg>
           <span id="multiHLText" style="font-size:11px;margin-left:4px;">多选高亮</span>
@@ -367,8 +378,8 @@
         </div>
         <div class="ds-item">
           <span class="ds-l">展示步数</span>
-          <input type="range" min="2" max="10" value="4" id="stepRange" oninput="setSteps(this.value)">
-          <span class="ds-v" id="stepVal">4</span>
+          <input type="range" min="2" max="10" value="8" id="stepRange" oninput="setSteps(this.value)">
+          <span class="ds-v" id="stepVal">8</span>
         </div>
       </div>
     </div>
@@ -380,7 +391,7 @@
 
 <!-- ===== 模块二：页面下钻 ===== -->
 <div class="panel" id="panel1">
-  <div class="breadcrumb">桑吉图 &nbsp;›&nbsp; <b id="drillPageName">搜索结果页</b> &nbsp;·&nbsp; 页面功能下钻</div>
+  <div class="breadcrumb" style="display:none;">桑基图 &nbsp;›&nbsp; <b id="drillPageName">搜索结果页</b> &nbsp;·&nbsp; 页面功能下钻</div>
 
   <!-- 查询配置模块（与路径分析一致：查询设置 + 筛选设置） -->
   <div class="card">
@@ -388,7 +399,7 @@
       <!-- 查询设置 -->
       <div class="cfg-group" style="flex:1 1 100%;">
         <div class="gt">查询设置</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:11px 18px;align-items:start;">
+        <div class="fgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 16px;align-items:center;">
           <div class="cfg-item" style="margin-bottom:0;">
             <label>用户类型</label>
             <select><option>乘客</option><option>车主</option></select>
@@ -419,7 +430,7 @@
       <!-- 筛选设置（筛选项平铺展示，与路径分析一致） -->
       <div class="cfg-group" style="flex:1 1 100%;">
         <div class="gt">筛选设置</div>
-        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:11px 18px;">
+        <div class="fgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 16px;">
           <div class="cfg-item" style="margin-bottom:0;">
             <label>平台来源</label>
             <select><option>全部</option><option>APP</option><option>支付宝小程序</option><option>微信小程序</option></select>
@@ -427,6 +438,10 @@
           <div class="cfg-item" style="margin-bottom:0;">
             <label>城市群</label>
             <select><option>全部</option><option>珠三角城市群</option><option>长三角城市群</option><option>海峡西岸城市群</option><option>北部湾城市群</option><option>长江中游城市群</option><option>成渝城市群</option><option>中原城市群</option><option>山东半岛城市群</option><option>云贵城市群</option><option>京津冀城市群</option></select>
+          </div>
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>出发时间段</label>
+            <select><option>全部</option><option>早高峰</option><option>平峰</option><option>晚高峰</option><option>夜间</option></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
             <label>同跨城</label>
@@ -441,17 +456,13 @@
             <select><option>全部</option><option>预约</option><option>实时</option></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
-            <label>出发时间段</label>
-            <select><option>全部</option><option>早高峰</option><option>平峰</option><option>晚高峰</option><option>夜间</option></select>
-          </div>
-          <div class="cfg-item" style="margin-bottom:0;">
             <label>新老客</label>
             <select><option>全部</option><option>新客</option><option>老客</option></select>
           </div>
         </div>
       </div>
     </div>
-    <div class="cfg-actions"><button class="btn" style="width:auto;padding:9px 32px;" onclick="renderModTable();">查询</button></div>
+    <div class="cfg-actions"><button class="btn-ghost" onclick="location.reload()">清空</button><button class="btn" style="width:auto;padding:9px 32px;" onclick="renderModTable();">查询</button></div>
   </div>
 
   <!-- 页面数据（KPI + 上下游流量） -->
@@ -567,20 +578,13 @@
     </div>
   </div>
 
-  <!-- 模块操作步骤桑吉图（点击热力图模块后展示，以该模块为起始节点） -->
+  <!-- 模块操作步骤桑基图（点击热力图模块后展示，以该模块为起始节点） -->
   <div class="card" id="modSankeyCard">
-    <h2>模块操作步骤桑吉图</h2>
+    <h2>模块操作步骤桑基图</h2>
     <div style="display:flex;gap:24px;align-items:flex-end;margin:6px 0 16px;flex-wrap:wrap;">
       <div>
         <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:4px;">起始节点</label>
         <select id="modStartSel" onchange="renderModSankey(this.value)" style="padding:7px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;min-width:150px;background:#fff;color:#2c3e50;"></select>
-      </div>
-      <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:4px;">会话间隔（超过则切分新会话 / 判为终止）</label>
-        <div style="display:flex;gap:8px;">
-          <input type="number" min="1" value="30" id="modGapNum" onchange="renderModSankey()" style="width:80px;padding:7px 9px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
-          <select id="modGapUnit" onchange="renderModSankey()" style="width:66px;padding:7px 9px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;background:#fff;color:#2c3e50;"><option>分</option><option>时</option><option>天</option></select>
-        </div>
       </div>
       <div>
         <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:4px;">每步 Top</label>
@@ -671,13 +675,13 @@
 
 <!-- 品类列表-组 明细弹窗 -->
 <div id="catMask" onclick="if(event.target===this)closeCatDetail()" style="display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:200;align-items:center;justify-content:center;">
-  <div style="position:relative;background:#fff;border-radius:14px;padding:18px 22px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:760px;max-width:92vw;">
+  <div style="position:relative;background:#fff;border-radius:14px;padding:18px 22px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:1040px;max-width:94vw;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
       <span style="font-size:15px;font-weight:600;color:#1f2d3d;">品类列表 · 各品类点击明细</span>
       <span onclick="closeCatDetail()" style="cursor:pointer;color:#b0bac7;font-size:22px;line-height:1;">×</span>
     </div>
     <div style="overflow:auto;max-height:60vh;">
-      <table id="catTable" style="min-width:680px;"></table>
+      <table id="catTable" style="min-width:960px;"></table>
     </div>
   </div>
 </div>
@@ -697,7 +701,7 @@
 
 <script>
 /* ============ 全局配置状态 ============ */
-let cfg = { metric:'pv', topX:5, steps:4, dir:'fwd' };
+let cfg = { metric:'pv', topX:5, steps:8, dir:'fwd' };
 function setTopX(v){ cfg.topX=+v; document.getElementById('topVal').innerText=v; pathHL=null; renderSankey(); }
 function setSteps(v){ cfg.steps=+v; document.getElementById('stepVal').innerText=v; pathHL=null; renderSankey(); }
 // chip 单选/多选交互
@@ -807,7 +811,7 @@ document.addEventListener('click',e=>{
 });
 window.addEventListener('resize',closeAttrPicker);
 
-/* ============ 模块一：桑吉图数据 ============ */
+/* ============ 模块一：桑基图数据 ============ */
 // 每步的页面节点（按流量从大到小），最后两位固定为 更多 / 终止
 // 结构：steps[i] = [{name, val}], 末尾自动补 更多 + 终止
 const rawSteps = [
@@ -924,7 +928,7 @@ function getDays(){
   const ms = new Date(e.value).getTime() - new Date(s.value).getTime();
   return Math.max(1, Math.round(ms/86400000)+1);
 }
-function onDateChange(){ /* 留空：实际接入时按新日期重新拉数据；当前桑吉图配色与日均会自动用新天数 */ if(sankeyChart) renderSankey(); }
+function onDateChange(){ /* 留空：实际接入时按新日期重新拉数据；当前桑基图配色与日均会自动用新天数 */ if(sankeyChart) renderSankey(); }
 // 多选高亮开关
 function toggleMultiHL(btn){
   if(multiHL){
@@ -1287,7 +1291,7 @@ function selectModule(name){
   if(zone) zone.scrollIntoView({block:'nearest',behavior:'smooth'});
   showModSankey(name);
 }
-// ===== 模块操作步骤桑吉图（样式同路径分析，点击模块后以其为起始节点展开） =====
+// ===== 模块操作步骤桑基图（样式同路径分析，点击模块后以其为起始节点展开） =====
 let modSankeyChart, modLabelColorMap={};
 const modSankeyPalette = ['#8ea9f3','#b39ddb','#f48fb1','#80cbc4','#ffcc80','#90caf9','#ce93d8','#80deea','#bcaaa4','#9fa8da','#f6a5c0','#a5d6a7'];
 function modHexRgba(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
@@ -1419,11 +1423,11 @@ function openZoom(){
 function closeZoom(){ const mask=document.getElementById('zoomMask'); if(mask) mask.style.display='none'; }
 // 品类列表-组 各品类明细
 const categories = [
-  {name:'独享',       expoPv:21430, expoUv:16715, clickPv:10410, clickUv:6890,  order:0.58},
-  {name:'特惠独享',   expoPv:21430, expoUv:16715, clickPv:7820,  clickUv:5360,  order:0.52},
-  {name:'拼座',       expoPv:21430, expoUv:16715, clickPv:6280,  clickUv:4480,  order:0.41},
-  {name:'只拼一单',   expoPv:21430, expoUv:16715, clickPv:3640,  clickUv:2710,  order:0.34},
-  {name:'同呼打车',   expoPv:21430, expoUv:16715, clickPv:4490,  clickUv:3220,  order:0.61}
+  {name:'独享',       expoPv:21430, expoUv:16715, clickPv:10410, clickUv:6890,  order:0.58, defRate:0.30, selRate:0.42},
+  {name:'特惠独享',   expoPv:21430, expoUv:16715, clickPv:7820,  clickUv:5360,  order:0.52, defRate:0.25, selRate:0.35},
+  {name:'拼座',       expoPv:21430, expoUv:16715, clickPv:6280,  clickUv:4480,  order:0.41, defRate:0.18, selRate:0.28},
+  {name:'只拼一单',   expoPv:21430, expoUv:16715, clickPv:3640,  clickUv:2710,  order:0.34, defRate:0.12, selRate:0.22},
+  {name:'同呼打车',   expoPv:21430, expoUv:16715, clickPv:4490,  clickUv:3220,  order:0.61, defRate:0.15, selRate:0.31}
 ];
 function openCategoryDetail(){
   const totalClickPv = categories.reduce((s,c)=>s+c.clickPv,0) || 1;
@@ -1431,7 +1435,7 @@ function openCategoryDetail(){
   const maxSharePv = Math.max(...categories.map(c=>c.clickPv/totalClickPv));
   const maxShareUv = Math.max(...categories.map(c=>c.clickUv/totalClickUv));
   let html = '<tr>'
-    + '<th>品类</th><th>日均曝光 PV/UV</th><th>日均点击 PV/UV</th><th>点击率</th><th>点击占比</th><th>发单选择率</th></tr>';
+    + '<th>品类</th><th>日均曝光 PV/UV</th><th>日均点击 PV/UV</th><th>点击率</th><th>点击占比</th><th>默勾率</th><th>勾选率</th><th>发单选择率</th></tr>';
   categories.slice().sort((a,b)=>b.clickPv-a.clickPv).forEach(c=>{
     const ctrPv = c.expoPv>0 ? c.clickPv/c.expoPv : 0;
     const ctrUv = c.expoUv>0 ? c.clickUv/c.expoUv : 0;
@@ -1453,6 +1457,8 @@ function openCategoryDetail(){
       <td>${pvUv(c.clickPv,c.clickUv)}</td>
       <td>${ratePvUv(ctrPv,ctrUv)}</td>
       <td>${sharePvUv(sharePv,shareUv)}</td>
+      <td><b>${(c.defRate*100).toFixed(1)}%</b></td>
+      <td><b>${(c.selRate*100).toFixed(1)}%</b></td>
       <td>${ratePvUv(orderPv,orderUv)}</td></tr>`;
   });
   document.getElementById('catTable').innerHTML = html;
