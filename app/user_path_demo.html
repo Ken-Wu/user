@@ -276,6 +276,8 @@
   <div class="tab active" onclick="switchTab(0)">① 路径分析</div>
   <div class="tab" onclick="switchTab(1)">② 页面分析</div>
   <div class="tab" onclick="switchTab(2)" style="display:none;">③ 用户分析</div>
+  <div class="tab" onclick="switchTab(3)" style="margin-left:auto;">⚙ 核心页面配置</div>
+  <div class="tab" onclick="switchTab(4)" style="display:none;">⚙ 热力图配置</div>
 </div>
 
 <!-- ===== 模块一：查询配置 + 桑基图 ===== -->
@@ -293,28 +295,11 @@
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
             <label>起始页面（正推）</label>
-            <select>
-              <option>平台首页</option><option>乘客首页</option><option>登录页</option>
-              <option>POI页</option><option>询价页</option><option>发单动画</option>
-              <option>等待接单页</option><option>确认同行页</option>
-              <option>履约-订单取消</option><option>履约-待车主接单</option>
-              <option>履约-待乘客确认</option><option>履约-待车主到达起点</option>
-              <option>履约-待乘客上车</option><option>履约-待司乘到达终点</option>
-              <option>履约-行程完成</option>
-              <option>不限</option>
-            </select>
+            <select id="startPageSel"></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
             <label>终止页面（倒推）</label>
-            <select>
-              <option>不限</option><option>平台首页</option><option>乘客首页</option>
-              <option>登录页</option><option>POI页</option><option>询价页</option>
-              <option>发单动画</option><option>等待接单页</option><option>确认同行页</option>
-              <option>履约-订单取消</option><option>履约-待车主接单</option>
-              <option>履约-待乘客确认</option><option>履约-待车主到达起点</option>
-              <option>履约-待乘客上车</option><option>履约-待司乘到达终点</option>
-              <option>履约-行程完成</option>
-            </select>
+            <select id="endPageSel"></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
             <label>会话类型</label>
@@ -338,6 +323,10 @@
       <div class="cfg-group" style="flex:1 1 100%;">
         <div class="gt">筛选设置</div>
         <div class="fgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 16px;">
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>业务线</label>
+            <select><option>全部</option><option>打车</option><option>顺风车</option></select>
+          </div>
           <div class="cfg-item" style="margin-bottom:0;">
             <label>平台来源</label>
             <select><option>全部</option><option>APP</option><option>支付宝小程序</option><option>微信小程序</option></select>
@@ -406,15 +395,7 @@
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
             <label>页面选择</label>
-            <select id="pageSelect" onchange="onPageSelectChange(this.value)">
-              <option>平台首页</option><option>乘客首页</option><option>登录页</option>
-              <option>POI页</option><option selected>询价页</option><option>发单动画</option>
-              <option>等待接单页</option><option>确认同行页</option>
-              <option>履约-订单取消</option><option>履约-待车主接单</option>
-              <option>履约-待乘客确认</option><option>履约-待车主到达起点</option>
-              <option>履约-待乘客上车</option><option>履约-待司乘到达终点</option>
-              <option>履约-行程完成</option>
-            </select>
+            <select id="pageSelect" onchange="onPageSelectChange(this.value)"></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;grid-column:span 2;">
             <label>时间范围</label>
@@ -427,10 +408,14 @@
         </div>
       </div>
 
-      <!-- 筛选设置（筛选项平铺展示，与路径分析一致） -->
+      <!-- 筛选设置（筛选项平铺展示） -->
       <div class="cfg-group" style="flex:1 1 100%;">
         <div class="gt">筛选设置</div>
         <div class="fgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 16px;">
+          <div class="cfg-item" style="margin-bottom:0;">
+            <label>业务线</label>
+            <select><option>全部</option><option>打车</option><option>顺风车</option></select>
+          </div>
           <div class="cfg-item" style="margin-bottom:0;">
             <label>平台来源</label>
             <select><option>全部</option><option>APP</option><option>支付宝小程序</option><option>微信小程序</option></select>
@@ -626,6 +611,86 @@
     <h2>单用户路径回放</h2>
     <div class="desc">用户 #88213 · iOS · v8.2.0 — 会话内完整事件时间线。（模拟数据）</div>
     <div class="timeline" id="timeline"></div>
+  </div>
+</div>
+
+<!-- ===== 配置：核心页面配置 ===== -->
+<div class="panel" id="panel3">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:16px;flex-wrap:wrap;">
+      <div>
+        <h2>核心页面配置</h2>
+        <div class="desc">维护核心页面清单，直接决定「路径分析」的起始/终止页面选项与「页面分析」的页面选择。</div>
+      </div>
+      <button class="btn" style="width:auto;padding:8px 18px;flex:none;" onclick="addPageCfg()">＋ 新增页面</button>
+    </div>
+    <div style="overflow:auto;max-height:600px;">
+      <table id="pageCfgTable" style="min-width:640px;"></table>
+    </div>
+  </div>
+</div>
+
+<!-- ===== 配置：热力图配置 ===== -->
+<div class="panel" id="panel4">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:16px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:12px;color:#2f6fed;cursor:pointer;margin-bottom:4px;" onclick="switchTab(3)">← 返回核心页面配置</div>
+        <h2>热力图配置 · <span id="hmCfgPageName" style="color:#2f6fed;">-</span></h2>
+        <div class="desc">在效果图上按住鼠标拖拽绘制热力区域；点击已有区域可选中；选中后可拖动内部移动位置、拖动边缘/四角调整大小，也可编辑或删除；模块ID与模块名称手动录入。</div>
+      </div>
+      <button class="btn" style="width:auto;padding:7px 18px;flex:none;" onclick="saveHmCfg()">保存配置</button>
+    </div>
+    <div id="hmCfgArea"></div>
+  </div>
+</div>
+
+<!-- 核心页面配置 新增/编辑 弹窗 -->
+<div id="pageCfgModal" onclick="if(event.target===this)closePageCfgModal()" style="display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:210;align-items:center;justify-content:center;">
+  <div style="position:relative;background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:440px;max-width:92vw;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <span id="pcfgTitle" style="font-size:16px;font-weight:600;color:#1f2d3d;">新增页面</span>
+      <span onclick="closePageCfgModal()" style="cursor:pointer;color:#b0bac7;font-size:22px;line-height:1;">×</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面ID</label>
+        <input id="pcfgId" type="text" placeholder="英文标识，如 inquiry" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面名称</label>
+        <input id="pcfgName" type="text" placeholder="如 询价页" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面效果图</label>
+        <input type="file" accept="image/png,image/jpeg" onchange="onPcfgFile(this)" style="font-size:12px;">
+        <div id="pcfgPreview" style="margin-top:10px;display:flex;align-items:center;justify-content:center;min-height:60px;background:#fafbfc;border:1px dashed #e2e8f2;border-radius:6px;padding:8px;"></div>
+      </div>
+
+      <div style="border-top:1px dashed #e2e8f2;padding-top:14px;">
+        <div style="font-size:13px;font-weight:600;color:#1f2d3d;margin-bottom:2px;">对比版本页面（可选）</div>
+        <div style="font-size:11px;color:#95a3b3;margin-bottom:10px;">用于版本对比，可单独配置热力图。</div>
+        <div style="display:flex;flex-direction:column;gap:12px;">
+          <div>
+            <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">对比页面ID</label>
+            <input id="pcfgCmpId" type="text" placeholder="如 inquiry_v2" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">对比页面名称</label>
+            <input id="pcfgCmpName" type="text" placeholder="如 品类中心询价页" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+          </div>
+          <div>
+            <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">对比页面效果图</label>
+            <input type="file" accept="image/png,image/jpeg" onchange="onPcfgCmpFile(this)" style="font-size:12px;">
+            <div id="pcfgCmpPreview" style="margin-top:10px;display:flex;align-items:center;justify-content:center;min-height:60px;background:#fafbfc;border:1px dashed #e2e8f2;border-radius:6px;padding:8px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
+      <button class="btn-ghost" onclick="closePageCfgModal()">取消</button>
+      <button class="btn" style="width:auto;padding:8px 24px;" onclick="savePageCfgModal()">保存</button>
+    </div>
   </div>
 </div>
 
@@ -1124,9 +1189,304 @@ function highlightNode(){
 }
 function drillNode(){
   if(!curNodeName) return;
-  document.getElementById('drillPageName').innerText = curNodeName.split('·').pop();
+  const nm = curNodeName.split('·').pop();
+  const bc = document.getElementById('drillPageName'); if(bc) bc.innerText = nm;
+  const sel = document.getElementById('pageSelect');
+  if(sel && Array.from(sel.options).some(o=>o.value===nm)) sel.value = nm;
   closeNodePop();
   switchTab(1);
+}
+function onPageSelectChange(v){ const bc=document.getElementById('drillPageName'); if(bc) bc.innerText=v; }
+
+/* ============ 核心页面配置 ============ */
+// 页面清单（配置层唯一来源），驱动起始/终止页面 + 页面选择
+let pageConfig = [
+  {id:'home',           name:'平台首页',           img:'', upTime:'2026-06-01 10:20', upBy:'王恳'},
+  {id:'passenger_home', name:'乘客首页',           img:'', upTime:'2026-06-01 10:21', upBy:'王恳'},
+  {id:'login',          name:'登录页',             img:'', upTime:'2026-06-01 10:22', upBy:'王恳'},
+  {id:'poi',            name:'POI页',              img:'', upTime:'2026-06-02 09:10', upBy:'王恳'},
+  {id:'inquiry',        name:'询价页',             img:'image/询价页.png', cmpId:'inquiry_cat', cmpName:'品类中心询价页', cmpImg:'image/询价页2.png', upTime:'2026-06-05 14:30', upBy:'王恳'},
+  {id:'dispatch_anim',  name:'发单动画',           img:'', upTime:'2026-06-05 14:31', upBy:'王恳'},
+  {id:'waiting',        name:'等待接单页',         img:'', upTime:'2026-06-05 14:32', upBy:'王恳'},
+  {id:'confirm',        name:'确认同行页',         img:'', upTime:'2026-06-06 11:00', upBy:'王恳'},
+  {id:'fulfill_cancel', name:'履约-订单取消',      img:'', upTime:'2026-06-08 16:00', upBy:'王恳'},
+  {id:'fulfill_wait_d', name:'履约-待车主接单',    img:'', upTime:'2026-06-08 16:01', upBy:'王恳'},
+  {id:'fulfill_wait_p', name:'履约-待乘客确认',    img:'', upTime:'2026-06-08 16:02', upBy:'王恳'},
+  {id:'fulfill_d_start',name:'履约-待车主到达起点',img:'', upTime:'2026-06-08 16:03', upBy:'王恳'},
+  {id:'fulfill_p_board',name:'履约-待乘客上车',    img:'', upTime:'2026-06-08 16:04', upBy:'王恳'},
+  {id:'fulfill_arrive', name:'履约-待司乘到达终点',img:'', upTime:'2026-06-08 16:05', upBy:'王恳'},
+  {id:'fulfill_done',   name:'履约-行程完成',      img:'', upTime:'2026-06-08 16:06', upBy:'王恳'}
+];
+function nowStr(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+// 用配置清单重新填充三个页面下拉，尽量保留原选中值
+function renderPageSelects(){
+  const names = pageConfig.map(p=>p.name);
+  const fill = (id, opts, keep)=>{
+    const sel = document.getElementById(id); if(!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = opts.map(n=>`<option>${n}</option>`).join('');
+    if(keep && opts.includes(keep)) sel.value = keep;
+    else if(opts.includes(prev)) sel.value = prev;
+  };
+  fill('startPageSel', names.concat(['不限']));
+  fill('endPageSel', ['不限'].concat(names));
+  fill('pageSelect', names, names.includes('询价页') ? '询价页' : names[0]);
+  const bc = document.getElementById('drillPageName');
+  if(bc){ const sel=document.getElementById('pageSelect'); if(sel) bc.innerText=sel.value; }
+}
+function renderPageCfgTable(){
+  const el = document.getElementById('pageCfgTable'); if(!el) return;
+  let html = '<tr><th>页面ID</th><th>页面名称</th><th>页面效果图</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  pageConfig.forEach((p,i)=>{
+    const thumb = p.img
+      ? `<img src="${p.img}" alt="" style="height:40px;width:auto;border:1px solid #eef1f5;border-radius:4px;vertical-align:middle;cursor:pointer;" onclick="previewCfgImg('${p.img}')">`
+      : '<span style="color:#c0c6cf;">—</span>';
+    html += `<tr>
+      <td style="color:#7f8c9b;">${p.id}</td>
+      <td>${p.name}</td>
+      <td>${thumb}</td>
+      <td>${p.upTime}</td>
+      <td>${p.upBy}</td>
+      <td style="white-space:nowrap;">
+        <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openPageCfgModal(${i})">编辑</a>
+        <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openHmCfgForPage(${i})">热力图配置</a>
+        <a href="javascript:void(0)" style="color:#d03050;" onclick="delPageCfg(${i})">删除</a>
+      </td></tr>`;
+  });
+  el.innerHTML = html;
+}
+// 弹窗表单：editIndex 为 null 表示新增
+let pageCfgEditIndex = null;
+let pageCfgImgData = '';
+let pageCfgCmpImgData = '';
+function openPageCfgModal(i){
+  pageCfgEditIndex = (typeof i==='number') ? i : null;
+  const p = pageCfgEditIndex!=null ? pageConfig[pageCfgEditIndex] : {id:'',name:'',img:'',cmpId:'',cmpName:'',cmpImg:''};
+  document.getElementById('pcfgTitle').innerText = pageCfgEditIndex!=null ? '编辑页面' : '新增页面';
+  document.getElementById('pcfgId').value = p.id;
+  document.getElementById('pcfgName').value = p.name;
+  document.getElementById('pcfgCmpId').value = p.cmpId || '';
+  document.getElementById('pcfgCmpName').value = p.cmpName || '';
+  pageCfgImgData = p.img || '';
+  pageCfgCmpImgData = p.cmpImg || '';
+  renderPcfgPreview(); renderPcfgCmpPreview();
+  document.getElementById('pageCfgModal').style.display = 'flex';
+}
+function closePageCfgModal(){ document.getElementById('pageCfgModal').style.display='none'; }
+function renderPcfgPreview(){
+  const box = document.getElementById('pcfgPreview'); if(!box) return;
+  box.innerHTML = pageCfgImgData
+    ? `<img src="${pageCfgImgData}" alt="" style="max-height:180px;max-width:100%;border:1px solid #eef1f5;border-radius:6px;">`
+    : '<span style="color:#aab3c0;font-size:12px;">未上传效果图</span>';
+}
+function renderPcfgCmpPreview(){
+  const box = document.getElementById('pcfgCmpPreview'); if(!box) return;
+  box.innerHTML = pageCfgCmpImgData
+    ? `<img src="${pageCfgCmpImgData}" alt="" style="max-height:180px;max-width:100%;border:1px solid #eef1f5;border-radius:6px;">`
+    : '<span style="color:#aab3c0;font-size:12px;">未上传效果图</span>';
+}
+function onPcfgFile(input){
+  const f = input.files && input.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = e => { pageCfgImgData = e.target.result; renderPcfgPreview(); };
+  reader.readAsDataURL(f);
+}
+function onPcfgCmpFile(input){
+  const f = input.files && input.files[0]; if(!f) return;
+  const reader = new FileReader();
+  reader.onload = e => { pageCfgCmpImgData = e.target.result; renderPcfgCmpPreview(); };
+  reader.readAsDataURL(f);
+}
+function savePageCfgModal(){
+  const id = document.getElementById('pcfgId').value.trim();
+  const name = document.getElementById('pcfgName').value.trim();
+  const cmpId = document.getElementById('pcfgCmpId').value.trim();
+  const cmpName = document.getElementById('pcfgCmpName').value.trim();
+  if(!id){ alert('请填写页面ID'); return; }
+  if(!name){ alert('请填写页面名称'); return; }
+  if(pageConfig.some((x,idx)=>idx!==pageCfgEditIndex && x.id===id)){ alert('该页面ID已存在'); return; }
+  const data = {id, name, img:pageCfgImgData, cmpId, cmpName, cmpImg:pageCfgCmpImgData, upTime:nowStr(), upBy:'当前用户'};
+  if(pageCfgEditIndex!=null) Object.assign(pageConfig[pageCfgEditIndex], data);
+  else pageConfig.push(data);
+  closePageCfgModal();
+  renderPageCfgTable(); renderPageSelects();
+}
+function addPageCfg(){ openPageCfgModal(null); }
+function delPageCfg(i){
+  const p = pageConfig[i]; if(!p) return;
+  if(!confirm(`确认删除页面「${p.name}」？删除后相关下拉将同步移除。`)) return;
+  pageConfig.splice(i,1);
+  renderPageCfgTable(); renderPageSelects();
+}
+// 效果图放大预览（复用一个轻量遮罩）
+function previewCfgImg(src){
+  const box=document.getElementById('zoomBody');
+  if(box) box.innerHTML = `<img src="${src}" alt="" style="display:block;max-height:80vh;max-width:86vw;width:auto;border-radius:8px;">`;
+  const mask=document.getElementById('zoomMask'); if(mask) mask.style.display='flex';
+}
+
+/* ============ 热力图配置 ============ */
+// 各页面的热力区域配置：页面名 -> [{left,top,width,height,modId,modName}]（位置为百分比）
+let heatmapConfig = {
+  '询价页': [
+    {left:5,  top:3.7, width:16, height:7,   modId:'back',        modName:'返回'},
+    {left:5,  top:17.5,width:16, height:7.2, modId:'safety',      modName:'安全中心'},
+    {left:83, top:17.5,width:14, height:7.2, modId:'map',         modName:'地图'},
+    {left:1,  top:25.5,width:98, height:7,   modId:'promo_banner',modName:'优惠banner'},
+    {left:1,  top:33,  width:98, height:4.6, modId:'highway_fee', modName:'高速费'},
+    {left:1,  top:38,  width:16, height:38.5,modId:'elevator',    modName:'电梯-组'},
+    {left:17.5,top:38, width:81.5,height:40.5,modId:'category',   modName:'品类列表-组'},
+    {left:1,  top:79,  width:98, height:6,   modId:'coupon',      modName:'券包'},
+    {left:1,  top:85.5,width:42, height:5,   modId:'time_num',    modName:'时间人数弹窗'},
+    {left:44, top:85.5,width:25, height:5,   modId:'proxy_call',  modName:'代叫'},
+    {left:70, top:85.5,width:29, height:5,   modId:'remark',      modName:'备注'},
+    {left:55, top:90,  width:44, height:7,   modId:'submit',      modName:'发单按钮'}
+  ]
+};
+// —— 多编辑器：主版本 + 对比版本上下平铺 ——
+let hmEditors = [];   // [{name, img, sel}]
+let hmDragging = false;
+const HM_EDGE = 7;
+function openHmCfgForPage(i){
+  const p = pageConfig[i]; if(!p) return;
+  switchTab(4);
+  const title = document.getElementById('hmCfgPageName'); if(title) title.innerText = p.name || '-';
+  hmEditors = [{name:p.name, img:p.img||'', label:'主版本', sel:-1}];
+  if(p.cmpName) hmEditors.push({name:p.cmpName, img:p.cmpImg||'', label:'对比版本', sel:-1});
+  hmEditors.forEach(ed=>{ if(!heatmapConfig[ed.name]) heatmapConfig[ed.name]=[]; });
+  renderHmArea();
+}
+function renderHmArea(){
+  const area = document.getElementById('hmCfgArea'); if(!area) return;
+  area.innerHTML = hmEditors.map((ed,ei)=>`
+    <div class="hm-block" style="${ei>0?'border-top:1px dashed #e2e8f2;margin-top:20px;padding-top:20px;':''}">
+      <div style="font-size:14px;font-weight:600;color:#1f2d3d;margin-bottom:10px;">${ed.label}：${ed.name}</div>
+      <div class="two-col" style="gap:24px;align-items:flex-start;">
+        <div style="flex:none;">
+          <div class="desc" style="margin-bottom:6px;">效果图（拖拽绘制区域，点击选中；选中后拖内部移动、拖边缘缩放）</div>
+          <div id="hmStage_${ei}" style="position:relative;width:300px;user-select:none;border:1px solid #eef1f5;background:#fafbfc;cursor:crosshair;">
+            <img src="${ed.img||''}" alt="" style="display:${ed.img?'block':'none'};width:100%;pointer-events:none;">
+            <div style="display:${ed.img?'none':'block'};padding:40px 12px;text-align:center;color:#aab3c0;font-size:12px;">该版本暂无效果图，请先在「核心页面配置」上传</div>
+          </div>
+        </div>
+        <div style="flex:1;min-width:0;">
+          <h2 style="font-size:14px;margin-bottom:8px;">区域列表</h2>
+          <div style="overflow:auto;max-height:420px;"><table id="hmList_${ei}" style="min-width:340px;"></table></div>
+        </div>
+      </div>
+    </div>`).join('');
+  hmEditors.forEach((ed,ei)=>{ renderHmStage(ei); renderHmList(ei); bindHmDraw(ei); });
+}
+function renderHmStage(ei){
+  const ed = hmEditors[ei]; if(!ed) return;
+  const stage = document.getElementById('hmStage_'+ei); if(!stage) return;
+  stage.querySelectorAll('.hz').forEach(e=>e.remove());
+  (heatmapConfig[ed.name]||[]).forEach((z,i)=>{
+    const on = i===ed.sel;
+    const d = document.createElement('div'); d.className='hz';
+    d.style.cssText = `position:absolute;left:${z.left}%;top:${z.top}%;width:${z.width}%;height:${z.height}%;box-sizing:border-box;overflow:visible;`
+      + (on ? 'border:2px solid #ff3b30;background:rgba(255,59,48,.14);z-index:5;cursor:grab;' : 'border:1.5px solid #2f6fed;background:rgba(47,111,237,.12);cursor:pointer;');
+    if(on){
+      d.addEventListener('mousemove', ev=>{ if(hmDragging) return; const r=d.getBoundingClientRect(); d.style.cursor=hmCursorFor(hmEdgeDir(ev.clientX-r.left, ev.clientY-r.top, r.width, r.height)); });
+      d.addEventListener('mousedown', ev=>{ ev.stopPropagation(); ev.preventDefault(); const r=d.getBoundingClientRect(); hmStartDrag(ei, i, d, ev, hmEdgeDir(ev.clientX-r.left, ev.clientY-r.top, r.width, r.height)); });
+    } else {
+      d.addEventListener('mousedown', ev=>{ ev.stopPropagation(); hmSelect(ei, i); });
+    }
+    const label = z.modName || z.modId || ('区域'+(i+1));
+    d.innerHTML = `<span style="background:${on?'#ff3b30':'#2f6fed'};color:#fff;font-size:9px;padding:0 3px;white-space:nowrap;pointer-events:none;">${label}</span>`
+      + (on ? `<span title="删除区域" onmousedown="event.stopPropagation()" onclick="event.stopPropagation();hmDel(${ei},${i})" style="position:absolute;right:-8px;top:-8px;width:16px;height:16px;line-height:15px;text-align:center;background:#ff3b30;color:#fff;border-radius:50%;font-size:12px;cursor:pointer;">×</span>` : '');
+    stage.appendChild(d);
+  });
+}
+function hmEdgeDir(mx,my,w,h){
+  const l=mx<=HM_EDGE, r=mx>=w-HM_EDGE, t=my<=HM_EDGE, b=my>=h-HM_EDGE;
+  if(t&&l)return'nw'; if(t&&r)return'ne'; if(b&&l)return'sw'; if(b&&r)return'se';
+  if(t)return'n'; if(b)return's'; if(l)return'w'; if(r)return'e';
+  return'';
+}
+function hmCursorFor(dir){ return {nw:'nwse-resize',se:'nwse-resize',ne:'nesw-resize',sw:'nesw-resize',n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize'}[dir] || 'grab'; }
+function hmStartDrag(ei, i, d, ev, dir){
+  const ed=hmEditors[ei]; if(!ed) return;
+  const stage=document.getElementById('hmStage_'+ei); if(!stage) return;
+  const zone=(heatmapConfig[ed.name]||[])[i]; if(!zone) return;
+  const sr=stage.getBoundingClientRect();
+  const startX=ev.clientX, startY=ev.clientY;
+  const z0={l:zone.left/100*sr.width, t:zone.top/100*sr.height, w:zone.width/100*sr.width, h:zone.height/100*sr.height};
+  const MIN=8; hmDragging=true;
+  d.style.cursor = dir ? hmCursorFor(dir) : 'grabbing';
+  document.body.style.userSelect='none';
+  function onMove(e){
+    const dx=e.clientX-startX, dy=e.clientY-startY;
+    let l=z0.l, t=z0.t, w=z0.w, h=z0.h;
+    if(dir===''){ l=Math.max(0,Math.min(z0.l+dx, sr.width-w)); t=Math.max(0,Math.min(z0.t+dy, sr.height-h)); }
+    else {
+      if(dir.includes('w')){ l=z0.l+dx; w=z0.w-dx; if(w<MIN){w=MIN;l=z0.l+z0.w-MIN;} if(l<0){w+=l;l=0;} }
+      if(dir.includes('e')){ w=z0.w+dx; if(w<MIN)w=MIN; if(l+w>sr.width)w=sr.width-l; }
+      if(dir.includes('n')){ t=z0.t+dy; h=z0.h-dy; if(h<MIN){h=MIN;t=z0.t+z0.h-MIN;} if(t<0){h+=t;t=0;} }
+      if(dir.includes('s')){ h=z0.h+dy; if(h<MIN)h=MIN; if(t+h>sr.height)h=sr.height-t; }
+    }
+    zone.left=l/sr.width*100; zone.top=t/sr.height*100; zone.width=w/sr.width*100; zone.height=h/sr.height*100;
+    d.style.left=zone.left+'%'; d.style.top=zone.top+'%'; d.style.width=zone.width+'%'; d.style.height=zone.height+'%';
+  }
+  function onUp(){ hmDragging=false; document.removeEventListener('mousemove',onMove); document.removeEventListener('mouseup',onUp); document.body.style.userSelect=''; renderHmStage(ei); renderHmList(ei); }
+  document.addEventListener('mousemove',onMove); document.addEventListener('mouseup',onUp);
+}
+function hmSelect(ei,i){ const ed=hmEditors[ei]; if(!ed) return; ed.sel=i; renderHmStage(ei); renderHmList(ei); const row=document.querySelector(`#hmList_${ei} tr[data-i="${i}"]`); if(row) row.scrollIntoView({block:'nearest',behavior:'smooth'}); }
+function renderHmList(ei){
+  const ed=hmEditors[ei]; if(!ed) return;
+  const el=document.getElementById('hmList_'+ei); if(!el) return;
+  const zs=heatmapConfig[ed.name]||[];
+  let html='<tr><th>#</th><th>模块ID</th><th>模块名称</th><th>操作</th></tr>';
+  if(!zs.length){ html+='<tr><td colspan="4" style="color:#aab3c0;text-align:center;padding:16px;">暂无区域，请在左侧图上拖拽绘制</td></tr>'; }
+  zs.forEach((z,i)=>{
+    const selBg = i===ed.sel ? 'background:#eef4ff;' : '';
+    html+=`<tr data-i="${i}" style="${selBg}" onclick="hmSelect(${ei},${i})">
+      <td>${i+1}</td>
+      <td><input value="${(z.modId||'').replace(/"/g,'&quot;')}" placeholder="模块ID" onclick="event.stopPropagation()" oninput="hmSetField(${ei},${i},'modId',this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;"></td>
+      <td><input value="${(z.modName||'').replace(/"/g,'&quot;')}" placeholder="模块名称" onclick="event.stopPropagation()" oninput="hmSetField(${ei},${i},'modName',this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;"></td>
+      <td style="white-space:nowrap;"><a href="javascript:void(0)" style="color:#d03050;" onclick="event.stopPropagation();hmDel(${ei},${i})">删除</a></td></tr>`;
+  });
+  el.innerHTML = html;
+}
+function hmSetField(ei,i,field,v){ const ed=hmEditors[ei]; if(!ed) return; const z=(heatmapConfig[ed.name]||[])[i]; if(z){ z[field]=v; if(field==='modName'||field==='modId') renderHmStage(ei); } }
+function hmDel(ei,i){ const ed=hmEditors[ei]; if(!ed||!heatmapConfig[ed.name]) return; heatmapConfig[ed.name].splice(i,1); ed.sel=-1; renderHmStage(ei); renderHmList(ei); }
+function saveHmCfg(){
+  if(!hmEditors.length){ alert('请先从核心页面列表进入'); return; }
+  const summary = hmEditors.map(ed=>`${ed.name}：${(heatmapConfig[ed.name]||[]).length} 个区域`).join('；');
+  alert('已保存热力区域配置 —— '+summary);
+}
+function bindHmDraw(ei){
+  const ed=hmEditors[ei]; if(!ed) return;
+  const stage=document.getElementById('hmStage_'+ei); if(!stage) return;
+  let drawing=false, sx=0, sy=0, temp=null, moved=false;
+  stage.addEventListener('mousedown', e=>{
+    if(!ed.img) return;
+    const r=stage.getBoundingClientRect();
+    drawing=true; moved=false; sx=e.clientX-r.left; sy=e.clientY-r.top;
+    temp=document.createElement('div');
+    temp.style.cssText=`position:absolute;border:1.5px dashed #ff3b30;background:rgba(255,59,48,.1);left:${sx}px;top:${sy}px;`;
+    stage.appendChild(temp); e.preventDefault();
+  });
+  stage.addEventListener('mousemove', e=>{
+    if(!drawing||!temp) return; moved=true;
+    const r=stage.getBoundingClientRect();
+    const cx=Math.max(0,Math.min(e.clientX-r.left,r.width)), cy=Math.max(0,Math.min(e.clientY-r.top,r.height));
+    temp.style.left=Math.min(sx,cx)+'px'; temp.style.top=Math.min(sy,cy)+'px';
+    temp.style.width=Math.abs(cx-sx)+'px'; temp.style.height=Math.abs(cy-sy)+'px';
+  });
+  const finish=()=>{
+    if(!drawing) return; drawing=false; if(!temp) return;
+    const r=stage.getBoundingClientRect();
+    const l=parseFloat(temp.style.left)||0, t=parseFloat(temp.style.top)||0, w=parseFloat(temp.style.width)||0, h=parseFloat(temp.style.height)||0;
+    temp.remove(); temp=null;
+    if(moved && w>6 && h>6){
+      const arr=(heatmapConfig[ed.name]=heatmapConfig[ed.name]||[]);
+      arr.push({left:l/r.width*100, top:t/r.height*100, width:w/r.width*100, height:h/r.height*100, modId:'', modName:''});
+      ed.sel=arr.length-1; renderHmStage(ei); renderHmList(ei);
+    }
+  };
+  stage.addEventListener('mouseup', finish);
+  stage.addEventListener('mouseleave', finish);
 }
 
 /* ============ 模块二：页面下钻 ============ */
@@ -1598,7 +1958,7 @@ activeFilters = [
   {id:++fid, attr:'平台类型', op:'=', val:'全部'}
 ];
 renderFilters();
-[renderSankey, renderModTable, bindZoneClicks, ()=>showModSankey('进入页面'), renderFlows, renderPaths, renderTimeline]
+[renderPageCfgTable, renderPageSelects, renderSankey, renderModTable, bindZoneClicks, ()=>showModSankey('进入页面'), renderFlows, renderPaths, renderTimeline]
   .forEach(fn=>{ try{ fn(); }catch(e){ console.error('[init]', fn.name, e); } });
 window.addEventListener('resize',()=>{ sankeyChart&&sankeyChart.resize(); });
 </script>
