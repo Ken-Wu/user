@@ -7,7 +7,7 @@
 直接用浏览器打开：
 
 ```
-app/user_path_demo.html
+app/userpath_demo.html
 ```
 
 ## 功能概览
@@ -29,7 +29,7 @@ app/user_path_demo.html
 ├── 用户路径分析工具_PRD.md         # 早期 PRD
 ├── 需求讨论纪要.md
 └── app/
-    ├── user_path_demo.html         # 原型主入口
+    ├── userpath_demo.html         # 原型主入口
     ├── echarts.min.js              # 本地 ECharts（避免外网依赖）
     └── image/                       # 截图素材（询价页等）
 ```
@@ -47,5 +47,5 @@ app/user_path_demo.html
 ```bash
 cd app
 python3 -m http.server 8000
-# 然后访问 http://localhost:8000/user_path_demo.html
+# 然后访问 http://localhost:8000/userpath_demo.html
 ```
