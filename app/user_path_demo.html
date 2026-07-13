@@ -685,11 +685,11 @@
   </div>
 </div>
 
-<!-- 模块配置 弹窗 -->
+<!-- 子模块配置 弹窗 -->
 <div id="modCfgModal" onclick="if(event.target===this)closeModCfgModal()" style="display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:210;align-items:center;justify-content:center;">
   <div style="position:relative;background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:660px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-      <span style="font-size:16px;font-weight:600;color:#1f2d3d;">模块配置 · <span id="mcfgPageName" style="color:#2f6fed;">-</span></span>
+      <span style="font-size:16px;font-weight:600;color:#1f2d3d;">子模块配置 · <span id="mcfgPageName" style="color:#2f6fed;">-</span></span>
       <span onclick="closeModCfgModal()" style="cursor:pointer;color:#b0bac7;font-size:22px;line-height:1;">×</span>
     </div>
     <div class="desc" style="margin-bottom:12px;">维护该页面的模块清单（模块ID、模块名称）。配置后可在「热力图配置」中直接选择模块，无需手动录入。</div>
@@ -887,8 +887,8 @@ window.addEventListener('resize',closeAttrPicker);
 // 每步的页面节点（按流量从大到小），最后两位固定为 更多 / 终止
 // 结构：steps[i] = [{name, val}], 末尾自动补 更多 + 终止
 const rawSteps = [
-  // 第0步（起点）
-  [{name:'平台首页', val:120000}],
+  // 第0步（起点，可有多个入口）
+  [{name:'平台首页', val:120000},{name:'乘客首页', val:96000}],
   // 第1步
   [{name:'乘客首页',val:78000},{name:'登录页',val:24000},{name:'POI页',val:12000},
    {name:'询价页',val:6000},{name:'平台首页',val:4200}],
@@ -1120,7 +1120,7 @@ function renderSankey(){
       nodeWidth:nodeW, nodeGap:11, nodeAlign:'left', layoutIterations:0,
       data:styledNodes, links:styledLinks,
       label:{ color:'#3a4554', fontSize:11, lineHeight:15, position:'inside',
-        formatter:p=>`${p.name.split('·').pop()}\n${Math.round((p.value||0)/getDays()).toLocaleString()}` },
+        formatter:p=>{ const nm=p.name.split('·').pop(); if(p.name.indexOf('S0·')===0 && nm!=='终止' && nm!=='更多分组') return nm; return `${nm}\n${Math.round((p.value||0)/getDays()).toLocaleString()}`; } },
       lineStyle:{ curveness:.5 }
     }]
   });
@@ -1256,7 +1256,7 @@ function renderPageCfgTable(){
       <td>${p.upBy}</td>
       <td style="white-space:nowrap;">
         <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openPageCfgModal(${i})">编辑</a>
-        <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openModCfgForPage(${i})">模块配置</a>
+        <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openModCfgForPage(${i})">子模块配置</a>
         <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openHmCfgForPage(${i})">热力图配置</a>
         <a href="javascript:void(0)" style="color:#d03050;" onclick="delPageCfg(${i})">删除</a>
       </td></tr>`;
@@ -1495,7 +1495,7 @@ function renderHmList(ei){
     let opts='<option value="">未选择模块</option>', matched=false;
     mods.forEach(m=>{ const on=m.id===z.modId; if(on) matched=true; opts+=`<option value="${m.id}" ${on?'selected':''}>${m.name}（${m.id}）</option>`; });
     if(z.modId && !matched){ opts+=`<option value="${z.modId}" selected>${z.modName||z.modId}（未在清单）</option>`; }
-    const tip = mods.length ? '' : '<div style="color:#e08a00;font-size:11px;margin-top:3px;">该版本暂无模块，请先在「核心页面配置 → 模块配置」中添加</div>';
+    const tip = mods.length ? '' : '<div style="color:#e08a00;font-size:11px;margin-top:3px;">该版本暂无模块，请先在「核心页面配置 → 子模块配置」中添加</div>';
     html+=`<tr data-i="${i}" style="${selBg}" onclick="hmSelect(${ei},${i})">
       <td>${i+1}</td>
       <td><select onclick="event.stopPropagation()" onchange="hmPickModule(${ei},${i},this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;background:#fff;">${opts}</select>${tip}</td>
@@ -1550,7 +1550,7 @@ function bindHmDraw(ei){
   stage.addEventListener('mouseleave', finish);
 }
 
-/* ============ 模块配置（核心页面配置 → 模块配置） ============ */
+/* ============ 子模块配置（核心页面配置 → 子模块配置） ============ */
 let modCfgEditors = [];   // [{name, label}]
 function openModCfgForPage(i){
   const p = pageConfig[i]; if(!p) return;
@@ -1612,24 +1612,25 @@ function saveModCfg(){
   }
   const summary=modCfgEditors.map(ed=>`${ed.name}：${(moduleConfig[ed.name]||[]).length} 个模块`).join('；');
   closeModCfgModal();
-  alert('已保存模块配置 —— '+summary);
+  alert('已保存子模块配置 —— '+summary);
 }
 
 /* ============ 模块二：页面下钻 ============ */
 // 模块点击排行数据（与左侧热力区块名称对齐）
+// expo=模块曝光量（越靠上/常驻越高，首屏以下依次降低），用于计算曝光率
 const modules = [
-  {name:'返回',       expo:21430, ctr:0.301, action:'查看'},
-  {name:'安全中心',   expo:21430, ctr:0.168, action:'查看'},
-  {name:'地图',       expo:21430, ctr:0.168, action:'查看'},
-  {name:'优惠banner', expo:21430, ctr:0.225, action:'查看'},
-  {name:'高速费',     expo:21430, ctr:0.123, action:'查看'},
-  {name:'电梯-组',   expo:21430, ctr:0.423, action:'点击和反选'},
-  {name:'品类列表-组',   expo:21430, ctr:0.586, action:'点击和反选'},
-  {name:'券包',       expo:21430, ctr:0.423, action:'查看'},
-  {name:'时间人数弹窗', expo:21430, ctr:0.423, action:'查看'},
-  {name:'代叫',       expo:21430, ctr:0.114, action:'查看'},
-  {name:'备注',       expo:21430, ctr:0.053, action:'查看'},
-  {name:'发单按钮',   expo:21430, ctr:0.543, action:'查看'}
+  {name:'返回',       expo:21200, ctr:0.301, action:'查看'},
+  {name:'安全中心',   expo:20800, ctr:0.168, action:'查看'},
+  {name:'地图',       expo:20800, ctr:0.168, action:'查看'},
+  {name:'优惠banner', expo:20100, ctr:0.225, action:'查看'},
+  {name:'高速费',     expo:19400, ctr:0.123, action:'查看'},
+  {name:'电梯-组',   expo:18600, ctr:0.423, action:'点击和反选'},
+  {name:'品类列表-组',   expo:18200, ctr:0.586, action:'点击和反选'},
+  {name:'券包',       expo:14800, ctr:0.423, action:'查看'},
+  {name:'时间人数弹窗', expo:13600, ctr:0.423, action:'查看'},
+  {name:'代叫',       expo:13100, ctr:0.114, action:'查看'},
+  {name:'备注',       expo:12800, ctr:0.053, action:'查看'},
+  {name:'发单按钮',   expo:17900, ctr:0.543, action:'查看'}
 ];
 function modClick(m){ return Math.round(m.expo*m.ctr); }
 // 上游来源 / 下游去向（模拟数据）
@@ -1692,39 +1693,37 @@ function switchModTab(i){
   const on = i===0?t0:t1; on.style.color='#2f6fed'; on.style.borderBottomColor='#2f6fed';
   if(i===1) renderBehTable();
 }
-let modSort = {key:'share', dir:'desc'};
+let modSort = {key:'click', dir:'desc'};
 function setModSort(key){
   if(modSort.key===key) modSort.dir = (modSort.dir==='desc'?'asc':'desc');
   else { modSort.key = key; modSort.dir = 'desc'; }
   renderModTable();
 }
 function renderModTable(){
-  const totalClicks = modules.reduce((s,m)=>s+modClick(m),0) || 1;
-  const maxShare = Math.max(...modules.map(m=>modClick(m)/totalClicks));
   const canView = ['电梯-组','品类列表-组'];
   const repeat = {'品类列表':2.4,'品类列表-组':2.4,'商品列表':2.1,'电梯':1.8,'电梯-组':1.8,'时间人数弹窗':1.4,'地图':1.5,'返回':1.2};
   // 计算各模块行数据
   const rows = modules.map(m=>{
-    const share = modClick(m)/totalClicks;
     const expoPv = m.expo, expoUv = Math.round(m.expo*0.78);
     const clickPv = modClick(m);
     const rep = repeat[m.name] || 1.15;
     const clickUv = Math.max(1, Math.round(clickPv/rep));
     const ctrUv = expoUv>0 ? clickUv/expoUv : 0;
     const ctrPv = expoPv>0 ? clickPv/expoPv : 0;
-    return {m, share, expoPv, expoUv, clickPv, clickUv, ctrPv, ctrUv};
+    return {m, expoPv, expoUv, clickPv, clickUv, ctrPv, ctrUv};
   });
-  // UV 口径点击占比
-  const totalClicksUv = rows.reduce((s,r)=>s+r.clickUv,0) || 1;
-  const maxShareUv = Math.max(...rows.map(r=>r.clickUv/totalClicksUv));
-  rows.forEach(r=>{ r.shareUv = r.clickUv/totalClicksUv; });
+  // 曝光率 = 模块曝光 / 页面可达量（以曝光最高的模块近似页面基准，PV/UV 同口径）
+  const pageReachPv = (Math.max(...rows.map(r=>r.expoPv)) || 1) / 0.995;
+  const pageReachUv = (Math.max(...rows.map(r=>r.expoUv)) || 1) / 0.995;
+  rows.forEach(r=>{ r.expoRatePv = r.expoPv/pageReachPv; r.expoRateUv = r.expoUv/pageReachUv; });
+  const maxExpoRate = Math.max(...rows.map(r=>r.expoRatePv)) || 1;
   // 按当前排序键排序
   const cmp = {
-    name:    (a,b)=>a.m.name.localeCompare(b.m.name,'zh'),
-    expo:    (a,b)=>a.expoPv - b.expoPv,
-    click:   (a,b)=>a.clickPv - b.clickPv,
-    ctr:     (a,b)=>a.ctrUv - b.ctrUv,
-    share:   (a,b)=>a.share - b.share
+    name:     (a,b)=>a.m.name.localeCompare(b.m.name,'zh'),
+    expo:     (a,b)=>a.expoPv - b.expoPv,
+    exporate: (a,b)=>a.expoRateUv - b.expoRateUv,
+    click:    (a,b)=>a.clickPv - b.clickPv,
+    ctr:      (a,b)=>a.ctrUv - b.ctrUv
   }[modSort.key] || ((a,b)=>0);
   rows.sort((a,b)=> modSort.dir==='asc' ? cmp(a,b) : cmp(b,a));
   // 表头：可排序列加箭头与点击
@@ -1733,36 +1732,31 @@ function renderModTable(){
   let html = '<tr>'
     + `<th style="position:sticky;left:0;top:0;background:#fafbfc;z-index:3;cursor:pointer;user-select:none;" onclick="setModSort('name')">模块名<span style="color:#b0bac7;font-size:11px;">${arrow('name')}</span></th>`
     + th('expo','日均曝光')
+    + th('exporate','曝光率')
     + th('click','日均点击')
     + th('ctr','点击率')
-    + th('share','点击占比')
     + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">操作</th></tr>';
-  rows.forEach(({m,share,shareUv,expoPv,expoUv,clickPv,clickUv,ctrPv,ctrUv})=>{
-    const barW = Math.round(share/maxShare*72);
+  rows.forEach(({m,expoPv,expoUv,clickPv,clickUv,ctrPv,ctrUv,expoRatePv,expoRateUv})=>{
     const opCell = m.name==='品类列表-组'
       ? `<a href="javascript:void(0)" style="color:#2f6fed;text-decoration:underline;cursor:pointer;font-weight:600;" onclick="event.stopPropagation();(window.openCategoryDetail?window.openCategoryDetail():alert('函数未定义'));return false;">查看</a>`
       : canView.includes(m.name)
         ? `<a href="javascript:void(0)" style="color:#2f6fed;text-decoration:underline;cursor:pointer;" onclick="event.stopPropagation();selectModule('${m.name}');return false;">查看</a>`
         : '';
-    const stratCount = (window.strategyCounts||{})[m.name];
-    const stratCell = stratCount
-      ? `<a href="javascript:void(0)" style="color:#2f6fed;text-decoration:underline;cursor:pointer;font-weight:600;" onclick="event.stopPropagation();openStrategyDetail('${m.name}');return false;">${stratCount}</a>`
-      : '—';
     const pvUv = (pv,uv)=>{ const D=getDays(); return `<div style="line-height:1.35;">${Math.round(pv/D).toLocaleString()} PV<div style="font-size:11px;color:#95a3b3;">${Math.round((uv||0)/D).toLocaleString()} UV</div></div>`; };
     const ratePvUv = (pvRate,uvRate)=>`<div style="line-height:1.35;"><b>${(pvRate*100).toFixed(1)}%</b> PV<div style="font-size:11px;color:#95a3b3;font-weight:normal;">${(uvRate*100).toFixed(1)}% UV</div></div>`;
-    const sharePvUv = (pvShare,uvShare,maxPv,maxUv)=>{
-      const w1 = Math.round(pvShare/maxPv*72), w2 = Math.round(uvShare/maxUv*72);
+    const expoRateCell = (pvRate,uvRate)=>{
+      const w = Math.round(pvRate/maxExpoRate*72);
       return `<div style="line-height:1.35;white-space:nowrap;">
-        <span class="barbg" style="width:72px;"><span class="bar" style="width:${w1}px;"></span></span> ${(pvShare*100).toFixed(1)}% PV
-        <div style="font-size:11px;color:#95a3b3;margin-top:2px;"><span class="barbg" style="width:72px;background:#f5f7fa;"><span class="bar" style="width:${w2}px;background:#b8c0cc;"></span></span> ${(uvShare*100).toFixed(1)}% UV</div>
+        <span class="barbg" style="width:72px;"><span class="bar" style="width:${w}px;"></span></span> <b>${(pvRate*100).toFixed(1)}%</b> PV
+        <div style="font-size:11px;color:#95a3b3;margin-top:2px;">${(uvRate*100).toFixed(1)}% UV</div>
       </div>`;
     };
     html += `<tr data-name="${m.name}" onclick="selectModule('${m.name}')">
       <td style="position:sticky;left:0;background:#fff;z-index:1;">${m.name}</td>
       <td>${pvUv(expoPv, expoUv)}</td>
+      <td>${expoRateCell(expoRatePv, expoRateUv)}</td>
       <td>${pvUv(clickPv, clickUv)}</td>
       <td>${ratePvUv(ctrPv, ctrUv)}</td>
-      <td>${sharePvUv(share, shareUv, maxShare, maxShareUv)}</td>
       <td>${opCell}</td></tr>`;
   });
   document.getElementById('modTable').innerHTML = html;
