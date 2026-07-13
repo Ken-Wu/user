@@ -889,9 +889,9 @@ window.addEventListener('resize',closeAttrPicker);
 const rawSteps = [
   // 第0步（起点，可有多个入口）
   [{name:'平台首页', val:120000},{name:'乘客首页', val:96000}],
-  // 第1步
-  [{name:'乘客首页',val:78000},{name:'登录页',val:24000},{name:'POI页',val:12000},
-   {name:'询价页',val:6000},{name:'平台首页',val:4200}],
+  // 第1步（平台首页/乘客首页会跳非核心 H5，统一聚合为「其他页面」）
+  [{name:'乘客首页',val:78000},{name:'登录页',val:24000},{name:'其他页面',val:20000,other:true},
+   {name:'POI页',val:12000},{name:'询价页',val:6000},{name:'平台首页',val:4200}],
   // 第2步
   [{name:'登录页',val:42000},{name:'POI页',val:30000},{name:'乘客首页',val:14000},
    {name:'询价页',val:9000},{name:'发单动画',val:3000}],
@@ -945,13 +945,15 @@ function buildSankey(){
   // 为每步生成"展示节点列表"（带唯一后缀避免跨步重名），保留 topX + 更多 + 终止
   const stepNodes=[]; // 每步: [{key, label, val}]
   for(let s=0;s<=stepCount;s++){
-    const arr = rawSteps[s].map(x=>({label:x.name, val:Math.round(x.val*factor)}));
+    const arr = rawSteps[s].map(x=>({label:x.name, val:Math.round(x.val*factor), other:!!x.other}));
     arr.sort((a,b)=>b.val-a.val);
     let shown, moreVal=0;
     if(s===0){ shown=arr; }
     else{
-      shown = arr.slice(0, cfg.topX);
-      moreVal = arr.slice(cfg.topX).reduce((s,x)=>s+x.val,0);
+      const others = arr.filter(x=>x.other);   // 「其他页面」等非核心页面，始终展示，不占 Top 名额
+      const normals = arr.filter(x=>!x.other);
+      shown = normals.slice(0, cfg.topX).concat(others);
+      moreVal = normals.slice(cfg.topX).reduce((a,x)=>a+x.val,0);
     }
     const list = shown.map(x=>({key:`S${s}·${x.label}`, label:x.label, val:x.val}));
     if(moreVal>0) list.push({key:`S${s}·更多`, label:'更多分组', val:moreVal, kind:'more'});
