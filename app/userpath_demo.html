@@ -554,7 +554,7 @@
           </div>
         </div>
         <div id="mdPane1" style="display:none;flex:1;min-height:0;flex-direction:column;">
-          <div class="desc" style="flex:none;">页面内滑动、切换等行为的次数与深度（模拟数据）。</div>
+          <div class="desc" style="flex:none;">电梯各展开状态 / 同城·跨城电梯询价页的曝光数据（模拟数据）。</div>
           <div style="overflow:auto;width:100%;flex:1;min-height:0;">
             <table id="behTable" style="min-width:440px;"></table>
           </div>
@@ -1664,26 +1664,31 @@ function renderFlowTable(id, rows){
   el.innerHTML = html;
 }
 function renderFlows(){ renderFlowTable('srcTable', pageSources); renderFlowTable('dstTable', pageDests); }
-// 行为数据（滑动 / 切换深度，模拟数据）
-const behaviors = [
-  {name:'品类列表 · 滑动',      cnt:9070, vDepth:'9.1 品类/人', hDepth:'—'},
-  {name:'地图 · 滑动',          cnt:6320, vDepth:'1.8 屏/人', hDepth:'1.4 段/人'},
-  {name:'电梯 · 1段滑动',       cnt:4200, vDepth:'—',         hDepth:'—'},
-  {name:'电梯 · 2段滑动',       cnt:2800, vDepth:'—',         hDepth:'—'},
-  {name:'电梯 · 3段滑动',       cnt:1500, vDepth:'—',         hDepth:'—'}
+// 行为数据（电梯各展开状态 / 同城·跨城电梯询价页的曝光，模拟数据）
+// expoPv/expoUv 为周期内总量（展示按日均）；单均曝光量=曝光PV/单量，人均曝光量=曝光PV/曝光UV
+const behSegments = [
+  {label:'电梯置顶状态',   expoPv:18600, expoUv:5300,  orders:5000},
+  {label:'电梯半展开状态', expoPv:12400, expoUv:3800,  orders:3400},
+  {label:'电梯全展开状态', expoPv:6800,  expoUv:2200,  orders:1900},
+  {label:'同城电梯询价页', expoPv:42000, expoUv:15800, orders:11000},
+  {label:'跨城电梯询价页', expoPv:26000, expoUv:9200,  orders:6800}
 ];
 function renderBehTable(){
   const el = document.getElementById('behTable');
   if(!el) return;
   const D = getDays();
+  const avg = v => Math.round(v/D).toLocaleString();
   let html = '<tr>'
-    + '<th style="position:sticky;left:0;top:0;background:#fafbfc;z-index:3;">行为名称</th>'
-    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">日均滑动次数</th>'
-    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">纵向深度</th>'
-    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">横向深度</th></tr>';
-  behaviors.forEach(b=>{
-    html += `<tr><td style="position:sticky;left:0;background:#fff;z-index:1;">${b.name}</td>
-      <td>${Math.round(b.cnt/D).toLocaleString()}</td><td>${b.vDepth}</td><td>${b.hDepth}</td></tr>`;
+    + '<th style="position:sticky;left:0;top:0;background:#fafbfc;z-index:3;">维度</th>'
+    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">日均曝光 PV</th>'
+    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">日均曝光 UV</th>'
+    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">单均曝光量</th>'
+    + '<th style="position:sticky;top:0;background:#fafbfc;z-index:2;">人均曝光量</th></tr>';
+  behSegments.forEach(b=>{
+    const dan = (b.noDim || !b.orders) ? '—' : (b.expoPv/b.orders).toFixed(1);
+    const ren = b.noDim ? '—' : (b.expoUv>0 ? (b.expoPv/b.expoUv).toFixed(1) : '—');
+    html += `<tr><td style="position:sticky;left:0;background:#fff;z-index:1;">${b.label}</td>
+      <td>${avg(b.expoPv)}</td><td>${avg(b.expoUv)}</td><td>${dan}</td><td>${ren}</td></tr>`;
   });
   el.innerHTML = html;
 }
