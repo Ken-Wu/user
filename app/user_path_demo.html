@@ -661,11 +661,7 @@
         <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面名称</label>
         <input id="pcfgName" type="text" placeholder="如 询价页" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
       </div>
-      <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面效果图</label>
-        <input type="file" accept="image/png,image/jpeg" onchange="onPcfgFile(this)" style="font-size:12px;">
-        <div id="pcfgPreview" style="margin-top:10px;display:flex;align-items:center;justify-content:center;min-height:60px;background:#fafbfc;border:1px dashed #e2e8f2;border-radius:6px;padding:8px;"></div>
-      </div>
+      <div style="font-size:12px;color:#95a3b3;background:#f6f8fb;border-radius:6px;padding:9px 11px;line-height:1.6;">效果图（主版本 / 对比版本）请在「热力图配置」中上传，上传后可直接在图上绘制热力区域。</div>
 
       <div style="border-top:1px dashed #e2e8f2;padding-top:14px;">
         <div style="font-size:13px;font-weight:600;color:#1f2d3d;margin-bottom:2px;">对比版本页面（可选）</div>
@@ -679,17 +675,28 @@
             <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">对比页面名称</label>
             <input id="pcfgCmpName" type="text" placeholder="如 品类中心询价页" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
           </div>
-          <div>
-            <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">对比页面效果图</label>
-            <input type="file" accept="image/png,image/jpeg" onchange="onPcfgCmpFile(this)" style="font-size:12px;">
-            <div id="pcfgCmpPreview" style="margin-top:10px;display:flex;align-items:center;justify-content:center;min-height:60px;background:#fafbfc;border:1px dashed #e2e8f2;border-radius:6px;padding:8px;"></div>
-          </div>
         </div>
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
       <button class="btn-ghost" onclick="closePageCfgModal()">取消</button>
       <button class="btn" style="width:auto;padding:8px 24px;" onclick="savePageCfgModal()">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 模块配置 弹窗 -->
+<div id="modCfgModal" onclick="if(event.target===this)closeModCfgModal()" style="display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:210;align-items:center;justify-content:center;">
+  <div style="position:relative;background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:660px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+      <span style="font-size:16px;font-weight:600;color:#1f2d3d;">模块配置 · <span id="mcfgPageName" style="color:#2f6fed;">-</span></span>
+      <span onclick="closeModCfgModal()" style="cursor:pointer;color:#b0bac7;font-size:22px;line-height:1;">×</span>
+    </div>
+    <div class="desc" style="margin-bottom:12px;">维护该页面的模块清单（模块ID、模块名称）。配置后可在「热力图配置」中直接选择模块，无需手动录入。</div>
+    <div id="modCfgArea" style="overflow:auto;flex:1;min-height:0;"></div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;flex:none;">
+      <button class="btn-ghost" onclick="closeModCfgModal()">关闭</button>
+      <button class="btn" style="width:auto;padding:8px 24px;" onclick="saveModCfg()">保存配置</button>
     </div>
   </div>
 </div>
@@ -1249,6 +1256,7 @@ function renderPageCfgTable(){
       <td>${p.upBy}</td>
       <td style="white-space:nowrap;">
         <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openPageCfgModal(${i})">编辑</a>
+        <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openModCfgForPage(${i})">模块配置</a>
         <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openHmCfgForPage(${i})">热力图配置</a>
         <a href="javascript:void(0)" style="color:#d03050;" onclick="delPageCfg(${i})">删除</a>
       </td></tr>`;
@@ -1343,18 +1351,58 @@ let heatmapConfig = {
     {left:55, top:90,  width:44, height:7,   modId:'submit',      modName:'发单按钮'}
   ]
 };
+// 各页面/版本的模块清单：页面名 -> [{id,name,upTime,upBy}]，供热力图配置中直接选择模块
+let moduleConfig = {
+  '询价页': [
+    {id:'back',         name:'返回',         upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'safety',       name:'安全中心',     upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'map',          name:'地图',         upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'promo_banner', name:'优惠banner',   upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'highway_fee',  name:'高速费',       upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'elevator',     name:'电梯-组',      upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'category',     name:'品类列表-组',  upTime:'2026-06-05 14:30', upBy:'王恳', subs:[{sid:'cat_item',param:'category_id'},{sid:'cat_select',param:'spm=inquiry.category.select'}]},
+    {id:'coupon',       name:'券包',         upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'time_num',     name:'时间人数弹窗', upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'proxy_call',   name:'代叫',         upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'remark',       name:'备注',         upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'submit',       name:'发单按钮',     upTime:'2026-06-05 14:30', upBy:'王恳'}
+  ],
+  '品类中心询价页': [
+    {id:'back',         name:'返回',         upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'category',     name:'品类列表-组',  upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'coupon',       name:'券包',         upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'submit',       name:'发单按钮',     upTime:'2026-06-05 14:30', upBy:'王恳'}
+  ]
+};
 // —— 多编辑器：主版本 + 对比版本上下平铺 ——
-let hmEditors = [];   // [{name, img, sel}]
+let hmEditors = [];   // [{name, img, sel, kind}]
 let hmDragging = false;
+let hmCurPageIdx = -1;
 const HM_EDGE = 7;
 function openHmCfgForPage(i){
   const p = pageConfig[i]; if(!p) return;
+  hmCurPageIdx = i;
   switchTab(4);
   const title = document.getElementById('hmCfgPageName'); if(title) title.innerText = p.name || '-';
-  hmEditors = [{name:p.name, img:p.img||'', label:'主版本', sel:-1}];
-  if(p.cmpName) hmEditors.push({name:p.cmpName, img:p.cmpImg||'', label:'对比版本', sel:-1});
+  hmEditors = [{name:p.name, img:p.img||'', label:'主版本', sel:-1, kind:'main'}];
+  if(p.cmpName) hmEditors.push({name:p.cmpName, img:p.cmpImg||'', label:'对比版本', sel:-1, kind:'cmp'});
   hmEditors.forEach(ed=>{ if(!heatmapConfig[ed.name]) heatmapConfig[ed.name]=[]; });
   renderHmArea();
+}
+// 在热力图配置中上传/更换该版本效果图，并回写到 pageConfig（列表缩略图同步）
+function hmUploadImg(ei, input){
+  const f = input.files && input.files[0]; if(!f) return;
+  const ed = hmEditors[ei]; if(!ed) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const url = e.target.result;
+    ed.img = url;
+    const p = pageConfig[hmCurPageIdx];
+    if(p){ if(ed.kind==='cmp') p.cmpImg = url; else p.img = url; }
+    renderHmArea();
+    renderPageCfgTable();
+  };
+  reader.readAsDataURL(f);
 }
 function renderHmArea(){
   const area = document.getElementById('hmCfgArea'); if(!area) return;
@@ -1363,10 +1411,13 @@ function renderHmArea(){
       <div style="font-size:14px;font-weight:600;color:#1f2d3d;margin-bottom:10px;">${ed.label}：${ed.name}</div>
       <div class="two-col" style="gap:24px;align-items:flex-start;">
         <div style="flex:none;">
-          <div class="desc" style="margin-bottom:6px;">效果图（拖拽绘制区域，点击选中；选中后拖内部移动、拖边缘缩放）</div>
-          <div id="hmStage_${ei}" style="position:relative;width:300px;user-select:none;border:1px solid #eef1f5;background:#fafbfc;cursor:crosshair;">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <label style="font-size:12px;color:#2f6fed;cursor:pointer;border:1px solid #2f6fed;border-radius:6px;padding:4px 10px;white-space:nowrap;">${ed.img?'更换效果图':'上传效果图'}<input type="file" accept="image/png,image/jpeg" onchange="hmUploadImg(${ei},this)" style="display:none;"></label>
+            <span class="desc" style="margin:0;">${ed.img?'拖拽绘制区域，点击选中；选中后拖内部移动、拖边缘缩放':'上传效果图后即可在图上绘制热力区域'}</span>
+          </div>
+          <div id="hmStage_${ei}" style="position:relative;width:300px;user-select:none;border:1px solid #eef1f5;background:#fafbfc;cursor:${ed.img?'crosshair':'default'};">
             <img src="${ed.img||''}" alt="" style="display:${ed.img?'block':'none'};width:100%;pointer-events:none;">
-            <div style="display:${ed.img?'none':'block'};padding:40px 12px;text-align:center;color:#aab3c0;font-size:12px;">该版本暂无效果图，请先在「核心页面配置」上传</div>
+            <div style="display:${ed.img?'none':'block'};padding:40px 12px;text-align:center;color:#aab3c0;font-size:12px;">请点击上方「上传效果图」后在图上绘制区域</div>
           </div>
         </div>
         <div style="flex:1;min-width:0;">
@@ -1436,19 +1487,29 @@ function renderHmList(ei){
   const ed=hmEditors[ei]; if(!ed) return;
   const el=document.getElementById('hmList_'+ei); if(!el) return;
   const zs=heatmapConfig[ed.name]||[];
-  let html='<tr><th>#</th><th>模块ID</th><th>模块名称</th><th>操作</th></tr>';
-  if(!zs.length){ html+='<tr><td colspan="4" style="color:#aab3c0;text-align:center;padding:16px;">暂无区域，请在左侧图上拖拽绘制</td></tr>'; }
+  const mods=moduleConfig[ed.name]||[];
+  let html='<tr><th>#</th><th>模块</th><th>操作</th></tr>';
+  if(!zs.length){ html+='<tr><td colspan="3" style="color:#aab3c0;text-align:center;padding:16px;">暂无区域，请在左侧图上拖拽绘制</td></tr>'; }
   zs.forEach((z,i)=>{
     const selBg = i===ed.sel ? 'background:#eef4ff;' : '';
+    let opts='<option value="">未选择模块</option>', matched=false;
+    mods.forEach(m=>{ const on=m.id===z.modId; if(on) matched=true; opts+=`<option value="${m.id}" ${on?'selected':''}>${m.name}（${m.id}）</option>`; });
+    if(z.modId && !matched){ opts+=`<option value="${z.modId}" selected>${z.modName||z.modId}（未在清单）</option>`; }
+    const tip = mods.length ? '' : '<div style="color:#e08a00;font-size:11px;margin-top:3px;">该版本暂无模块，请先在「核心页面配置 → 模块配置」中添加</div>';
     html+=`<tr data-i="${i}" style="${selBg}" onclick="hmSelect(${ei},${i})">
       <td>${i+1}</td>
-      <td><input value="${(z.modId||'').replace(/"/g,'&quot;')}" placeholder="模块ID" onclick="event.stopPropagation()" oninput="hmSetField(${ei},${i},'modId',this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;"></td>
-      <td><input value="${(z.modName||'').replace(/"/g,'&quot;')}" placeholder="模块名称" onclick="event.stopPropagation()" oninput="hmSetField(${ei},${i},'modName',this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;"></td>
+      <td><select onclick="event.stopPropagation()" onchange="hmPickModule(${ei},${i},this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;background:#fff;">${opts}</select>${tip}</td>
       <td style="white-space:nowrap;"><a href="javascript:void(0)" style="color:#d03050;" onclick="event.stopPropagation();hmDel(${ei},${i})">删除</a></td></tr>`;
   });
   el.innerHTML = html;
 }
-function hmSetField(ei,i,field,v){ const ed=hmEditors[ei]; if(!ed) return; const z=(heatmapConfig[ed.name]||[])[i]; if(z){ z[field]=v; if(field==='modName'||field==='modId') renderHmStage(ei); } }
+function hmPickModule(ei,i,mid){
+  const ed=hmEditors[ei]; if(!ed) return;
+  const z=(heatmapConfig[ed.name]||[])[i]; if(!z) return;
+  const m=(moduleConfig[ed.name]||[]).find(x=>x.id===mid);
+  z.modId = m ? m.id : ''; z.modName = m ? m.name : '';
+  renderHmStage(ei); renderHmList(ei);
+}
 function hmDel(ei,i){ const ed=hmEditors[ei]; if(!ed||!heatmapConfig[ed.name]) return; heatmapConfig[ed.name].splice(i,1); ed.sel=-1; renderHmStage(ei); renderHmList(ei); }
 function saveHmCfg(){
   if(!hmEditors.length){ alert('请先从核心页面列表进入'); return; }
@@ -1487,6 +1548,71 @@ function bindHmDraw(ei){
   };
   stage.addEventListener('mouseup', finish);
   stage.addEventListener('mouseleave', finish);
+}
+
+/* ============ 模块配置（核心页面配置 → 模块配置） ============ */
+let modCfgEditors = [];   // [{name, label}]
+function openModCfgForPage(i){
+  const p = pageConfig[i]; if(!p) return;
+  const nameEl = document.getElementById('mcfgPageName'); if(nameEl) nameEl.innerText = p.name || '-';
+  modCfgEditors = [{name:p.name, label:'主版本'}];
+  if(p.cmpName) modCfgEditors.push({name:p.cmpName, label:'对比版本'});
+  modCfgEditors.forEach(ed=>{ if(!moduleConfig[ed.name]) moduleConfig[ed.name]=[]; });
+  renderModCfgArea();
+  const modal=document.getElementById('modCfgModal'); if(modal) modal.style.display='flex';
+}
+function closeModCfgModal(){ const m=document.getElementById('modCfgModal'); if(m) m.style.display='none'; }
+function renderModCfgArea(){
+  const area=document.getElementById('modCfgArea'); if(!area) return;
+  area.innerHTML = modCfgEditors.map((ed,ei)=>`
+    <div style="${ei>0?'border-top:1px dashed #e2e8f2;margin-top:18px;padding-top:16px;':''}">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div style="font-size:14px;font-weight:600;color:#1f2d3d;">${ed.label}：${ed.name}</div>
+        <button class="btn" style="width:auto;padding:5px 14px;font-size:12px;flex:none;" onclick="modCfgAdd(${ei})">+ 新增模块</button>
+      </div>
+      <table id="modCfgList_${ei}" style="min-width:520px;"></table>
+    </div>`).join('');
+  modCfgEditors.forEach((ed,ei)=>renderModCfgList(ei));
+}
+function renderModCfgList(ei){
+  const ed=modCfgEditors[ei]; if(!ed) return;
+  const el=document.getElementById('modCfgList_'+ei); if(!el) return;
+  const list=moduleConfig[ed.name]||[];
+  let html='<tr><th style="width:22%;">模块ID</th><th style="width:24%;">模块名称</th><th>更新时间</th><th>更新人</th><th style="width:158px;">操作</th></tr>';
+  if(!list.length){ html+='<tr><td colspan="5" style="color:#aab3c0;text-align:center;padding:16px;">暂无模块，点击右上角「新增模块」添加</td></tr>'; }
+  list.forEach((m,i)=>{
+    html+=`<tr>
+      <td><input value="${(m.id||'').replace(/"/g,'&quot;')}" placeholder="如 category" oninput="modCfgSet(${ei},${i},'id',this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;"></td>
+      <td><input value="${(m.name||'').replace(/"/g,'&quot;')}" placeholder="如 品类列表-组" oninput="modCfgSet(${ei},${i},'name',this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;"></td>
+      <td style="color:#7f8c9b;font-size:12px;white-space:nowrap;">${m.upTime||'-'}</td>
+      <td style="color:#7f8c9b;font-size:12px;">${m.upBy||'-'}</td>
+      <td style="white-space:nowrap;"><a href="javascript:void(0)" style="color:#2f6fed;margin-right:10px;" onclick="modCfgAddSub(${ei},${i})">添加子模块</a><a href="javascript:void(0)" style="color:#d03050;" onclick="modCfgDel(${ei},${i})">删除</a></td></tr>`;
+    (m.subs||[]).forEach((s,si)=>{
+      html+=`<tr style="background:#fafbfc;">
+        <td style="color:#95a3b3;font-size:12px;padding-left:16px;white-space:nowrap;">└ 子模块</td>
+        <td><input value="${(s.sid||'').replace(/"/g,'&quot;')}" placeholder="子模块ID" oninput="modCfgSetSub(${ei},${i},${si},'sid',this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;"></td>
+        <td colspan="2"><input value="${(s.param||'').replace(/"/g,'&quot;')}" placeholder="参数信息（如埋点参数/spm）" oninput="modCfgSetSub(${ei},${i},${si},'param',this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;"></td>
+        <td style="white-space:nowrap;"><a href="javascript:void(0)" style="color:#d03050;" onclick="modCfgDelSub(${ei},${i},${si})">删除</a></td></tr>`;
+    });
+  });
+  el.innerHTML=html;
+}
+function modCfgAdd(ei){ const ed=modCfgEditors[ei]; if(!ed) return; (moduleConfig[ed.name]=moduleConfig[ed.name]||[]).push({id:'',name:'',upTime:nowStr(),upBy:'当前用户',subs:[]}); renderModCfgList(ei); }
+function modCfgSet(ei,i,field,v){ const ed=modCfgEditors[ei]; if(!ed) return; const m=(moduleConfig[ed.name]||[])[i]; if(m){ m[field]=v; m.upTime=nowStr(); m.upBy='当前用户'; } }
+function modCfgDel(ei,i){ const ed=modCfgEditors[ei]; if(!ed||!moduleConfig[ed.name]) return; if(!confirm('确认删除该模块？')) return; moduleConfig[ed.name].splice(i,1); renderModCfgList(ei); }
+function modCfgAddSub(ei,i){ const ed=modCfgEditors[ei]; if(!ed) return; const m=(moduleConfig[ed.name]||[])[i]; if(!m) return; (m.subs=m.subs||[]).push({sid:'',param:''}); m.upTime=nowStr(); m.upBy='当前用户'; renderModCfgList(ei); }
+function modCfgSetSub(ei,i,si,field,v){ const ed=modCfgEditors[ei]; if(!ed) return; const m=(moduleConfig[ed.name]||[])[i]; if(!m||!m.subs) return; const s=m.subs[si]; if(s){ s[field]=v; m.upTime=nowStr(); m.upBy='当前用户'; } }
+function modCfgDelSub(ei,i,si){ const ed=modCfgEditors[ei]; if(!ed) return; const m=(moduleConfig[ed.name]||[])[i]; if(!m||!m.subs) return; m.subs.splice(si,1); m.upTime=nowStr(); m.upBy='当前用户'; renderModCfgList(ei); }
+function saveModCfg(){
+  for(const ed of modCfgEditors){
+    const list=moduleConfig[ed.name]||[];
+    const ids=list.map(m=>(m.id||'').trim());
+    if(ids.some(id=>!id)){ alert(`「${ed.name}」有模块未填写模块ID`); return; }
+    if(new Set(ids).size!==ids.length){ alert(`「${ed.name}」存在重复的模块ID`); return; }
+  }
+  const summary=modCfgEditors.map(ed=>`${ed.name}：${(moduleConfig[ed.name]||[]).length} 个模块`).join('；');
+  closeModCfgModal();
+  alert('已保存模块配置 —— '+summary);
 }
 
 /* ============ 模块二：页面下钻 ============ */
