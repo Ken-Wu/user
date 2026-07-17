@@ -147,7 +147,14 @@
   .kpi .l { font-size: 12px; color: #95a3b3; margin-top: 4px; }
   .kpi .d { font-size: 12px; margin-top: 6px; }
   .up { color: #18a058; } .down { color: #d03050; }
-  #sankey { width: 100%; height: 600px; }
+  #sankey { width: 100%; height: 760px; }
+  /* 开关 toggle */
+  .sw { position:relative; display:inline-block; width:40px; height:22px; flex:none; }
+  .sw input { opacity:0; width:0; height:0; }
+  .sw span { position:absolute; inset:0; background:#d7dce5; border-radius:22px; cursor:pointer; transition:.2s; }
+  .sw span::before { content:""; position:absolute; width:18px; height:18px; left:2px; top:2px; background:#fff; border-radius:50%; transition:.2s; }
+  .sw input:checked + span { background:#2f6fed; }
+  .sw input:checked + span::before { transform:translateX(18px); }
   /* 桑基图卡片头部 + 紧凑展示设置 */
   .sankey-hd { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:10px; flex-wrap:wrap; }
   .disp-set { display:flex; gap:16px; flex:none; padding-top:2px; }
@@ -290,7 +297,7 @@
         <div class="gt">查询设置</div>
         <div class="fgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 16px;align-items:center;">
           <div class="cfg-item" style="margin-bottom:0;">
-            <label>用户类型</label>
+            <label>页面流程</label>
             <select><option>乘客</option><option>车主</option></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
@@ -324,12 +331,12 @@
         <div class="gt">筛选设置</div>
         <div class="fgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 16px;">
           <div class="cfg-item" style="margin-bottom:0;">
-            <label>业务线</label>
-            <select><option>全部</option><option>打车</option><option>顺风车</option></select>
+            <label>一级平台</label>
+            <select><option>全部</option><option>APP</option><option>支付宝小程序</option><option>微信小程序</option></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
-            <label>平台来源</label>
-            <select><option>全部</option><option>APP</option><option>支付宝小程序</option><option>微信小程序</option></select>
+            <label>流量入口</label>
+            <select><option>全部</option><option>打车</option><option>顺风车</option></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
             <label>同跨城</label>
@@ -362,13 +369,13 @@
       <div class="disp-set">
         <div class="ds-item">
           <span class="ds-l">每步 Top</span>
-          <input type="range" min="3" max="10" value="5" id="topRange" oninput="setTopX(this.value)">
-          <span class="ds-v" id="topVal">5</span>
+          <input type="range" min="3" max="25" value="25" id="topRange" oninput="setTopX(this.value)">
+          <span class="ds-v" id="topVal">25</span>
         </div>
         <div class="ds-item">
           <span class="ds-l">展示步数</span>
-          <input type="range" min="2" max="10" value="8" id="stepRange" oninput="setSteps(this.value)">
-          <span class="ds-v" id="stepVal">8</span>
+          <input type="range" min="2" max="25" value="25" id="stepRange" oninput="setSteps(this.value)">
+          <span class="ds-v" id="stepVal">25</span>
         </div>
       </div>
     </div>
@@ -390,7 +397,7 @@
         <div class="gt">查询设置</div>
         <div class="fgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 16px;align-items:center;">
           <div class="cfg-item" style="margin-bottom:0;">
-            <label>用户类型</label>
+            <label>页面流程</label>
             <select><option>乘客</option><option>车主</option></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
@@ -413,12 +420,12 @@
         <div class="gt">筛选设置</div>
         <div class="fgrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px 16px;">
           <div class="cfg-item" style="margin-bottom:0;">
-            <label>业务线</label>
-            <select><option>全部</option><option>打车</option><option>顺风车</option></select>
+            <label>一级平台</label>
+            <select><option>全部</option><option>APP</option><option>支付宝小程序</option><option>微信小程序</option></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
-            <label>平台来源</label>
-            <select><option>全部</option><option>APP</option><option>支付宝小程序</option><option>微信小程序</option></select>
+            <label>流量入口</label>
+            <select><option>全部</option><option>打车</option><option>顺风车</option></select>
           </div>
           <div class="cfg-item" style="margin-bottom:0;">
             <label>城市群</label>
@@ -661,20 +668,27 @@
         <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面名称</label>
         <input id="pcfgName" type="text" placeholder="如 询价页" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
       </div>
-      <div style="font-size:12px;color:#95a3b3;background:#f6f8fb;border-radius:6px;padding:9px 11px;line-height:1.6;">效果图（主版本 / 对比版本）请在「热力图配置」中上传，上传后可直接在图上绘制热力区域。</div>
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">参数配置</label>
+        <div id="pcfgParamsList"></div>
+        <a href="javascript:void(0)" onclick="addPcfgParam()" style="color:#2f6fed;font-size:12px;">+ 添加参数</a>
+      </div>
+      <div style="font-size:12px;color:#95a3b3;background:#f6f8fb;border-radius:6px;padding:9px 11px;line-height:1.6;">效果图请在「热力图配置」中上传，上传后可直接在图上绘制热力区域。</div>
 
-      <div style="border-top:1px dashed #e2e8f2;padding-top:14px;">
-        <div style="font-size:13px;font-weight:600;color:#1f2d3d;margin-bottom:2px;">对比版本页面（可选）</div>
-        <div style="font-size:11px;color:#95a3b3;margin-bottom:10px;">用于版本对比，可单独配置热力图。</div>
-        <div style="display:flex;flex-direction:column;gap:12px;">
+      <div style="border-top:1px dashed #e2e8f2;padding-top:14px;display:flex;flex-direction:column;gap:14px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
           <div>
-            <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">对比页面ID</label>
-            <input id="pcfgCmpId" type="text" placeholder="如 inquiry_v2" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+            <div style="font-size:13px;font-weight:600;color:#1f2d3d;">页面拆分</div>
+            <div style="font-size:11px;color:#95a3b3;margin-top:2px;">开启后按上方「参数配置」中的参数拆分该页面</div>
           </div>
+          <label class="sw"><input type="checkbox" id="pcfgSplit"><span></span></label>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px dashed #eef1f5;padding-top:14px;">
           <div>
-            <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">对比页面名称</label>
-            <input id="pcfgCmpName" type="text" placeholder="如 品类中心询价页" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+            <div style="font-size:13px;font-weight:600;color:#1f2d3d;">页面分析</div>
+            <div style="font-size:11px;color:#95a3b3;margin-top:2px;">开启后该页面纳入「页面分析」的可选页面</div>
           </div>
+          <label class="sw"><input type="checkbox" id="pcfgAnalysis"><span></span></label>
         </div>
       </div>
     </div>
@@ -773,7 +787,7 @@
 
 <script>
 /* ============ 全局配置状态 ============ */
-let cfg = { metric:'pv', topX:5, steps:8, dir:'fwd' };
+let cfg = { metric:'pv', topX:25, steps:25, dir:'fwd' };
 function setTopX(v){ cfg.topX=+v; document.getElementById('topVal').innerText=v; pathHL=null; renderSankey(); }
 function setSteps(v){ cfg.steps=+v; document.getElementById('stepVal').innerText=v; pathHL=null; renderSankey(); }
 // chip 单选/多选交互
@@ -888,31 +902,76 @@ window.addEventListener('resize',closeAttrPicker);
 // 结构：steps[i] = [{name, val}], 末尾自动补 更多 + 终止
 const rawSteps = [
   // 第0步（起点，可有多个入口）
-  [{name:'平台首页', val:120000},{name:'乘客首页', val:96000}],
-  // 第1步（平台首页/乘客首页会跳非核心 H5，统一聚合为「其他页面」）
-  [{name:'乘客首页',val:78000},{name:'登录页',val:24000},{name:'其他页面',val:20000,other:true},
-   {name:'POI页',val:12000},{name:'询价页',val:6000},{name:'平台首页',val:4200}],
+  [{name:'平台首页', val:128000},{name:'乘客首页', val:104000}],
+  // 第1步（从首页几乎可到达任意页面，含在途履约页——恢复进行中订单/推送深链/查看已完成行程等）
+  [{name:'乘客首页',val:92000},{name:'询价页',val:62000},{name:'登录页',val:40000},{name:'POI页',val:28000},
+   {name:'其他页面',val:24000,other:true},{name:'发单动画',val:16000},{name:'平台首页',val:12000},
+   {name:'等待接单页',val:8000},{name:'确认同行页',val:5000},{name:'顺风车履约-待车主接单',val:4200},
+   {name:'支付页',val:3000},{name:'顺风车履约-待乘客上车',val:2600},{name:'风控预付页',val:2200},
+   {name:'顺风车履约-行程完成',val:1900},{name:'顺风车履约-订单取消',val:1500},{name:'顺风车履约-待乘客确认',val:1200},
+   {name:'顺风车履约-待车主到达起点',val:900},{name:'顺风车履约-待司乘到达终点',val:700}],
   // 第2步
-  [{name:'登录页',val:42000},{name:'POI页',val:30000},{name:'乘客首页',val:14000},
-   {name:'询价页',val:9000},{name:'发单动画',val:3000}],
+  [{name:'询价页',val:98000},{name:'POI页',val:42000},{name:'发单动画',val:32000},{name:'登录页',val:20000},
+   {name:'乘客首页',val:16000},{name:'其他页面',val:14000,other:true},{name:'等待接单页',val:12000},
+   {name:'确认同行页',val:8000},{name:'风控预付页',val:6000},{name:'支付页',val:4000}],
   // 第3步
-  [{name:'POI页',val:48000},{name:'询价页',val:22000},{name:'登录页',val:8000},
-   {name:'乘客首页',val:5000}],
+  [{name:'询价页',val:90000},{name:'发单动画',val:54000},{name:'等待接单页',val:32000},{name:'POI页',val:16000},
+   {name:'确认同行页',val:14000},{name:'风控预付页',val:10000},{name:'支付页',val:7000},{name:'乘客首页',val:5000},
+   {name:'其他页面',val:4000,other:true}],
   // 第4步
-  [{name:'询价页',val:46000},{name:'发单动画',val:18000},{name:'POI页',val:9000},
-   {name:'等待接单页',val:4000}],
+  [{name:'发单动画',val:92000},{name:'等待接单页',val:46000},{name:'确认同行页',val:28000},{name:'询价页',val:15000},
+   {name:'风控预付页',val:13000},{name:'支付页',val:9000},{name:'顺风车履约-待车主接单',val:6000},{name:'POI页',val:4000}],
   // 第5步
-  [{name:'发单动画',val:40000},{name:'等待接单页',val:16000},{name:'询价页',val:7000}],
+  [{name:'等待接单页',val:86000},{name:'确认同行页',val:42000},{name:'风控预付页',val:26000},{name:'支付页',val:17000},
+   {name:'发单动画',val:9000},{name:'顺风车履约-待车主接单',val:8000},{name:'顺风车履约-订单取消',val:5000}],
   // 第6步
-  [{name:'等待接单页',val:38000},{name:'确认同行页',val:15000},{name:'发单动画',val:5000}],
-  // 第7步：进入履约流程
-  [{name:'确认同行页',val:34000},{name:'履约-待车主接单',val:9000},{name:'履约-订单取消',val:5000}],
-  // 第8步
-  [{name:'履约-待车主接单',val:18000},{name:'履约-待乘客确认',val:8000},{name:'履约-订单取消',val:4000}],
+  [{name:'确认同行页',val:78000},{name:'风控预付页',val:42000},{name:'支付页',val:28000},{name:'等待接单页',val:11000},
+   {name:'顺风车履约-待车主接单',val:9000},{name:'顺风车履约-订单取消',val:6000}],
+  // 第7步：风控预付 → 支付
+  [{name:'风控预付页',val:70000},{name:'支付页',val:46000},{name:'确认同行页',val:13000},
+   {name:'顺风车履约-待车主接单',val:11000},{name:'顺风车履约-订单取消',val:7000}],
+  // 第8步：进入顺风车履约（示例展示顺风车履约，状态同打车）
+  [{name:'支付页',val:74000},{name:'顺风车履约-待车主接单',val:32000},{name:'风控预付页',val:11000},
+   {name:'顺风车履约-订单取消',val:9000},{name:'顺风车履约-待乘客确认',val:6000}],
   // 第9步
-  [{name:'履约-待乘客确认',val:14000},{name:'履约-待车主到达起点',val:9000},{name:'履约-订单取消',val:3000}],
+  [{name:'顺风车履约-待车主接单',val:66000},{name:'顺风车履约-待乘客确认',val:24000},{name:'顺风车履约-订单取消',val:13000},
+   {name:'支付页',val:7000},{name:'顺风车履约-待车主到达起点',val:5000}],
   // 第10步
-  [{name:'履约-待车主到达起点',val:13000},{name:'履约-待乘客上车',val:7000},{name:'履约-待司乘到达终点',val:4000},{name:'履约-行程完成',val:3000}]
+  [{name:'顺风车履约-待乘客确认',val:58000},{name:'顺风车履约-待车主到达起点',val:30000},{name:'顺风车履约-订单取消',val:9000},
+   {name:'顺风车履约-待车主接单',val:6000},{name:'顺风车履约-待乘客上车',val:5000}],
+  // 第11步
+  [{name:'顺风车履约-待车主到达起点',val:54000},{name:'顺风车履约-待乘客上车',val:28000},{name:'顺风车履约-待司乘到达终点',val:13000},
+   {name:'顺风车履约-订单取消',val:6000}],
+  // 第12步
+  [{name:'顺风车履约-待乘客上车',val:48000},{name:'顺风车履约-待司乘到达终点',val:26000},{name:'顺风车履约-行程完成',val:18000},
+   {name:'顺风车履约-待车主到达起点',val:6000}],
+  // 第13步：行程完成后返回/复购（同一时间窗内的重复使用）
+  [{name:'顺风车履约-行程完成',val:44000},{name:'平台首页',val:22000},{name:'乘客首页',val:16000},
+   {name:'其他页面',val:10000,other:true},{name:'顺风车履约-待司乘到达终点',val:5000}],
+  // 第14步
+  [{name:'乘客首页',val:40000},{name:'平台首页',val:24000},{name:'询价页',val:20000},
+   {name:'其他页面',val:9000,other:true},{name:'登录页',val:5000}],
+  // 第15步（二次下单探索）
+  [{name:'询价页',val:52000},{name:'POI页',val:24000},{name:'乘客首页',val:14000},{name:'发单动画',val:10000},
+   {name:'登录页',val:6000},{name:'其他页面',val:4000,other:true}],
+  // 第16步
+  [{name:'询价页',val:54000},{name:'发单动画',val:30000},{name:'等待接单页',val:16000},{name:'POI页',val:8000},{name:'确认同行页',val:6000}],
+  // 第17步
+  [{name:'发单动画',val:52000},{name:'等待接单页',val:28000},{name:'确认同行页',val:18000},{name:'风控预付页',val:9000},{name:'询价页',val:6000}],
+  // 第18步
+  [{name:'等待接单页',val:50000},{name:'确认同行页',val:28000},{name:'风控预付页',val:18000},{name:'支付页',val:10000},{name:'发单动画',val:6000}],
+  // 第19步
+  [{name:'确认同行页',val:48000},{name:'风控预付页',val:28000},{name:'支付页',val:18000},{name:'顺风车履约-待车主接单',val:8000},{name:'等待接单页',val:5000}],
+  // 第20步
+  [{name:'风控预付页',val:46000},{name:'支付页',val:30000},{name:'顺风车履约-待车主接单',val:14000},{name:'顺风车履约-订单取消',val:6000}],
+  // 第21步
+  [{name:'支付页',val:48000},{name:'顺风车履约-待车主接单',val:26000},{name:'顺风车履约-待乘客确认',val:12000},{name:'顺风车履约-订单取消',val:6000}],
+  // 第22步
+  [{name:'顺风车履约-待车主接单',val:44000},{name:'顺风车履约-待乘客确认',val:24000},{name:'顺风车履约-待车主到达起点',val:14000},{name:'顺风车履约-订单取消',val:5000}],
+  // 第23步
+  [{name:'顺风车履约-待乘客确认',val:42000},{name:'顺风车履约-待车主到达起点',val:24000},{name:'顺风车履约-待乘客上车',val:14000},{name:'顺风车履约-待司乘到达终点',val:7000}],
+  // 第24步
+  [{name:'顺风车履约-待乘客上车',val:40000},{name:'顺风车履约-待司乘到达终点',val:24000},{name:'顺风车履约-行程完成',val:16000},{name:'顺风车履约-待车主到达起点',val:6000}]
 ];
 
 // 各页面的总 PV / UV（页面维度汇总，模拟数据）
@@ -925,13 +984,15 @@ const pageStats = {
   '发单动画':   {pv:86000,  uv:62000},
   '等待接单页': {pv:80000,  uv:58000},
   '确认同行页': {pv:72000,  uv:53000},
-  '履约-订单取消':        {pv:18000, uv:14500},
-  '履约-待车主接单':      {pv:54000, uv:42000},
-  '履约-待乘客确认':      {pv:46000, uv:36000},
-  '履约-待车主到达起点':  {pv:42000, uv:33500},
-  '履约-待乘客上车':      {pv:36000, uv:29000},
-  '履约-待司乘到达终点':  {pv:31000, uv:25500},
-  '履约-行程完成':        {pv:27000, uv:23000}
+  '风控预付页': {pv:64000,  uv:49000},
+  '支付页':     {pv:60000,  uv:46000},
+  '顺风车履约-订单取消':        {pv:18000, uv:14500},
+  '顺风车履约-待车主接单':      {pv:54000, uv:42000},
+  '顺风车履约-待乘客确认':      {pv:46000, uv:36000},
+  '顺风车履约-待车主到达起点':  {pv:42000, uv:33500},
+  '顺风车履约-待乘客上车':      {pv:36000, uv:29000},
+  '顺风车履约-待司乘到达终点':  {pv:31000, uv:25500},
+  '顺风车履约-行程完成':        {pv:27000, uv:23000}
 };
 
 // 根据 topX 切分 Top 节点与「更多」，并计算每步终止
@@ -1052,7 +1113,7 @@ function renderSankey(){
     sankeyChart = echarts.init(document.getElementById('sankey'));
     sankeyChart.getZr().on('click', e=>{ if(!e.target){ closeNodePop(); if(pathHL){ pathHL=null; renderSankey(); } } }); // 点击空白处关闭浮层并取消高亮
   }
-  const {nodes, links, stepCount} = buildSankey();
+  const {nodes, links, stepNodes, stepCount} = buildSankey();
   curLinks = links;
   // 计算每个节点的流量(取进/出较大值)用于展示 PV
   const inSum={}, outSum={}, nodeVal={}, lossByNode={};
@@ -1096,7 +1157,10 @@ function renderSankey(){
   const nodeW = Math.round(Math.max(78, Math.min(120, 880/(stepCount+1))));
   // 步数多时按需加宽画布，超出容器则在外层横向滚动
   (function(){ const el=document.getElementById('sankey'); const wrapW=el.parentElement?el.parentElement.clientWidth:el.clientWidth;
-    el.style.width = Math.max(wrapW, (stepCount+1)*150) + 'px'; if(sankeyChart) sankeyChart.resize(); })();
+    el.style.width = Math.max(wrapW, (stepCount+1)*150) + 'px';
+    let maxCol=0; stepNodes.forEach((list,s)=>{ const c=list.length+(s<stepCount?1:0); if(c>maxCol)maxCol=c; }); // 每列实际节点数（含终止）
+    el.style.height = Math.max(700, maxCol*74) + 'px';  // 高度按最密集列的节点数自适应，不受 Top 上限虚高
+    if(sankeyChart) sankeyChart.resize(); })();
   sankeyChart.setOption({
     tooltip:{trigger:'item',triggerOn:'mousemove',
       formatter:p=>{
@@ -1218,13 +1282,22 @@ let pageConfig = [
   {id:'dispatch_anim',  name:'发单动画',           img:'', upTime:'2026-06-05 14:31', upBy:'王恳'},
   {id:'waiting',        name:'等待接单页',         img:'', upTime:'2026-06-05 14:32', upBy:'王恳'},
   {id:'confirm',        name:'确认同行页',         img:'', upTime:'2026-06-06 11:00', upBy:'王恳'},
-  {id:'fulfill_cancel', name:'履约-订单取消',      img:'', upTime:'2026-06-08 16:00', upBy:'王恳'},
-  {id:'fulfill_wait_d', name:'履约-待车主接单',    img:'', upTime:'2026-06-08 16:01', upBy:'王恳'},
-  {id:'fulfill_wait_p', name:'履约-待乘客确认',    img:'', upTime:'2026-06-08 16:02', upBy:'王恳'},
-  {id:'fulfill_d_start',name:'履约-待车主到达起点',img:'', upTime:'2026-06-08 16:03', upBy:'王恳'},
-  {id:'fulfill_p_board',name:'履约-待乘客上车',    img:'', upTime:'2026-06-08 16:04', upBy:'王恳'},
-  {id:'fulfill_arrive', name:'履约-待司乘到达终点',img:'', upTime:'2026-06-08 16:05', upBy:'王恳'},
-  {id:'fulfill_done',   name:'履约-行程完成',      img:'', upTime:'2026-06-08 16:06', upBy:'王恳'}
+  {id:'risk_prepay',    name:'风控预付页',         img:'', upTime:'2026-06-07 10:00', upBy:'王恳'},
+  {id:'pay',            name:'支付页',             img:'', upTime:'2026-06-07 10:01', upBy:'王恳'},
+  {id:'sfc_cancel',     name:'顺风车履约-订单取消',      img:'', upTime:'2026-06-08 16:00', upBy:'王恳'},
+  {id:'sfc_wait_d',     name:'顺风车履约-待车主接单',    img:'', upTime:'2026-06-08 16:01', upBy:'王恳'},
+  {id:'sfc_wait_p',     name:'顺风车履约-待乘客确认',    img:'', upTime:'2026-06-08 16:02', upBy:'王恳'},
+  {id:'sfc_d_start',    name:'顺风车履约-待车主到达起点',img:'', upTime:'2026-06-08 16:03', upBy:'王恳'},
+  {id:'sfc_p_board',    name:'顺风车履约-待乘客上车',    img:'', upTime:'2026-06-08 16:04', upBy:'王恳'},
+  {id:'sfc_arrive',     name:'顺风车履约-待司乘到达终点',img:'', upTime:'2026-06-08 16:05', upBy:'王恳'},
+  {id:'sfc_done',       name:'顺风车履约-行程完成',      img:'', upTime:'2026-06-08 16:06', upBy:'王恳'},
+  {id:'dc_cancel',      name:'打车履约-订单取消',      img:'', upTime:'2026-06-08 16:10', upBy:'王恳'},
+  {id:'dc_wait_d',      name:'打车履约-待车主接单',    img:'', upTime:'2026-06-08 16:11', upBy:'王恳'},
+  {id:'dc_wait_p',      name:'打车履约-待乘客确认',    img:'', upTime:'2026-06-08 16:12', upBy:'王恳'},
+  {id:'dc_d_start',     name:'打车履约-待车主到达起点',img:'', upTime:'2026-06-08 16:13', upBy:'王恳'},
+  {id:'dc_p_board',     name:'打车履约-待乘客上车',    img:'', upTime:'2026-06-08 16:14', upBy:'王恳'},
+  {id:'dc_arrive',      name:'打车履约-待司乘到达终点',img:'', upTime:'2026-06-08 16:15', upBy:'王恳'},
+  {id:'dc_done',        name:'打车履约-行程完成',      img:'', upTime:'2026-06-08 16:16', upBy:'王恳'}
 ];
 function nowStr(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
 // 用配置清单重新填充三个页面下拉，尽量保留原选中值
@@ -1238,7 +1311,9 @@ function renderPageSelects(){
     else if(opts.includes(prev)) sel.value = prev;
   };
   fill('startPageSel', names.concat(['不限']));
-  fill('endPageSel', ['不限'].concat(names));
+  // 终止页面：乘客首页按业务线拆成「打车乘客首页」「顺风车乘客首页」
+  const endNames = names.flatMap(n => n==='乘客首页' ? ['打车乘客首页','顺风车乘客首页'] : [n]);
+  fill('endPageSel', ['不限'].concat(endNames));
   fill('pageSelect', names, names.includes('询价页') ? '询价页' : names[0]);
   const bc = document.getElementById('drillPageName');
   if(bc){ const sel=document.getElementById('pageSelect'); if(sel) bc.innerText=sel.value; }
@@ -1269,19 +1344,31 @@ function renderPageCfgTable(){
 let pageCfgEditIndex = null;
 let pageCfgImgData = '';
 let pageCfgCmpImgData = '';
+let pcfgParams = [];  // 当前弹窗的页面参数列表
 function openPageCfgModal(i){
   pageCfgEditIndex = (typeof i==='number') ? i : null;
-  const p = pageCfgEditIndex!=null ? pageConfig[pageCfgEditIndex] : {id:'',name:'',img:'',cmpId:'',cmpName:'',cmpImg:''};
+  const p = pageCfgEditIndex!=null ? pageConfig[pageCfgEditIndex] : {id:'',name:'',split:false,params:[],analysis:false};
   document.getElementById('pcfgTitle').innerText = pageCfgEditIndex!=null ? '编辑页面' : '新增页面';
-  document.getElementById('pcfgId').value = p.id;
-  document.getElementById('pcfgName').value = p.name;
-  document.getElementById('pcfgCmpId').value = p.cmpId || '';
-  document.getElementById('pcfgCmpName').value = p.cmpName || '';
-  pageCfgImgData = p.img || '';
-  pageCfgCmpImgData = p.cmpImg || '';
-  renderPcfgPreview(); renderPcfgCmpPreview();
+  document.getElementById('pcfgId').value = p.id || '';
+  document.getElementById('pcfgName').value = p.name || '';
+  document.getElementById('pcfgSplit').checked = !!p.split;
+  pcfgParams = (p.params || []).slice();
+  if(pcfgParams.length===0) pcfgParams = [''];
+  document.getElementById('pcfgAnalysis').checked = !!p.analysis;
+  renderPcfgParams();
   document.getElementById('pageCfgModal').style.display = 'flex';
 }
+function renderPcfgParams(){
+  const el = document.getElementById('pcfgParamsList'); if(!el) return;
+  el.innerHTML = pcfgParams.map((v,i)=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+      <input value="${(v||'').replace(/"/g,'&quot;')}" placeholder="页面参数，如 source=elevator" oninput="setPcfgParam(${i},this.value)" style="flex:1;padding:7px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      <span onclick="delPcfgParam(${i})" title="删除" style="cursor:pointer;color:#d03050;font-size:18px;line-height:1;flex:none;">×</span>
+    </div>`).join('');
+}
+function setPcfgParam(i,v){ pcfgParams[i]=v; }
+function addPcfgParam(){ pcfgParams.push(''); renderPcfgParams(); }
+function delPcfgParam(i){ pcfgParams.splice(i,1); renderPcfgParams(); }
 function closePageCfgModal(){ document.getElementById('pageCfgModal').style.display='none'; }
 function renderPcfgPreview(){
   const box = document.getElementById('pcfgPreview'); if(!box) return;
@@ -1310,12 +1397,14 @@ function onPcfgCmpFile(input){
 function savePageCfgModal(){
   const id = document.getElementById('pcfgId').value.trim();
   const name = document.getElementById('pcfgName').value.trim();
-  const cmpId = document.getElementById('pcfgCmpId').value.trim();
-  const cmpName = document.getElementById('pcfgCmpName').value.trim();
   if(!id){ alert('请填写页面ID'); return; }
   if(!name){ alert('请填写页面名称'); return; }
   if(pageConfig.some((x,idx)=>idx!==pageCfgEditIndex && x.id===id)){ alert('该页面ID已存在'); return; }
-  const data = {id, name, img:pageCfgImgData, cmpId, cmpName, cmpImg:pageCfgCmpImgData, upTime:nowStr(), upBy:'当前用户'};
+  const split = document.getElementById('pcfgSplit').checked;
+  const params = pcfgParams.map(s=>(s||'').trim()).filter(Boolean);
+  const analysis = document.getElementById('pcfgAnalysis').checked;
+  // 不含 img/cmp 字段：编辑时保留已有效果图与对比版本数据，不被清空
+  const data = {id, name, split, params, analysis, upTime:nowStr(), upBy:'当前用户'};
   if(pageCfgEditIndex!=null) Object.assign(pageConfig[pageCfgEditIndex], data);
   else pageConfig.push(data);
   closePageCfgModal();
