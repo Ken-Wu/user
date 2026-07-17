@@ -679,9 +679,13 @@
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
           <div>
             <div style="font-size:13px;font-weight:600;color:#1f2d3d;">页面拆分</div>
-            <div style="font-size:11px;color:#95a3b3;margin-top:2px;">开启后按上方「参数配置」中的参数拆分该页面</div>
+            <div style="font-size:11px;color:#95a3b3;margin-top:2px;">开启后可再添加多个拆分参数（与上方参数配置相互独立）</div>
           </div>
-          <label class="sw"><input type="checkbox" id="pcfgSplit"><span></span></label>
+          <label class="sw"><input type="checkbox" id="pcfgSplit" onchange="onPcfgSplitToggle()"><span></span></label>
+        </div>
+        <div id="pcfgSplitWrap" style="display:none;">
+          <div id="pcfgSplitList"></div>
+          <a href="javascript:void(0)" onclick="addPcfgSplitParam()" style="color:#2f6fed;font-size:12px;">+ 添加拆分参数</a>
         </div>
         <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px dashed #eef1f5;padding-top:14px;">
           <div>
@@ -1344,19 +1348,28 @@ function renderPageCfgTable(){
 let pageCfgEditIndex = null;
 let pageCfgImgData = '';
 let pageCfgCmpImgData = '';
-let pcfgParams = [];  // 当前弹窗的页面参数列表
+let pcfgParams = [];       // 页面名称下方的「参数配置」
+let pcfgSplitParams = [];  // 页面拆分打开后的「拆分参数」（多个，与参数配置独立）
 function openPageCfgModal(i){
   pageCfgEditIndex = (typeof i==='number') ? i : null;
-  const p = pageCfgEditIndex!=null ? pageConfig[pageCfgEditIndex] : {id:'',name:'',split:false,params:[],analysis:false};
+  const p = pageCfgEditIndex!=null ? pageConfig[pageCfgEditIndex] : {id:'',name:'',params:[],split:false,splitParams:[],analysis:false};
   document.getElementById('pcfgTitle').innerText = pageCfgEditIndex!=null ? '编辑页面' : '新增页面';
   document.getElementById('pcfgId').value = p.id || '';
   document.getElementById('pcfgName').value = p.name || '';
-  document.getElementById('pcfgSplit').checked = !!p.split;
   pcfgParams = (p.params || []).slice();
   if(pcfgParams.length===0) pcfgParams = [''];
-  document.getElementById('pcfgAnalysis').checked = !!p.analysis;
   renderPcfgParams();
+  document.getElementById('pcfgSplit').checked = !!p.split;
+  pcfgSplitParams = (p.splitParams || []).slice();
+  onPcfgSplitToggle();
+  document.getElementById('pcfgAnalysis').checked = !!p.analysis;
   document.getElementById('pageCfgModal').style.display = 'flex';
+}
+function onPcfgSplitToggle(){
+  const on = document.getElementById('pcfgSplit').checked;
+  if(on && pcfgSplitParams.length===0) pcfgSplitParams = [''];
+  const wrap = document.getElementById('pcfgSplitWrap'); if(wrap) wrap.style.display = on ? 'block' : 'none';
+  renderPcfgSplitParams();
 }
 function renderPcfgParams(){
   const el = document.getElementById('pcfgParamsList'); if(!el) return;
@@ -1369,6 +1382,17 @@ function renderPcfgParams(){
 function setPcfgParam(i,v){ pcfgParams[i]=v; }
 function addPcfgParam(){ pcfgParams.push(''); renderPcfgParams(); }
 function delPcfgParam(i){ pcfgParams.splice(i,1); renderPcfgParams(); }
+function renderPcfgSplitParams(){
+  const el = document.getElementById('pcfgSplitList'); if(!el) return;
+  el.innerHTML = pcfgSplitParams.map((v,i)=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+      <input value="${(v||'').replace(/"/g,'&quot;')}" placeholder="拆分参数，如 tab=recommend" oninput="setPcfgSplitParam(${i},this.value)" style="flex:1;padding:7px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      <span onclick="delPcfgSplitParam(${i})" title="删除" style="cursor:pointer;color:#d03050;font-size:18px;line-height:1;flex:none;">×</span>
+    </div>`).join('');
+}
+function setPcfgSplitParam(i,v){ pcfgSplitParams[i]=v; }
+function addPcfgSplitParam(){ pcfgSplitParams.push(''); renderPcfgSplitParams(); }
+function delPcfgSplitParam(i){ pcfgSplitParams.splice(i,1); renderPcfgSplitParams(); }
 function closePageCfgModal(){ document.getElementById('pageCfgModal').style.display='none'; }
 function renderPcfgPreview(){
   const box = document.getElementById('pcfgPreview'); if(!box) return;
@@ -1402,9 +1426,10 @@ function savePageCfgModal(){
   if(pageConfig.some((x,idx)=>idx!==pageCfgEditIndex && x.id===id)){ alert('该页面ID已存在'); return; }
   const split = document.getElementById('pcfgSplit').checked;
   const params = pcfgParams.map(s=>(s||'').trim()).filter(Boolean);
+  const splitParams = split ? pcfgSplitParams.map(s=>(s||'').trim()).filter(Boolean) : [];
   const analysis = document.getElementById('pcfgAnalysis').checked;
   // 不含 img/cmp 字段：编辑时保留已有效果图与对比版本数据，不被清空
-  const data = {id, name, split, params, analysis, upTime:nowStr(), upBy:'当前用户'};
+  const data = {id, name, params, split, splitParams, analysis, upTime:nowStr(), upBy:'当前用户'};
   if(pageCfgEditIndex!=null) Object.assign(pageConfig[pageCfgEditIndex], data);
   else pageConfig.push(data);
   closePageCfgModal();
