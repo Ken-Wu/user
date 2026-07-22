@@ -654,46 +654,35 @@
 
 <!-- 核心页面配置 新增/编辑 弹窗 -->
 <div id="pageCfgModal" onclick="if(event.target===this)closePageCfgModal()" style="display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:210;align-items:center;justify-content:center;">
-  <div style="position:relative;background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:440px;max-width:92vw;">
+  <div style="position:relative;background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:600px;max-width:94vw;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
       <span id="pcfgTitle" style="font-size:16px;font-weight:600;color:#1f2d3d;">新增页面</span>
       <span onclick="closePageCfgModal()" style="cursor:pointer;color:#b0bac7;font-size:22px;line-height:1;">×</span>
     </div>
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面ID</label>
-        <input id="pcfgId" type="text" placeholder="英文标识，如 inquiry" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:6px;">页面类型</label>
+        <div style="display:flex;gap:24px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;"><input type="radio" name="pcfgType" value="single" onchange="onPcfgTypeChange('single')">单页面分析</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;"><input type="radio" name="pcfgType" value="multi" onchange="onPcfgTypeChange('multi')">多页面聚合数据</label>
+        </div>
       </div>
       <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面名称</label>
-        <input id="pcfgName" type="text" placeholder="如 询价页" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面 · ID 与名称</label>
+        <div id="pcfgPagesList"></div>
+        <a id="pcfgAddPageLink" href="javascript:void(0)" onclick="addPcfgPage()" style="color:#2f6fed;font-size:12px;display:none;">+ 添加页面</a>
       </div>
       <div>
         <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">参数配置</label>
         <div id="pcfgParamsList"></div>
         <a href="javascript:void(0)" onclick="addPcfgParam()" style="color:#2f6fed;font-size:12px;">+ 添加参数</a>
       </div>
-      <div style="font-size:12px;color:#95a3b3;background:#f6f8fb;border-radius:6px;padding:9px 11px;line-height:1.6;">效果图请在「热力图配置」中上传，上传后可直接在图上绘制热力区域。</div>
-
-      <div style="border-top:1px dashed #e2e8f2;padding-top:14px;display:flex;flex-direction:column;gap:14px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
-          <div>
-            <div style="font-size:13px;font-weight:600;color:#1f2d3d;">页面拆分</div>
-            <div style="font-size:11px;color:#95a3b3;margin-top:2px;">开启后可再添加多个拆分参数（与上方参数配置相互独立）</div>
-          </div>
-          <label class="sw"><input type="checkbox" id="pcfgSplit" onchange="onPcfgSplitToggle()"><span></span></label>
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px dashed #eef1f5;padding-top:14px;">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:#1f2d3d;">页面分析</div>
+          <div style="font-size:11px;color:#95a3b3;margin-top:2px;">开启后该页面纳入「页面分析」的可选页面</div>
         </div>
-        <div id="pcfgSplitWrap" style="display:none;">
-          <div id="pcfgSplitList"></div>
-          <a href="javascript:void(0)" onclick="addPcfgSplitParam()" style="color:#2f6fed;font-size:12px;">+ 添加拆分参数</a>
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;border-top:1px dashed #eef1f5;padding-top:14px;">
-          <div>
-            <div style="font-size:13px;font-weight:600;color:#1f2d3d;">页面分析</div>
-            <div style="font-size:11px;color:#95a3b3;margin-top:2px;">开启后该页面纳入「页面分析」的可选页面</div>
-          </div>
-          <label class="sw"><input type="checkbox" id="pcfgAnalysis"><span></span></label>
-        </div>
+        <label class="sw"><input type="checkbox" id="pcfgAnalysis"><span></span></label>
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:18px;">
@@ -1331,7 +1320,7 @@ function renderPageCfgTable(){
       : '<span style="color:#c0c6cf;">—</span>';
     html += `<tr>
       <td style="color:#7f8c9b;">${p.id}</td>
-      <td>${p.name}</td>
+      <td>${p.name}${p.pageType==='multi' && p.pages ? ` <span style="font-size:11px;color:#95a3b3;">· 聚合${p.pages.length}页</span>` : ''}</td>
       <td>${thumb}</td>
       <td>${p.upTime}</td>
       <td>${p.upBy}</td>
@@ -1348,29 +1337,45 @@ function renderPageCfgTable(){
 let pageCfgEditIndex = null;
 let pageCfgImgData = '';
 let pageCfgCmpImgData = '';
-let pcfgParams = [];       // 页面名称下方的「参数配置」
-let pcfgSplitParams = [];  // 页面拆分打开后的「拆分参数」（多个，与参数配置独立）
+let pcfgParams = [];   // 「参数配置」
+let pcfgPageType = 'single';           // single=单页面分析 / multi=多页面聚合数据
+let pcfgPages = [{id:'',name:''}];     // 页面 ID+名称 列表（单页面 1 项 / 多页面聚合多项）
 function openPageCfgModal(i){
   pageCfgEditIndex = (typeof i==='number') ? i : null;
-  const p = pageCfgEditIndex!=null ? pageConfig[pageCfgEditIndex] : {id:'',name:'',params:[],split:false,splitParams:[],analysis:false};
+  const p = pageCfgEditIndex!=null ? pageConfig[pageCfgEditIndex] : {id:'',name:'',pageType:'single',pages:[],params:[],analysis:false};
   document.getElementById('pcfgTitle').innerText = pageCfgEditIndex!=null ? '编辑页面' : '新增页面';
-  document.getElementById('pcfgId').value = p.id || '';
-  document.getElementById('pcfgName').value = p.name || '';
+  pcfgPageType = p.pageType || 'single';
+  pcfgPages = (p.pages && p.pages.length) ? p.pages.map(x=>({id:x.id||'',name:x.name||''})) : [{id:p.id||'',name:p.name||''}];
+  if(pcfgPages.length===0) pcfgPages = [{id:'',name:''}];
+  if(pcfgPageType==='single') pcfgPages = [pcfgPages[0]];
+  document.querySelectorAll('input[name="pcfgType"]').forEach(r=>{ r.checked = (r.value===pcfgPageType); });
+  renderPcfgPages();
   pcfgParams = (p.params || []).slice();
   if(pcfgParams.length===0) pcfgParams = [''];
   renderPcfgParams();
-  document.getElementById('pcfgSplit').checked = !!p.split;
-  pcfgSplitParams = (p.splitParams || []).slice();
-  onPcfgSplitToggle();
   document.getElementById('pcfgAnalysis').checked = !!p.analysis;
   document.getElementById('pageCfgModal').style.display = 'flex';
 }
-function onPcfgSplitToggle(){
-  const on = document.getElementById('pcfgSplit').checked;
-  if(on && pcfgSplitParams.length===0) pcfgSplitParams = [''];
-  const wrap = document.getElementById('pcfgSplitWrap'); if(wrap) wrap.style.display = on ? 'block' : 'none';
-  renderPcfgSplitParams();
+function onPcfgTypeChange(t){
+  pcfgPageType = t;
+  if(t==='single' && pcfgPages.length>1) pcfgPages = [pcfgPages[0]];
+  if(pcfgPages.length===0) pcfgPages = [{id:'',name:''}];
+  renderPcfgPages();
 }
+function renderPcfgPages(){
+  const el = document.getElementById('pcfgPagesList'); if(!el) return;
+  const multi = pcfgPageType==='multi';
+  el.innerHTML = pcfgPages.map((pg,i)=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+      <input value="${(pg.id||'').replace(/"/g,'&quot;')}" placeholder="页面ID，如 inquiry" oninput="setPcfgPage(${i},'id',this.value)" style="flex:1;min-width:0;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      <input value="${(pg.name||'').replace(/"/g,'&quot;')}" placeholder="页面名称，如 询价页" oninput="setPcfgPage(${i},'name',this.value)" style="flex:1;min-width:0;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      ${multi ? `<span onclick="delPcfgPage(${i})" title="删除" style="cursor:pointer;color:#d03050;font-size:18px;line-height:1;flex:none;width:16px;text-align:center;">×</span>` : ''}
+    </div>`).join('');
+  const link = document.getElementById('pcfgAddPageLink'); if(link) link.style.display = multi ? 'inline' : 'none';
+}
+function setPcfgPage(i,field,v){ if(pcfgPages[i]) pcfgPages[i][field]=v; }
+function addPcfgPage(){ pcfgPages.push({id:'',name:''}); renderPcfgPages(); }
+function delPcfgPage(i){ if(pcfgPages.length<=1) return; pcfgPages.splice(i,1); renderPcfgPages(); }
 function renderPcfgParams(){
   const el = document.getElementById('pcfgParamsList'); if(!el) return;
   el.innerHTML = pcfgParams.map((v,i)=>`
@@ -1382,17 +1387,6 @@ function renderPcfgParams(){
 function setPcfgParam(i,v){ pcfgParams[i]=v; }
 function addPcfgParam(){ pcfgParams.push(''); renderPcfgParams(); }
 function delPcfgParam(i){ pcfgParams.splice(i,1); renderPcfgParams(); }
-function renderPcfgSplitParams(){
-  const el = document.getElementById('pcfgSplitList'); if(!el) return;
-  el.innerHTML = pcfgSplitParams.map((v,i)=>`
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-      <input value="${(v||'').replace(/"/g,'&quot;')}" placeholder="拆分参数，如 tab=recommend" oninput="setPcfgSplitParam(${i},this.value)" style="flex:1;padding:7px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
-      <span onclick="delPcfgSplitParam(${i})" title="删除" style="cursor:pointer;color:#d03050;font-size:18px;line-height:1;flex:none;">×</span>
-    </div>`).join('');
-}
-function setPcfgSplitParam(i,v){ pcfgSplitParams[i]=v; }
-function addPcfgSplitParam(){ pcfgSplitParams.push(''); renderPcfgSplitParams(); }
-function delPcfgSplitParam(i){ pcfgSplitParams.splice(i,1); renderPcfgSplitParams(); }
 function closePageCfgModal(){ document.getElementById('pageCfgModal').style.display='none'; }
 function renderPcfgPreview(){
   const box = document.getElementById('pcfgPreview'); if(!box) return;
@@ -1419,17 +1413,16 @@ function onPcfgCmpFile(input){
   reader.readAsDataURL(f);
 }
 function savePageCfgModal(){
-  const id = document.getElementById('pcfgId').value.trim();
-  const name = document.getElementById('pcfgName').value.trim();
-  if(!id){ alert('请填写页面ID'); return; }
-  if(!name){ alert('请填写页面名称'); return; }
+  let pages = pcfgPages.map(pg=>({id:(pg.id||'').trim(), name:(pg.name||'').trim()})).filter(pg=>pg.id||pg.name);
+  if(pcfgPageType==='single') pages = pages.slice(0,1);
+  if(!pages.length || !pages[0].id || !pages[0].name){ alert('请填写页面ID和页面名称'); return; }
+  if(pages.some(pg=>!pg.id || !pg.name)){ alert('每个页面的ID和名称都需填写'); return; }
+  const id = pages[0].id, name = pages[0].name;  // 主标识：用于下拉/表格展示
   if(pageConfig.some((x,idx)=>idx!==pageCfgEditIndex && x.id===id)){ alert('该页面ID已存在'); return; }
-  const split = document.getElementById('pcfgSplit').checked;
   const params = pcfgParams.map(s=>(s||'').trim()).filter(Boolean);
-  const splitParams = split ? pcfgSplitParams.map(s=>(s||'').trim()).filter(Boolean) : [];
   const analysis = document.getElementById('pcfgAnalysis').checked;
-  // 不含 img/cmp 字段：编辑时保留已有效果图与对比版本数据，不被清空
-  const data = {id, name, params, split, splitParams, analysis, upTime:nowStr(), upBy:'当前用户'};
+  // 不含 img/cmp：编辑时保留已有效果图与对比版本数据
+  const data = {id, name, pageType:pcfgPageType, pages, params, analysis, upTime:nowStr(), upBy:'当前用户'};
   if(pageCfgEditIndex!=null) Object.assign(pageConfig[pageCfgEditIndex], data);
   else pageConfig.push(data);
   closePageCfgModal();
@@ -1958,9 +1951,11 @@ function renderModSankey(startName){
       const lv=Math.round(lossTotal*cShare); if(lv>0) links.push({source:cn.key,target:`S${s}·终止`,value:lv,loss:true});
     });
   }
-  const inSum={},outSum={},nodeVal={};
-  links.forEach(l=>{ outSum[l.source]=(outSum[l.source]||0)+l.value; inSum[l.target]=(inSum[l.target]||0)+l.value; });
+  const inSum={},outSum={},nodeVal={},lossByNode={};
+  links.forEach(l=>{ outSum[l.source]=(outSum[l.source]||0)+l.value; inSum[l.target]=(inSum[l.target]||0)+l.value;
+    if(l.loss) lossByNode[l.source]=(lossByNode[l.source]||0)+l.value; });
   nodes.forEach(n=>{ nodeVal[n.name]=Math.max(inSum[n.name]||0,outSum[n.name]||0); });
+  const modRepeat = {'品类列表-组':2.4,'商品列表':2.1,'电梯-组':1.8,'时间人数弹窗':1.4,'地图':1.5,'返回':1.2,'券包':1.6,'发单按钮':1.3,'安全中心':1.2,'代叫':1.1,'备注':1.1};
   const styledNodes = nodes.map(n=>{ const label=n.name.split('·').pop(); const c=modColor(label);
     return {name:n.name, value:nodeVal[n.name]||0,
       itemStyle:{color:modHexRgba(c,0.18), borderColor:c, borderWidth:1.4}, label:{color:'#3a4554'}}; });
@@ -1974,9 +1969,17 @@ function renderModSankey(startName){
   (function(){ const el=document.getElementById('modSankey'); const wrapW=el.parentElement?el.parentElement.clientWidth:el.clientWidth;
     el.style.width = Math.max(wrapW, (stepCount+1)*150) + 'px'; if(modSankeyChart) modSankeyChart.resize(); })();
   modSankeyChart.setOption({
-    tooltip:{trigger:'item', triggerOn:'mousemove', formatter:p=> p.dataType==='edge'
-      ? `${p.data.source.split('·').pop()} → ${p.data.target.split('·').pop()}<br/>操作量: <b>${p.data.value.toLocaleString()}</b>`
-      : `<b>${p.name.split('·').pop()}</b><br/>操作量: ${(p.value||0).toLocaleString()}`},
+    tooltip:{trigger:'item', triggerOn:'mousemove', formatter:p=>{
+      if(p.dataType==='edge') return `${p.data.source.split('·').pop()} → ${p.data.target.split('·').pop()}<br/>操作量: <b>${p.data.value.toLocaleString()}</b>`;
+      const label = p.name.split('·').pop();
+      if(label==='终止') return `<b>终止</b><br/>终止量: ${(p.value||0).toLocaleString()}`;
+      const clickPv = p.value||0;
+      const clickUv = Math.max(1, Math.round(clickPv/(modRepeat[label]||1.15)));
+      const loss = lossByNode[p.name]||0;
+      const out = outSum[p.name]||0;
+      const lossRate = out>0 ? loss/out : 0;
+      return `<b>${label}</b><br/>点击 PV: ${clickPv.toLocaleString()}<br/>点击 UV: ${clickUv.toLocaleString()}<br/>终止量: ${loss.toLocaleString()}<br/>终止率: ${(lossRate*100).toFixed(1)}%`;
+    }},
     series:[{type:'sankey', emphasis:{focus:'adjacency'}, draggable:false,
       left:'3%',right:'4%',top:'4%',bottom:'4%',
       nodeWidth:nodeW, nodeGap:11, nodeAlign:'left', layoutIterations:0,
