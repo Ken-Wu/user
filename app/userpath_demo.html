@@ -673,6 +673,13 @@
         <a id="pcfgAddPageLink" href="javascript:void(0)" onclick="addPcfgPage()" style="color:#2f6fed;font-size:12px;display:none;">+ 添加页面</a>
       </div>
       <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:6px;">页面分类（可多选）</label>
+        <div style="display:flex;gap:24px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;"><input type="checkbox" name="pcfgCat" value="乘客">乘客</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;"><input type="checkbox" name="pcfgCat" value="车主">车主</label>
+        </div>
+      </div>
+      <div>
         <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">参数配置</label>
         <div id="pcfgParamsList"></div>
         <a href="javascript:void(0)" onclick="addPcfgParam()" style="color:#2f6fed;font-size:12px;">+ 添加参数</a>
@@ -1292,6 +1299,8 @@ let pageConfig = [
   {id:'dc_arrive',      name:'打车履约-待司乘到达终点',img:'', upTime:'2026-06-08 16:15', upBy:'王恳'},
   {id:'dc_done',        name:'打车履约-行程完成',      img:'', upTime:'2026-06-08 16:16', upBy:'王恳'}
 ];
+// 兜底：未设置页面分类的历史页面按名称赋默认分类（履约含乘客+车主，其余乘客）
+pageConfig.forEach(p=>{ if(!p.category) p.category = /履约/.test(p.name) ? ['乘客','车主'] : ['乘客']; });
 function nowStr(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
 // 用配置清单重新填充三个页面下拉，尽量保留原选中值
 function renderPageSelects(){
@@ -1313,7 +1322,7 @@ function renderPageSelects(){
 }
 function renderPageCfgTable(){
   const el = document.getElementById('pageCfgTable'); if(!el) return;
-  let html = '<tr><th>页面ID</th><th>页面名称</th><th>页面效果图</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  let html = '<tr><th>页面ID</th><th>页面名称</th><th>页面分类</th><th>页面效果图</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
   pageConfig.forEach((p,i)=>{
     const thumb = p.img
       ? `<img src="${p.img}" alt="" style="height:40px;width:auto;border:1px solid #eef1f5;border-radius:4px;vertical-align:middle;cursor:pointer;" onclick="previewCfgImg('${p.img}')">`
@@ -1321,6 +1330,7 @@ function renderPageCfgTable(){
     html += `<tr>
       <td style="color:#7f8c9b;">${p.id}</td>
       <td>${p.name}${p.pageType==='multi' && p.pages ? ` <span style="font-size:11px;color:#95a3b3;">· 聚合${p.pages.length}页</span>` : ''}</td>
+      <td>${(p.category||[]).join('、')||'—'}</td>
       <td>${thumb}</td>
       <td>${p.upTime}</td>
       <td>${p.upBy}</td>
@@ -1353,6 +1363,8 @@ function openPageCfgModal(i){
   pcfgParams = (p.params || []).slice();
   if(pcfgParams.length===0) pcfgParams = [''];
   renderPcfgParams();
+  const cats = p.category || [];
+  document.querySelectorAll('input[name="pcfgCat"]').forEach(c=>{ c.checked = cats.includes(c.value); });
   document.getElementById('pcfgAnalysis').checked = !!p.analysis;
   document.getElementById('pageCfgModal').style.display = 'flex';
 }
@@ -1420,9 +1432,10 @@ function savePageCfgModal(){
   const id = pages[0].id, name = pages[0].name;  // 主标识：用于下拉/表格展示
   if(pageConfig.some((x,idx)=>idx!==pageCfgEditIndex && x.id===id)){ alert('该页面ID已存在'); return; }
   const params = pcfgParams.map(s=>(s||'').trim()).filter(Boolean);
+  const category = Array.from(document.querySelectorAll('input[name="pcfgCat"]:checked')).map(c=>c.value);
   const analysis = document.getElementById('pcfgAnalysis').checked;
   // 不含 img/cmp：编辑时保留已有效果图与对比版本数据
-  const data = {id, name, pageType:pcfgPageType, pages, params, analysis, upTime:nowStr(), upBy:'当前用户'};
+  const data = {id, name, pageType:pcfgPageType, pages, params, category, analysis, upTime:nowStr(), upBy:'当前用户'};
   if(pageCfgEditIndex!=null) Object.assign(pageConfig[pageCfgEditIndex], data);
   else pageConfig.push(data);
   closePageCfgModal();
