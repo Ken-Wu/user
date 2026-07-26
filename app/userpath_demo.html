@@ -148,6 +148,12 @@
   .kpi .d { font-size: 12px; margin-top: 6px; }
   .up { color: #18a058; } .down { color: #d03050; }
   #sankey { width: 100%; height: 760px; }
+  /* 感叹号说明 icon + 自定义气泡 */
+  .tipi { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; border-radius:50%;
+    border:1px solid #b0bac7; color:#8b97a6; font-size:11px; font-weight:700; line-height:1; cursor:pointer; flex:none; user-select:none; }
+  .tipi:hover { border-color:#2f6fed; color:#2f6fed; background:#eef4ff; }
+  #tipPop { position:fixed; z-index:300; display:none; max-width:240px; padding:7px 10px; border-radius:6px;
+    background:#2c3e50; color:#fff; font-size:12px; line-height:1.5; font-weight:normal; box-shadow:0 6px 18px rgba(0,0,0,.22); pointer-events:none; }
   /* 开关 toggle */
   .sw { position:relative; display:inline-block; width:40px; height:22px; flex:none; }
   .sw input { opacity:0; width:0; height:0; }
@@ -285,6 +291,7 @@
   <div class="tab" onclick="switchTab(2)" style="display:none;">③ 用户分析</div>
   <div class="tab" onclick="switchTab(3)" style="margin-left:auto;">⚙ 核心页面配置</div>
   <div class="tab" onclick="switchTab(4)" style="display:none;">⚙ 热力图配置</div>
+  <div class="tab" onclick="switchTab(5)" style="display:none;">⚙ 模块配置</div>
 </div>
 
 <!-- ===== 模块一：查询配置 + 桑基图 ===== -->
@@ -488,10 +495,6 @@
       <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px;">
         <h2 style="margin:0;">页面热力图</h2>
         <div style="display:flex;align-items:center;gap:8px;">
-          <select class="ver-sel" id="verCompare" onchange="switchVer(this.value)" style="width:130px;flex:none;font-size:12px;padding:5px 8px;">
-            <option value="">版本对比</option>
-            <option value="品类中心询价页">品类中心询价页</option>
-          </select>
           <div class="hm-tools">
             <span class="hm-ic" id="btnZoom" title="放大查看" onclick="openZoom()">
               <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.5" y2="16.5"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="8" y1="11" x2="14" y2="11"/></svg>
@@ -652,6 +655,67 @@
   </div>
 </div>
 
+<!-- 感叹号说明气泡（全局共用） -->
+<div id="tipPop"></div>
+
+<!-- 模块配置 页面 -->
+<div class="panel" id="panel5">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:16px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:12px;color:#2f6fed;cursor:pointer;margin-bottom:4px;" onclick="switchTab(3)">← 返回核心页面配置</div>
+        <h2>模块配置 · <span id="modCfgPageTitle" style="color:#2f6fed;">-</span></h2>
+        <div class="desc">维护该页面的模块清单：模块ID、模块名称，并指定「点击率」计算的分母口径。</div>
+      </div>
+      <button class="btn" style="width:auto;padding:7px 18px;flex:none;" onclick="openModItemModal(null)">+ 新增模块</button>
+    </div>
+    <div style="overflow:auto;">
+      <table id="modItemTable" style="min-width:640px;"></table>
+    </div>
+  </div>
+</div>
+
+<!-- 模块配置 · 新增/编辑模块 弹窗 -->
+<div id="modItemModal" onclick="if(event.target===this)closeModItemModal()" style="display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:220;align-items:center;justify-content:center;">
+  <div style="position:relative;background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:560px;max-width:94vw;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <span id="modItemTitle" style="font-size:16px;font-weight:600;color:#1f2d3d;">新增模块</span>
+      <span onclick="closeModItemModal()" style="cursor:pointer;color:#b0bac7;font-size:22px;line-height:1;">×</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">模块ID</label>
+        <input id="modItemId" type="text" placeholder="英文标识，如 category" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">模块名称</label>
+        <input id="modItemName" type="text" placeholder="如 品类列表-组" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:6px;">点击率分母</label>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;">
+            <input type="radio" name="modItemDenom" value="self">自身曝光量
+            <span class="tipi" data-tip="已埋曝光">!</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;">
+            <input type="radio" name="modItemDenom" value="page">页面曝光量
+            <span class="tipi" data-tip="未埋曝光埋点">!</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;">
+            <input type="radio" name="modItemDenom" value="parent">父模块曝光量
+            <span class="tipi" data-tip="该模块被聚合成子模块中的元素，可以选择">!</span>
+          </label>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+      <button class="btn-ghost" onclick="closeModItemModal()">取消</button>
+      <button class="btn" style="width:auto;padding:8px 24px;" onclick="saveModItem()">保存</button>
+    </div>
+  </div>
+</div>
+
 <!-- 核心页面配置 新增/编辑 弹窗 -->
 <div id="pageCfgModal" onclick="if(event.target===this)closePageCfgModal()" style="display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:210;align-items:center;justify-content:center;">
   <div style="position:relative;background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:600px;max-width:94vw;">
@@ -668,9 +732,13 @@
         </div>
       </div>
       <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面 · ID 与名称</label>
-        <div id="pcfgPagesList"></div>
-        <a id="pcfgAddPageLink" href="javascript:void(0)" onclick="addPcfgPage()" style="color:#2f6fed;font-size:12px;display:none;">+ 添加页面</a>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面名称</label>
+        <input id="pcfgName" type="text" placeholder="如 询价页" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面ID</label>
+        <div id="pcfgIdsList"></div>
+        <a id="pcfgAddIdLink" href="javascript:void(0)" onclick="addPcfgId()" style="color:#2f6fed;font-size:12px;display:none;">+ 添加页面ID</a>
       </div>
       <div>
         <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:6px;">页面分类（可多选）</label>
@@ -735,11 +803,10 @@
     <span class="np-thumb-tag" id="npThumbName">页面缩略图</span>
   </div>
   <div class="np-stats">
-    <div class="np-stat"><span class="k">日均页面 PV</span><span class="v" id="npTotalPv">-</span></div>
-    <div class="np-stat"><span class="k">日均页面 UV</span><span class="v" id="npTotalUv">-</span></div>
-    <div class="np-stat"><span class="k">日均转化 PV</span><span class="v" id="npPv">-</span></div>
-    <div class="np-stat"><span class="k">转化率</span><span class="v" id="npConv">-</span></div>
-    <div class="np-stat"><span class="k">日均终止量</span><span class="v" id="npLoss">-</span></div>
+    <div class="np-stat"><span class="k">日均页面总 PV</span><span class="v" id="npTotalPv">-</span></div>
+    <div class="np-stat"><span class="k">日均页面总 UV</span><span class="v" id="npTotalUv">-</span></div>
+    <div class="np-stat"><span class="k">当前节点日均 PV</span><span class="v" id="npPv">-</span></div>
+    <div class="np-stat"><span class="k">当前节点日均终止 PV</span><span class="v" id="npLoss">-</span></div>
     <div class="np-stat"><span class="k">终止率</span><span class="v" id="npRate">-</span></div>
   </div>
   <div class="np-acts">
@@ -1051,6 +1118,7 @@ function buildSankey(){
 
 let sankeyChart;
 let nodeMeta = {};       // 节点名 -> {label, pv, loss, lossRate}
+let nodeOutSum = {};     // 节点名 -> 总流出量（连线转化率分母）
 let curNodeName = null;  // 当前浮层选中的节点 key
 let curLinks = [];       // 当前渲染的链路（供路径追踪）
 let pathHL = null;       // {nodeKeys:Set, linkKeys:Set} 高亮的主干路径，null=不高亮
@@ -1129,6 +1197,7 @@ function renderSankey(){
     nodeMeta[n.name] = { label, pv, loss, lossRate: pv>0 ? loss/pv : 0,
       totalPv: ps?ps.pv:null, totalUv: ps?ps.uv:null };
   });
+  nodeOutSum = outSum;   // 供连线 tooltip 计算转化率（连线量 / 源节点总流出）
 
   labelColorMap = {}; // 每次渲染重置，保证配色稳定
   // 是否变浅：单路径模式或多选模式（且已选节点）
@@ -1166,18 +1235,22 @@ function renderSankey(){
       formatter:p=>{
         const D=getDays();
         const avg = v=>Math.round((v||0)/D).toLocaleString();
-        if(p.dataType==='edge')
-          return `${p.data.source.split('·').pop()} → ${p.data.target.split('·').pop()}<br/>日均 PV：<b>${avg(p.data.value)}</b>`;
+        if(p.dataType==='edge'){
+          // 连线转化率 = 该连线流量 / 源节点总流出
+          const srcOut = (nodeOutSum[p.data.source]||0);
+          const rate = srcOut>0 ? (p.data.value/srcOut) : 0;
+          return `${p.data.source.split('·').pop()} → ${p.data.target.split('·').pop()}<br/>`+
+                 `日均 PV：<b>${avg(p.data.value)}</b><br/>`+
+                 `转化率：${(rate*100).toFixed(1)}%`;
+        }
         const m = nodeMeta[p.name] || {pv:p.value||0, loss:0, lossRate:0};
         const totalLine = (m.totalPv!=null)
-          ? `日均页面 PV：${avg(m.totalPv)}<br/>日均页面 UV：${avg(m.totalUv)}<br/>`
+          ? `日均页面总 PV：${avg(m.totalPv)}<br/>日均页面总 UV：${avg(m.totalUv)}<br/>`
           : '';
-        const conv = 1 - (m.lossRate||0);
         return `<b>${p.name.split('·').pop()}</b><br/>`+
                totalLine+
-               `日均转化 PV：${avg(m.pv)}<br/>`+
-               `转化率：${(conv*100).toFixed(1)}%<br/>`+
-               `日均终止量：${avg(m.loss)}<br/>`+
+               `当前节点日均 PV：${avg(m.pv)}<br/>`+
+               `当前节点日均终止 PV：${avg(m.loss)}<br/>`+
                `终止率：${((m.lossRate||0)*100).toFixed(1)}%`;
       }},
     series:[{
@@ -1215,7 +1288,6 @@ function openNodePop(nodeName, x, y){
   set('npTotalPv', avg(m.totalPv));
   set('npTotalUv', avg(m.totalUv));
   set('npPv', avg(m.pv||0));
-  set('npConv', ((1-(m.lossRate||0))*100).toFixed(1) + '%');
   set('npLoss', avg(m.loss||0));
   set('npRate', ((m.lossRate||0)*100).toFixed(1) + '%');
   set('npHlBtn', pathHL ? '取消全部高亮' : '高亮节点');
@@ -1328,14 +1400,15 @@ function renderPageCfgTable(){
       ? `<img src="${p.img}" alt="" style="height:40px;width:auto;border:1px solid #eef1f5;border-radius:4px;vertical-align:middle;cursor:pointer;" onclick="previewCfgImg('${p.img}')">`
       : '<span style="color:#c0c6cf;">—</span>';
     html += `<tr>
-      <td style="color:#7f8c9b;">${p.id}</td>
-      <td>${p.name}${p.pageType==='multi' && p.pages ? ` <span style="font-size:11px;color:#95a3b3;">· 聚合${p.pages.length}页</span>` : ''}</td>
+      <td style="color:#7f8c9b;">${p.pageType==='multi' && p.pages && p.pages.length>1 ? p.pages.map(x=>x.id).join('、') : p.id}</td>
+      <td>${p.name}${p.pageType==='multi' && p.pages && p.pages.length>1 ? ` <span style="font-size:11px;color:#95a3b3;">· 聚合${p.pages.length}个ID</span>` : ''}</td>
       <td>${(p.category||[]).join('、')||'—'}</td>
       <td>${thumb}</td>
       <td>${p.upTime}</td>
       <td>${p.upBy}</td>
       <td style="white-space:nowrap;">
         <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openPageCfgModal(${i})">编辑</a>
+        <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openModuleCfgForPage(${i})">模块配置</a>
         <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openModCfgForPage(${i})">子模块配置</a>
         <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openHmCfgForPage(${i})">热力图配置</a>
         <a href="javascript:void(0)" style="color:#d03050;" onclick="delPageCfg(${i})">删除</a>
@@ -1348,18 +1421,19 @@ let pageCfgEditIndex = null;
 let pageCfgImgData = '';
 let pageCfgCmpImgData = '';
 let pcfgParams = [];   // 「参数配置」
-let pcfgPageType = 'single';           // single=单页面分析 / multi=多页面聚合数据
-let pcfgPages = [{id:'',name:''}];     // 页面 ID+名称 列表（单页面 1 项 / 多页面聚合多项）
+let pcfgPageType = 'single';   // single=单页面分析 / multi=多页面聚合数据
+let pcfgIds = [''];            // 页面ID 列表（单页面 1 个 / 多页面聚合可多个），名称只有一个
 function openPageCfgModal(i){
   pageCfgEditIndex = (typeof i==='number') ? i : null;
   const p = pageCfgEditIndex!=null ? pageConfig[pageCfgEditIndex] : {id:'',name:'',pageType:'single',pages:[],params:[],analysis:false};
   document.getElementById('pcfgTitle').innerText = pageCfgEditIndex!=null ? '编辑页面' : '新增页面';
   pcfgPageType = p.pageType || 'single';
-  pcfgPages = (p.pages && p.pages.length) ? p.pages.map(x=>({id:x.id||'',name:x.name||''})) : [{id:p.id||'',name:p.name||''}];
-  if(pcfgPages.length===0) pcfgPages = [{id:'',name:''}];
-  if(pcfgPageType==='single') pcfgPages = [pcfgPages[0]];
+  document.getElementById('pcfgName').value = p.name || '';
+  pcfgIds = (p.pages && p.pages.length) ? p.pages.map(x=>x.id||'') : [p.id||''];
+  if(pcfgIds.length===0) pcfgIds = [''];
+  if(pcfgPageType==='single') pcfgIds = [pcfgIds[0]];
   document.querySelectorAll('input[name="pcfgType"]').forEach(r=>{ r.checked = (r.value===pcfgPageType); });
-  renderPcfgPages();
+  renderPcfgIds();
   pcfgParams = (p.params || []).slice();
   if(pcfgParams.length===0) pcfgParams = [''];
   renderPcfgParams();
@@ -1370,24 +1444,23 @@ function openPageCfgModal(i){
 }
 function onPcfgTypeChange(t){
   pcfgPageType = t;
-  if(t==='single' && pcfgPages.length>1) pcfgPages = [pcfgPages[0]];
-  if(pcfgPages.length===0) pcfgPages = [{id:'',name:''}];
-  renderPcfgPages();
+  if(t==='single' && pcfgIds.length>1) pcfgIds = [pcfgIds[0]];
+  if(pcfgIds.length===0) pcfgIds = [''];
+  renderPcfgIds();
 }
-function renderPcfgPages(){
-  const el = document.getElementById('pcfgPagesList'); if(!el) return;
+function renderPcfgIds(){
+  const el = document.getElementById('pcfgIdsList'); if(!el) return;
   const multi = pcfgPageType==='multi';
-  el.innerHTML = pcfgPages.map((pg,i)=>`
+  el.innerHTML = pcfgIds.map((v,i)=>`
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-      <input value="${(pg.id||'').replace(/"/g,'&quot;')}" placeholder="页面ID，如 inquiry" oninput="setPcfgPage(${i},'id',this.value)" style="flex:1;min-width:0;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
-      <input value="${(pg.name||'').replace(/"/g,'&quot;')}" placeholder="页面名称，如 询价页" oninput="setPcfgPage(${i},'name',this.value)" style="flex:1;min-width:0;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
-      ${multi ? `<span onclick="delPcfgPage(${i})" title="删除" style="cursor:pointer;color:#d03050;font-size:18px;line-height:1;flex:none;width:16px;text-align:center;">×</span>` : ''}
+      <input value="${(v||'').replace(/"/g,'&quot;')}" placeholder="英文标识，如 inquiry" oninput="setPcfgId(${i},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      ${multi ? `<span onclick="delPcfgId(${i})" title="删除" style="cursor:pointer;color:#d03050;font-size:18px;line-height:1;flex:none;width:16px;text-align:center;">×</span>` : ''}
     </div>`).join('');
-  const link = document.getElementById('pcfgAddPageLink'); if(link) link.style.display = multi ? 'inline' : 'none';
+  const link = document.getElementById('pcfgAddIdLink'); if(link) link.style.display = multi ? 'inline' : 'none';
 }
-function setPcfgPage(i,field,v){ if(pcfgPages[i]) pcfgPages[i][field]=v; }
-function addPcfgPage(){ pcfgPages.push({id:'',name:''}); renderPcfgPages(); }
-function delPcfgPage(i){ if(pcfgPages.length<=1) return; pcfgPages.splice(i,1); renderPcfgPages(); }
+function setPcfgId(i,v){ pcfgIds[i]=v; }
+function addPcfgId(){ pcfgIds.push(''); renderPcfgIds(); }
+function delPcfgId(i){ if(pcfgIds.length<=1) return; pcfgIds.splice(i,1); renderPcfgIds(); }
 function renderPcfgParams(){
   const el = document.getElementById('pcfgParamsList'); if(!el) return;
   el.innerHTML = pcfgParams.map((v,i)=>`
@@ -1425,11 +1498,14 @@ function onPcfgCmpFile(input){
   reader.readAsDataURL(f);
 }
 function savePageCfgModal(){
-  let pages = pcfgPages.map(pg=>({id:(pg.id||'').trim(), name:(pg.name||'').trim()})).filter(pg=>pg.id||pg.name);
-  if(pcfgPageType==='single') pages = pages.slice(0,1);
-  if(!pages.length || !pages[0].id || !pages[0].name){ alert('请填写页面ID和页面名称'); return; }
-  if(pages.some(pg=>!pg.id || !pg.name)){ alert('每个页面的ID和名称都需填写'); return; }
-  const id = pages[0].id, name = pages[0].name;  // 主标识：用于下拉/表格展示
+  const name = document.getElementById('pcfgName').value.trim();
+  let ids = pcfgIds.map(s=>(s||'').trim()).filter(Boolean);
+  if(pcfgPageType==='single') ids = ids.slice(0,1);
+  if(!name){ alert('请填写页面名称'); return; }
+  if(!ids.length){ alert('请填写页面ID'); return; }
+  if(new Set(ids).size!==ids.length){ alert('存在重复的页面ID'); return; }
+  const pages = ids.map(x=>({id:x, name}));   // 名称只有一个，所有页面ID共用
+  const id = ids[0];                          // 主标识：用于下拉/表格展示
   if(pageConfig.some((x,idx)=>idx!==pageCfgEditIndex && x.id===id)){ alert('该页面ID已存在'); return; }
   const params = pcfgParams.map(s=>(s||'').trim()).filter(Boolean);
   const category = Array.from(document.querySelectorAll('input[name="pcfgCat"]:checked')).map(c=>c.value);
@@ -1474,6 +1550,7 @@ let heatmapConfig = {
   ]
 };
 // 各页面/版本的模块清单：页面名 -> [{id,name,upTime,upBy}]，供热力图配置中直接选择模块
+// denom=点击率分母口径：self 自身曝光量 / page 页面曝光量 / parent 父模块曝光量
 let moduleConfig = {
   '询价页': [
     {id:'back',         name:'返回',         upTime:'2026-06-05 14:30', upBy:'王恳'},
@@ -1496,6 +1573,8 @@ let moduleConfig = {
     {id:'submit',       name:'发单按钮',     upTime:'2026-06-05 14:30', upBy:'王恳'}
   ]
 };
+// 兜底：模块未设置点击率分母时默认「自身曝光量」（已埋曝光）
+Object.keys(moduleConfig).forEach(k=>{ (moduleConfig[k]||[]).forEach(m=>{ if(!m.denom) m.denom='self'; }); });
 // —— 多编辑器：主版本 + 对比版本上下平铺 ——
 let hmEditors = [];   // [{name, img, sel, kind}]
 let hmDragging = false;
@@ -1672,6 +1751,106 @@ function bindHmDraw(ei){
   stage.addEventListener('mouseleave', finish);
 }
 
+/* ============ 感叹号说明气泡（hover 与点击均展示） ============ */
+function showTip(el, text){
+  const pop = document.getElementById('tipPop'); if(!pop || !text) return;
+  pop.innerText = text;
+  pop.style.display = 'block';
+  const r = el.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = r.left + r.width/2 - pw/2;
+  left = Math.max(8, Math.min(left, (window.innerWidth||1200) - pw - 8));
+  let top = r.top - ph - 8;
+  if(top < 8) top = r.bottom + 8;   // 上方空间不足则显示在下方
+  pop.style.left = left + 'px';
+  pop.style.top = top + 'px';
+}
+function hideTip(){ const pop=document.getElementById('tipPop'); if(pop) pop.style.display='none'; }
+// 事件委托：所有 .tipi（含动态渲染的）hover 显示、移出隐藏、点击切换
+document.addEventListener('mouseover', e=>{
+  const t = e.target.closest && e.target.closest('.tipi');
+  if(t) showTip(t, t.getAttribute('data-tip') || t.getAttribute('title'));
+});
+document.addEventListener('mouseout', e=>{
+  const t = e.target.closest && e.target.closest('.tipi');
+  if(t) hideTip();
+});
+document.addEventListener('click', e=>{
+  const t = e.target.closest && e.target.closest('.tipi');
+  if(t){ e.stopPropagation(); showTip(t, t.getAttribute('data-tip') || t.getAttribute('title')); }
+  else hideTip();
+});
+
+/* ============ 模块配置（核心页面配置 → 模块配置，独立页面） ============ */
+const DENOM_LABEL = {self:'自身曝光量', page:'页面曝光量', parent:'父模块曝光量'};
+const DENOM_TIP   = {self:'已埋曝光', page:'未埋曝光埋点', parent:'该模块被聚合成子模块中的元素，可以选择'};
+let moduleCfgPageIdx = -1;   // 当前配置的页面索引
+let modItemEditIdx = null;   // 正在编辑的模块索引（null=新增）
+function openModuleCfgForPage(i){
+  const p = pageConfig[i]; if(!p) return;
+  moduleCfgPageIdx = i;
+  if(!moduleConfig[p.name]) moduleConfig[p.name] = [];
+  switchTab(5);
+  const t = document.getElementById('modCfgPageTitle'); if(t) t.innerText = p.name || '-';
+  renderModItemTable();
+}
+function renderModItemTable(){
+  const el = document.getElementById('modItemTable'); if(!el) return;
+  const p = pageConfig[moduleCfgPageIdx];
+  const list = (p && moduleConfig[p.name]) || [];
+  let html = '<tr><th>模块ID</th><th>模块名称</th><th>点击率分母</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  if(!list.length) html += '<tr><td colspan="6" style="color:#aab3c0;text-align:center;padding:18px;">暂无模块，点击右上角「+ 新增模块」添加</td></tr>';
+  list.forEach((m,i)=>{
+    const d = m.denom || 'self';
+    html += `<tr>
+      <td style="color:#7f8c9b;">${m.id||'—'}</td>
+      <td>${m.name||'—'}</td>
+      <td>${DENOM_LABEL[d]||'—'} <span class="tipi" data-tip="${DENOM_TIP[d]||''}">!</span></td>
+      <td style="color:#7f8c9b;font-size:12px;white-space:nowrap;">${m.upTime||'—'}</td>
+      <td style="color:#7f8c9b;font-size:12px;">${m.upBy||'—'}</td>
+      <td style="white-space:nowrap;">
+        <a href="javascript:void(0)" style="color:#2f6fed;margin-right:10px;" onclick="openModItemModal(${i})">编辑</a>
+        <a href="javascript:void(0)" style="color:#d03050;" onclick="delModItem(${i})">删除</a>
+      </td></tr>`;
+  });
+  el.innerHTML = html;
+}
+function openModItemModal(i){
+  if(moduleCfgPageIdx<0){ alert('请先从核心页面列表进入'); return; }
+  modItemEditIdx = (typeof i==='number') ? i : null;
+  const p = pageConfig[moduleCfgPageIdx];
+  const m = modItemEditIdx!=null ? (moduleConfig[p.name]||[])[modItemEditIdx] : {id:'',name:'',denom:'self'};
+  document.getElementById('modItemTitle').innerText = modItemEditIdx!=null ? '编辑模块' : '新增模块';
+  document.getElementById('modItemId').value = m.id || '';
+  document.getElementById('modItemName').value = m.name || '';
+  const d = m.denom || 'self';
+  document.querySelectorAll('input[name="modItemDenom"]').forEach(r=>{ r.checked = (r.value===d); });
+  document.getElementById('modItemModal').style.display = 'flex';
+}
+function closeModItemModal(){ const el=document.getElementById('modItemModal'); if(el) el.style.display='none'; }
+function saveModItem(){
+  const p = pageConfig[moduleCfgPageIdx]; if(!p) return;
+  const id = document.getElementById('modItemId').value.trim();
+  const name = document.getElementById('modItemName').value.trim();
+  if(!id){ alert('请填写模块ID'); return; }
+  if(!name){ alert('请填写模块名称'); return; }
+  const checked = Array.from(document.querySelectorAll('input[name="modItemDenom"]')).find(r=>r.checked);
+  const denom = checked ? checked.value : 'self';
+  const list = moduleConfig[p.name] = moduleConfig[p.name] || [];
+  if(list.some((m,idx)=>idx!==modItemEditIdx && m.id===id)){ alert('该模块ID已存在'); return; }
+  const data = {id, name, denom, upTime:nowStr(), upBy:'当前用户'};
+  if(modItemEditIdx!=null) Object.assign(list[modItemEditIdx], data);
+  else list.push(data);
+  closeModItemModal();
+  renderModItemTable();
+}
+function delModItem(i){
+  const p = pageConfig[moduleCfgPageIdx]; if(!p || !moduleConfig[p.name]) return;
+  if(!confirm('确认删除该模块？')) return;
+  moduleConfig[p.name].splice(i,1);
+  renderModItemTable();
+}
+
 /* ============ 子模块配置（核心页面配置 → 子模块配置） ============ */
 let modCfgEditors = [];   // [{name, label}]
 function openModCfgForPage(i){
@@ -1756,30 +1935,49 @@ const modules = [
 ];
 function modClick(m){ return Math.round(m.expo*m.ctr); }
 // 上游来源 / 下游去向（模拟数据）
+// 上下游流量明细（占比由 PV/UV 动态计算，展示 Top5 + 其他）
 const pageSources = [
-  {name:'平台首页', pv:11200, uv:8600, pct:0.38},
-  {name:'乘客首页', pv:7600,  uv:5900, pct:0.26},
-  {name:'POI页',    pv:5300,  uv:4100, pct:0.18},
-  {name:'登录页',   pv:3200,  uv:2700, pct:0.11},
-  {name:'其他',     pv:2090,  uv:1600, pct:0.07}
+  {name:'平台首页',   pv:11200, uv:8600},
+  {name:'乘客首页',   pv:7600,  uv:5900},
+  {name:'POI页',      pv:5300,  uv:4100},
+  {name:'登录页',     pv:3200,  uv:2700},
+  {name:'发单动画',   pv:1500,  uv:1150},
+  {name:'等待接单页', pv:1100,  uv:880},
+  {name:'确认同行页', pv:700,   uv:560},
+  {name:'支付页',     pv:420,   uv:340},
+  {name:'其他页面',   pv:1300,  uv:980}
 ];
 const pageDests = [
-  {name:'发单动画',   pv:9800, uv:7400, pct:0.33},
-  {name:'等待接单页', pv:6400, uv:5000, pct:0.22},
-  {name:'POI页',      pv:4700, uv:3600, pct:0.16},
-  {name:'终止',       pv:5900, uv:4800, pct:0.20},
-  {name:'其他',       pv:2690, uv:2100, pct:0.09}
+  {name:'发单动画',   pv:9800, uv:7400},
+  {name:'等待接单页', pv:6400, uv:5000},
+  {name:'终止',       pv:5900, uv:4800},
+  {name:'POI页',      pv:4700, uv:3600},
+  {name:'平台首页',   pv:1600, uv:1250},
+  {name:'乘客首页',   pv:1200, uv:950},
+  {name:'风控预付页', pv:800,  uv:640},
+  {name:'支付页',     pv:520,  uv:420},
+  {name:'其他页面',   pv:980,  uv:760}
 ];
 function renderFlowTable(id, rows){
   const el = document.getElementById(id);
   if(!el) return;
   const D = getDays();
-  const max = Math.max(...rows.map(r=>r.pct));
-  let html = '<tr><th>页面 / 行为</th><th>日均 PV</th><th>日均 UV</th><th>占比</th></tr>';
-  rows.forEach(r=>{
-    const barW = Math.round(r.pct/max*72);
-    html += `<tr><td>${r.name}</td><td>${Math.round(r.pv/D).toLocaleString()}</td><td>${Math.round((r.uv||0)/D).toLocaleString()}</td>
-      <td style="white-space:nowrap;"><span class="barbg" style="width:72px;"><span class="bar" style="width:${barW}px;"></span></span> ${(r.pct*100).toFixed(1)}%</td></tr>`;
+  const totalPv = rows.reduce((s,r)=>s+(r.pv||0),0) || 1;
+  const totalUv = rows.reduce((s,r)=>s+(r.uv||0),0) || 1;
+  // 按 PV 占比降序取 Top5，其余聚合为「其他」作为第 6 行
+  const sorted = rows.slice().sort((a,b)=>(b.pv||0)-(a.pv||0));
+  const top = sorted.slice(0,5);
+  const rest = sorted.slice(5);
+  const list = top.map(r=>({name:r.name, pv:r.pv||0, uv:r.uv||0}));
+  if(rest.length) list.push({name:'其他', pv:rest.reduce((s,r)=>s+(r.pv||0),0), uv:rest.reduce((s,r)=>s+(r.uv||0),0)});
+  const maxPct = Math.max(...list.map(r=>r.pv/totalPv));
+  let html = '<tr><th>页面 / 行为</th><th>日均 PV</th><th>日均 UV</th><th>PV 占比</th><th>UV 占比</th></tr>';
+  list.forEach(r=>{
+    const pvPct = r.pv/totalPv, uvPct = r.uv/totalUv;
+    const barW = Math.round(pvPct/maxPct*60);
+    html += `<tr><td>${r.name}</td><td>${Math.round(r.pv/D).toLocaleString()}</td><td>${Math.round(r.uv/D).toLocaleString()}</td>
+      <td style="white-space:nowrap;"><span class="barbg" style="width:60px;"><span class="bar" style="width:${barW}px;"></span></span> ${(pvPct*100).toFixed(1)}%</td>
+      <td style="white-space:nowrap;">${(uvPct*100).toFixed(1)}%</td></tr>`;
   });
   el.innerHTML = html;
 }
