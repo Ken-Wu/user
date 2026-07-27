@@ -818,8 +818,9 @@
         <input id="subItemName" type="text" readonly placeholder="选择ID后自动带出" style="width:100%;padding:8px 10px;border:1px solid #e6eaf0;border-radius:6px;font-size:13px;color:#2c3e50;background:#f6f8fb;">
       </div>
       <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">参数信息</label>
-        <input id="subItemParam" type="text" placeholder="如埋点参数/spm" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+        <label id="subItemParamLabel" style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">参数信息</label>
+        <div id="subItemParamsList"></div>
+        <a href="javascript:void(0)" onclick="addSubItemParam()" id="subItemAddParamLink" style="color:#2f6fed;font-size:12px;">+ 添加参数信息</a>
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
@@ -1929,7 +1930,7 @@ Object.keys(moduleConfig).forEach(pn=>{
   (moduleConfig[pn]||[]).forEach(m=>{
     (m.subs||[]).forEach(s=>{
       (subModuleConfig[pn] = subModuleConfig[pn] || []).push({
-        modId: m.id, name: m.name, param: s.param || s.sid || '',
+        modId: m.id, name: m.name, params: [s.param || s.sid || ''].filter(Boolean),
         upTime: m.upTime || nowStr(), upBy: m.upBy || '王恳'
       });
     });
@@ -1948,7 +1949,7 @@ function renderSubItemTable(){
   const p = pageConfig[subCfgPageIdx];
   const list = (p && subModuleConfig[p.name]) || [];
   const mods = (p && moduleConfig[p.name]) || [];
-  let html = '<tr><th style="width:24%;">模块/页面ID</th><th style="width:22%;">名称</th><th>参数信息</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  let html = '<tr><th style="width:24%;">模块/页面ID</th><th style="width:22%;">名称</th><th>参数信息 / 模块ID·参数ID</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
   if(!mods.length){
     html += '<tr><td colspan="6" style="color:#e08a00;text-align:center;padding:18px;">该页面暂无模块，请先在「核心页面配置 → 模块配置」中添加</td></tr>';
     el.innerHTML = html; return;
@@ -1960,7 +1961,7 @@ function renderSubItemTable(){
     html += `<tr>
       <td style="color:#7f8c9b;">${s.modId||'—'}${tag?` <span style="font-size:11px;color:#95a3b3;">（${tag}）</span>`:''}</td>
       <td>${s.name||'—'}</td>
-      <td>${s.param||'—'}</td>
+      <td>${(s.params&&s.params.length) ? s.params.join('、') : '—'}</td>
       <td style="color:#7f8c9b;font-size:12px;white-space:nowrap;">${s.upTime||'—'}</td>
       <td style="color:#7f8c9b;font-size:12px;">${s.upBy||'—'}</td>
       <td style="white-space:nowrap;">
@@ -1977,7 +1978,7 @@ function openSubItemModal(i){
   const mods = moduleConfig[p.name] || [];
   if(!mods.length){ alert('该页面暂无模块，请先在「模块配置」中添加'); return; }
   subItemEditIdx = (typeof i==='number') ? i : null;
-  const s = subItemEditIdx!=null ? (subModuleConfig[p.name]||[])[subItemEditIdx] : {modId:'', name:'', param:''};
+  const s = subItemEditIdx!=null ? (subModuleConfig[p.name]||[])[subItemEditIdx] : {modId:'', name:'', params:[]};
   document.getElementById('subItemTitle').innerText = subItemEditIdx!=null ? '编辑子模块' : '新增子模块';
   // 填充本页面下可选的 模块/页面ID
   const sel = document.getElementById('subItemId');
@@ -1987,7 +1988,10 @@ function openSubItemModal(i){
   }).join('');
   sel.value = s.modId || '';
   document.getElementById('subItemName').value = s.name || '';
-  document.getElementById('subItemParam').value = s.param || '';
+  subItemParams = (s.params || []).slice();
+  if(subItemParams.length===0) subItemParams = [''];
+  renderSubItemParams();
+  updateSubItemParamLabel(s.modId || '');
   document.getElementById('subItemModal').style.display = 'flex';
 }
 function closeSubItemModal(){ const el=document.getElementById('subItemModal'); if(el) el.style.display='none'; }
@@ -1996,18 +2000,48 @@ function onSubItemIdChange(id){
   const p = pageConfig[subCfgPageIdx]; if(!p) return;
   const m = (moduleConfig[p.name]||[]).find(x=>x.id===id);
   document.getElementById('subItemName').value = m ? (m.name||'') : '';
+  updateSubItemParamLabel(id);
 }
+// 选中的是页面ID时，录入的是模块ID或参数ID
+function updateSubItemParamLabel(id){
+  const p = pageConfig[subCfgPageIdx]; if(!p) return;
+  const m = (moduleConfig[p.name]||[]).find(x=>x.id===id);
+  const isPage = m && (m.idType||'module')==='page';
+  const lab = document.getElementById('subItemParamLabel');
+  const link = document.getElementById('subItemAddParamLink');
+  if(lab) lab.innerText = isPage ? '模块ID或参数ID' : '参数信息';
+  if(link) link.innerText = isPage ? '+ 添加模块ID或参数ID' : '+ 添加参数信息';
+  subItemParamIsPage = !!isPage;
+  renderSubItemParams();
+}
+// 参数信息多条录入
+let subItemParams = [];
+let subItemParamIsPage = false;
+function renderSubItemParams(){
+  const el = document.getElementById('subItemParamsList'); if(!el) return;
+  const ph = subItemParamIsPage ? '模块ID或参数ID，如 category' : '如埋点参数/spm';
+  el.innerHTML = subItemParams.map((v,i)=>`
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
+      <input value="${(v||'').replace(/"/g,'&quot;')}" placeholder="${ph}" oninput="setSubItemParam(${i},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      <span onclick="delSubItemParam(${i})" title="删除" style="cursor:pointer;color:#d03050;font-size:18px;line-height:1;flex:none;width:16px;text-align:center;">×</span>
+    </div>`).join('');
+}
+function setSubItemParam(i,v){ subItemParams[i]=v; }
+function addSubItemParam(){ subItemParams.push(''); renderSubItemParams(); }
+function delSubItemParam(i){ if(subItemParams.length<=1){ subItemParams[0]=''; } else { subItemParams.splice(i,1); } renderSubItemParams(); }
 function saveSubItem(){
   const p = pageConfig[subCfgPageIdx]; if(!p) return;
   const modId = document.getElementById('subItemId').value;
   if(!modId){ alert('请选择模块/页面ID'); return; }
   const m = (moduleConfig[p.name]||[]).find(x=>x.id===modId);
   const name = m ? (m.name||'') : '';
-  const param = document.getElementById('subItemParam').value.trim();
+  const params = subItemParams.map(x=>(x||'').trim()).filter(Boolean);
+  if(new Set(params).size!==params.length){ alert('存在重复的录入项'); return; }
   const list = subModuleConfig[p.name] = subModuleConfig[p.name] || [];
-  // 同一 ID + 同一参数视为重复
-  if(list.some((x,idx)=>idx!==subItemEditIdx && x.modId===modId && (x.param||'')===param)){ alert('该模块/页面ID与参数的组合已存在'); return; }
-  const data = {modId, name, param, upTime:nowStr(), upBy:'当前用户'};
+  // 同一 ID + 完全相同的录入项视为重复
+  const key = j => `${j.modId}|${(j.params||[]).slice().sort().join(',')}`;
+  if(list.some((x,idx)=>idx!==subItemEditIdx && key(x)===key({modId, params}))){ alert('该模块/页面ID与录入项的组合已存在'); return; }
+  const data = {modId, name, params, upTime:nowStr(), upBy:'当前用户'};
   if(subItemEditIdx!=null) Object.assign(list[subItemEditIdx], data);
   else list.push(data);
   closeSubItemModal();
