@@ -791,7 +791,7 @@
       <div>
         <div style="font-size:12px;color:#2f6fed;cursor:pointer;margin-bottom:4px;" onclick="switchTab(3)">← 返回核心页面配置</div>
         <h2>子模块配置 · <span id="subCfgPageTitle" style="color:#2f6fed;">-</span></h2>
-        <div class="desc">选择本页面「模块配置」中已有的模块/页面ID，名称自动带出，并可补充参数信息。</div>
+        <div class="desc">选择本页面「模块配置」中已有的模块/页面ID，名称自动带出，并可录入一个或多个参数名/模块ID。</div>
       </div>
       <button class="btn" style="width:auto;padding:7px 18px;flex:none;" onclick="openSubItemModal(null)">+ 新增子模块</button>
     </div>
@@ -818,9 +818,9 @@
         <input id="subItemName" type="text" readonly placeholder="选择ID后自动带出" style="width:100%;padding:8px 10px;border:1px solid #e6eaf0;border-radius:6px;font-size:13px;color:#2c3e50;background:#f6f8fb;">
       </div>
       <div>
-        <label id="subItemParamLabel" style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">参数信息</label>
+        <label id="subItemParamLabel" style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">参数名/模块ID</label>
         <div id="subItemParamsList"></div>
-        <a href="javascript:void(0)" onclick="addSubItemParam()" id="subItemAddParamLink" style="color:#2f6fed;font-size:12px;">+ 添加参数信息</a>
+        <a href="javascript:void(0)" onclick="addSubItemParam()" id="subItemAddParamLink" style="color:#2f6fed;font-size:12px;">+ 添加参数名/模块ID</a>
       </div>
     </div>
     <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
@@ -1949,7 +1949,7 @@ function renderSubItemTable(){
   const p = pageConfig[subCfgPageIdx];
   const list = (p && subModuleConfig[p.name]) || [];
   const mods = (p && moduleConfig[p.name]) || [];
-  let html = '<tr><th style="width:24%;">模块/页面ID</th><th style="width:22%;">名称</th><th>参数信息 / 模块ID·参数ID</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  let html = '<tr><th style="width:24%;">模块/页面ID</th><th style="width:22%;">名称</th><th>参数名/模块ID</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
   if(!mods.length){
     html += '<tr><td colspan="6" style="color:#e08a00;text-align:center;padding:18px;">该页面暂无模块，请先在「核心页面配置 → 模块配置」中添加</td></tr>';
     el.innerHTML = html; return;
@@ -1991,7 +1991,7 @@ function openSubItemModal(i){
   subItemParams = (s.params || []).slice();
   if(subItemParams.length===0) subItemParams = [''];
   renderSubItemParams();
-  updateSubItemParamLabel(s.modId || '');
+  updateSubItemParamLabel();
   document.getElementById('subItemModal').style.display = 'flex';
 }
 function closeSubItemModal(){ const el=document.getElementById('subItemModal'); if(el) el.style.display='none'; }
@@ -2000,26 +2000,21 @@ function onSubItemIdChange(id){
   const p = pageConfig[subCfgPageIdx]; if(!p) return;
   const m = (moduleConfig[p.name]||[]).find(x=>x.id===id);
   document.getElementById('subItemName').value = m ? (m.name||'') : '';
-  updateSubItemParamLabel(id);
+  updateSubItemParamLabel();
 }
-// 选中的是页面ID时，录入的是模块ID或参数ID
-function updateSubItemParamLabel(id){
-  const p = pageConfig[subCfgPageIdx]; if(!p) return;
-  const m = (moduleConfig[p.name]||[]).find(x=>x.id===id);
-  const isPage = m && (m.idType||'module')==='page';
+// 参数名/模块ID：模块ID 与 页面ID 两种类型均可录入，且支持多个
+function updateSubItemParamLabel(){
   const lab = document.getElementById('subItemParamLabel');
   const link = document.getElementById('subItemAddParamLink');
-  if(lab) lab.innerText = isPage ? '模块ID或参数ID' : '参数信息';
-  if(link) link.innerText = isPage ? '+ 添加模块ID或参数ID' : '+ 添加参数信息';
-  subItemParamIsPage = !!isPage;
+  if(lab) lab.innerText = '参数名/模块ID';
+  if(link) link.innerText = '+ 添加参数名/模块ID';
   renderSubItemParams();
 }
-// 参数信息多条录入
+// 参数名/模块ID 多条录入
 let subItemParams = [];
-let subItemParamIsPage = false;
 function renderSubItemParams(){
   const el = document.getElementById('subItemParamsList'); if(!el) return;
-  const ph = subItemParamIsPage ? '模块ID或参数ID，如 category' : '如埋点参数/spm';
+  const ph = '参数名或模块ID，如 category / spm';
   el.innerHTML = subItemParams.map((v,i)=>`
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
       <input value="${(v||'').replace(/"/g,'&quot;')}" placeholder="${ph}" oninput="setSubItemParam(${i},this.value)" style="flex:1;min-width:0;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
