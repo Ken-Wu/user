@@ -292,6 +292,7 @@
   <div class="tab" onclick="switchTab(3)" style="margin-left:auto;">⚙ 核心页面配置</div>
   <div class="tab" onclick="switchTab(4)" style="display:none;">⚙ 热力图配置</div>
   <div class="tab" onclick="switchTab(5)" style="display:none;">⚙ 模块配置</div>
+  <div class="tab" onclick="switchTab(6)" style="display:none;">⚙ 子模块配置</div>
 </div>
 
 <!-- ===== 模块一：查询配置 + 桑基图 ===== -->
@@ -684,11 +685,23 @@
     </div>
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">模块ID</label>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:6px;">ID类型</label>
+        <div style="display:flex;gap:24px;">
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;">
+            <input type="radio" name="modItemIdType" value="module" onchange="onModItemIdTypeChange('module')">模块ID
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;">
+            <input type="radio" name="modItemIdType" value="page" onchange="onModItemIdTypeChange('page')">页面ID
+            <span class="tipi" data-tip="部分弹窗target中配置成页面ID，可以通过该配置在页面数据中呈现">!</span>
+          </label>
+        </div>
+      </div>
+      <div>
+        <label id="modItemIdLabel" style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">模块ID</label>
         <input id="modItemId" type="text" placeholder="英文标识，如 category" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
       </div>
       <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">模块名称</label>
+        <label id="modItemNameLabel" style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">模块名称</label>
         <input id="modItemName" type="text" placeholder="如 品类列表-组" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
       </div>
       <div>
@@ -705,6 +718,9 @@
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;">
             <input type="radio" name="modItemDenom" value="parent">父模块曝光量
             <span class="tipi" data-tip="该模块被聚合成子模块中的元素，可以选择">!</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;">
+            <input type="radio" name="modItemDenom" value="none">无点击率
           </label>
         </div>
       </div>
@@ -745,6 +761,7 @@
         <div style="display:flex;gap:24px;">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;"><input type="checkbox" name="pcfgCat" value="乘客">乘客</label>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;"><input type="checkbox" name="pcfgCat" value="车主">车主</label>
+          <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;"><input type="checkbox" name="pcfgCat" value="平台">平台</label>
         </div>
       </div>
       <div>
@@ -767,18 +784,47 @@
   </div>
 </div>
 
-<!-- 子模块配置 弹窗 -->
-<div id="modCfgModal" onclick="if(event.target===this)closeModCfgModal()" style="display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:210;align-items:center;justify-content:center;">
-  <div style="position:relative;background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:660px;max-width:94vw;max-height:88vh;display:flex;flex-direction:column;">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
-      <span style="font-size:16px;font-weight:600;color:#1f2d3d;">子模块配置 · <span id="mcfgPageName" style="color:#2f6fed;">-</span></span>
-      <span onclick="closeModCfgModal()" style="cursor:pointer;color:#b0bac7;font-size:22px;line-height:1;">×</span>
+<!-- 子模块配置 页面 -->
+<div class="panel" id="panel6">
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px;gap:16px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:12px;color:#2f6fed;cursor:pointer;margin-bottom:4px;" onclick="switchTab(3)">← 返回核心页面配置</div>
+        <h2>子模块配置 · <span id="subCfgPageTitle" style="color:#2f6fed;">-</span></h2>
+        <div class="desc">选择本页面「模块配置」中已有的模块/页面ID，名称自动带出，并可补充参数信息。</div>
+      </div>
+      <button class="btn" style="width:auto;padding:7px 18px;flex:none;" onclick="openSubItemModal(null)">+ 新增子模块</button>
     </div>
-    <div class="desc" style="margin-bottom:12px;">维护该页面的模块清单（模块ID、模块名称）。配置后可在「热力图配置」中直接选择模块，无需手动录入。</div>
-    <div id="modCfgArea" style="overflow:auto;flex:1;min-height:0;"></div>
-    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;flex:none;">
-      <button class="btn-ghost" onclick="closeModCfgModal()">关闭</button>
-      <button class="btn" style="width:auto;padding:8px 24px;" onclick="saveModCfg()">保存配置</button>
+    <div style="overflow:auto;">
+      <table id="subItemTable" style="min-width:680px;"></table>
+    </div>
+  </div>
+</div>
+
+<!-- 子模块配置 · 新增/编辑子模块 弹窗 -->
+<div id="subItemModal" onclick="if(event.target===this)closeSubItemModal()" style="display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:220;align-items:center;justify-content:center;">
+  <div style="position:relative;background:#fff;border-radius:14px;padding:20px 24px;box-shadow:0 16px 48px rgba(0,0,0,.3);width:520px;max-width:94vw;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <span id="subItemTitle" style="font-size:16px;font-weight:600;color:#1f2d3d;">新增子模块</span>
+      <span onclick="closeSubItemModal()" style="cursor:pointer;color:#b0bac7;font-size:22px;line-height:1;">×</span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">模块/页面ID</label>
+        <select id="subItemId" onchange="onSubItemIdChange(this.value)" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;background:#fff;"></select>
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">名称</label>
+        <input id="subItemName" type="text" readonly placeholder="选择ID后自动带出" style="width:100%;padding:8px 10px;border:1px solid #e6eaf0;border-radius:6px;font-size:13px;color:#2c3e50;background:#f6f8fb;">
+      </div>
+      <div>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">参数信息</label>
+        <input id="subItemParam" type="text" placeholder="如埋点参数/spm" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      </div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:20px;">
+      <button class="btn-ghost" onclick="closeSubItemModal()">取消</button>
+      <button class="btn" style="width:auto;padding:8px 24px;" onclick="saveSubItem()">保存</button>
     </div>
   </div>
 </div>
@@ -1371,8 +1417,13 @@ let pageConfig = [
   {id:'dc_arrive',      name:'打车履约-待司乘到达终点',img:'', upTime:'2026-06-08 16:15', upBy:'王恳'},
   {id:'dc_done',        name:'打车履约-行程完成',      img:'', upTime:'2026-06-08 16:16', upBy:'王恳'}
 ];
-// 兜底：未设置页面分类的历史页面按名称赋默认分类（履约含乘客+车主，其余乘客）
-pageConfig.forEach(p=>{ if(!p.category) p.category = /履约/.test(p.name) ? ['乘客','车主'] : ['乘客']; });
+// 兜底：未设置页面分类的历史页面按名称赋默认分类（平台级页面=平台，履约=乘客+车主，其余=乘客）
+pageConfig.forEach(p=>{
+  if(p.category) return;
+  if(/^平台首页$/.test(p.name)) p.category = ['平台'];
+  else if(/履约/.test(p.name)) p.category = ['乘客','车主'];
+  else p.category = ['乘客'];
+});
 function nowStr(){ const d=new Date(); const p=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
 // 用配置清单重新填充三个页面下拉，尽量保留原选中值
 function renderPageSelects(){
@@ -1782,8 +1833,8 @@ document.addEventListener('click', e=>{
 });
 
 /* ============ 模块配置（核心页面配置 → 模块配置，独立页面） ============ */
-const DENOM_LABEL = {self:'自身曝光量', page:'页面曝光量', parent:'父模块曝光量'};
-const DENOM_TIP   = {self:'已埋曝光', page:'未埋曝光埋点', parent:'该模块被聚合成子模块中的元素，可以选择'};
+const DENOM_LABEL = {self:'自身曝光量', page:'页面曝光量', parent:'父模块曝光量', none:'无点击率'};
+const DENOM_TIP   = {self:'已埋曝光', page:'未埋曝光埋点', parent:'该模块被聚合成子模块中的元素，可以选择', none:''};
 let moduleCfgPageIdx = -1;   // 当前配置的页面索引
 let modItemEditIdx = null;   // 正在编辑的模块索引（null=新增）
 function openModuleCfgForPage(i){
@@ -1798,14 +1849,16 @@ function renderModItemTable(){
   const el = document.getElementById('modItemTable'); if(!el) return;
   const p = pageConfig[moduleCfgPageIdx];
   const list = (p && moduleConfig[p.name]) || [];
-  let html = '<tr><th>模块ID</th><th>模块名称</th><th>点击率分母</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
-  if(!list.length) html += '<tr><td colspan="6" style="color:#aab3c0;text-align:center;padding:18px;">暂无模块，点击右上角「+ 新增模块」添加</td></tr>';
+  let html = '<tr><th>ID类型</th><th>ID</th><th>名称</th><th>点击率分母</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  if(!list.length) html += '<tr><td colspan="7" style="color:#aab3c0;text-align:center;padding:18px;">暂无模块，点击右上角「+ 新增模块」添加</td></tr>';
   list.forEach((m,i)=>{
     const d = m.denom || 'self';
+    const isPage = (m.idType||'module')==='page';
     html += `<tr>
+      <td>${isPage ? '页面ID <span class="tipi" data-tip="部分弹窗target中配置成页面ID，可以通过该配置在页面数据中呈现">!</span>' : '模块ID'}</td>
       <td style="color:#7f8c9b;">${m.id||'—'}</td>
       <td>${m.name||'—'}</td>
-      <td>${DENOM_LABEL[d]||'—'} <span class="tipi" data-tip="${DENOM_TIP[d]||''}">!</span></td>
+      <td>${DENOM_LABEL[d]||'—'}${DENOM_TIP[d] ? ` <span class="tipi" data-tip="${DENOM_TIP[d]}">!</span>` : ''}</td>
       <td style="color:#7f8c9b;font-size:12px;white-space:nowrap;">${m.upTime||'—'}</td>
       <td style="color:#7f8c9b;font-size:12px;">${m.upBy||'—'}</td>
       <td style="white-space:nowrap;">
@@ -1821,24 +1874,40 @@ function openModItemModal(i){
   const p = pageConfig[moduleCfgPageIdx];
   const m = modItemEditIdx!=null ? (moduleConfig[p.name]||[])[modItemEditIdx] : {id:'',name:'',denom:'self'};
   document.getElementById('modItemTitle').innerText = modItemEditIdx!=null ? '编辑模块' : '新增模块';
+  const it = m.idType || 'module';
+  document.querySelectorAll('input[name="modItemIdType"]').forEach(r=>{ r.checked = (r.value===it); });
+  onModItemIdTypeChange(it);
   document.getElementById('modItemId').value = m.id || '';
   document.getElementById('modItemName').value = m.name || '';
   const d = m.denom || 'self';
   document.querySelectorAll('input[name="modItemDenom"]').forEach(r=>{ r.checked = (r.value===d); });
   document.getElementById('modItemModal').style.display = 'flex';
 }
+// 切换 ID 类型：页面ID 时字段名改为页面ID/页面名称
+function onModItemIdTypeChange(t){
+  const isPage = t==='page';
+  const idL = document.getElementById('modItemIdLabel'), nmL = document.getElementById('modItemNameLabel');
+  const idI = document.getElementById('modItemId'), nmI = document.getElementById('modItemName');
+  if(idL) idL.innerText = isPage ? '页面ID' : '模块ID';
+  if(nmL) nmL.innerText = isPage ? '页面名称' : '模块名称';
+  if(idI) idI.placeholder = isPage ? '英文标识，如 inquiry' : '英文标识，如 category';
+  if(nmI) nmI.placeholder = isPage ? '如 询价页' : '如 品类列表-组';
+}
 function closeModItemModal(){ const el=document.getElementById('modItemModal'); if(el) el.style.display='none'; }
 function saveModItem(){
   const p = pageConfig[moduleCfgPageIdx]; if(!p) return;
+  const itChecked = Array.from(document.querySelectorAll('input[name="modItemIdType"]')).find(r=>r.checked);
+  const idType = itChecked ? itChecked.value : 'module';
+  const word = idType==='page' ? '页面' : '模块';
   const id = document.getElementById('modItemId').value.trim();
   const name = document.getElementById('modItemName').value.trim();
-  if(!id){ alert('请填写模块ID'); return; }
-  if(!name){ alert('请填写模块名称'); return; }
+  if(!id){ alert(`请填写${word}ID`); return; }
+  if(!name){ alert(`请填写${word}名称`); return; }
   const checked = Array.from(document.querySelectorAll('input[name="modItemDenom"]')).find(r=>r.checked);
   const denom = checked ? checked.value : 'self';
   const list = moduleConfig[p.name] = moduleConfig[p.name] || [];
-  if(list.some((m,idx)=>idx!==modItemEditIdx && m.id===id)){ alert('该模块ID已存在'); return; }
-  const data = {id, name, denom, upTime:nowStr(), upBy:'当前用户'};
+  if(list.some((m,idx)=>idx!==modItemEditIdx && m.id===id)){ alert(`该${word}ID已存在`); return; }
+  const data = {id, name, idType, denom, upTime:nowStr(), upBy:'当前用户'};
   if(modItemEditIdx!=null) Object.assign(list[modItemEditIdx], data);
   else list.push(data);
   closeModItemModal();
@@ -1851,69 +1920,104 @@ function delModItem(i){
   renderModItemTable();
 }
 
-/* ============ 子模块配置（核心页面配置 → 子模块配置） ============ */
-let modCfgEditors = [];   // [{name, label}]
-function openModCfgForPage(i){
-  const p = pageConfig[i]; if(!p) return;
-  const nameEl = document.getElementById('mcfgPageName'); if(nameEl) nameEl.innerText = p.name || '-';
-  modCfgEditors = [{name:p.name, label:'主版本'}];
-  if(p.cmpName) modCfgEditors.push({name:p.cmpName, label:'对比版本'});
-  modCfgEditors.forEach(ed=>{ if(!moduleConfig[ed.name]) moduleConfig[ed.name]=[]; });
-  renderModCfgArea();
-  const modal=document.getElementById('modCfgModal'); if(modal) modal.style.display='flex';
-}
-function closeModCfgModal(){ const m=document.getElementById('modCfgModal'); if(m) m.style.display='none'; }
-function renderModCfgArea(){
-  const area=document.getElementById('modCfgArea'); if(!area) return;
-  area.innerHTML = modCfgEditors.map((ed,ei)=>`
-    <div style="${ei>0?'border-top:1px dashed #e2e8f2;margin-top:18px;padding-top:16px;':''}">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-        <div style="font-size:14px;font-weight:600;color:#1f2d3d;">${ed.label}：${ed.name}</div>
-        <button class="btn" style="width:auto;padding:5px 14px;font-size:12px;flex:none;" onclick="modCfgAdd(${ei})">+ 新增模块</button>
-      </div>
-      <table id="modCfgList_${ei}" style="min-width:520px;"></table>
-    </div>`).join('');
-  modCfgEditors.forEach((ed,ei)=>renderModCfgList(ei));
-}
-function renderModCfgList(ei){
-  const ed=modCfgEditors[ei]; if(!ed) return;
-  const el=document.getElementById('modCfgList_'+ei); if(!el) return;
-  const list=moduleConfig[ed.name]||[];
-  let html='<tr><th style="width:22%;">模块ID</th><th style="width:24%;">模块名称</th><th>更新时间</th><th>更新人</th><th style="width:158px;">操作</th></tr>';
-  if(!list.length){ html+='<tr><td colspan="5" style="color:#aab3c0;text-align:center;padding:16px;">暂无模块，点击右上角「新增模块」添加</td></tr>'; }
-  list.forEach((m,i)=>{
-    html+=`<tr>
-      <td><input value="${(m.id||'').replace(/"/g,'&quot;')}" placeholder="如 category" oninput="modCfgSet(${ei},${i},'id',this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;"></td>
-      <td><input value="${(m.name||'').replace(/"/g,'&quot;')}" placeholder="如 品类列表-组" oninput="modCfgSet(${ei},${i},'name',this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;"></td>
-      <td style="color:#7f8c9b;font-size:12px;white-space:nowrap;">${m.upTime||'-'}</td>
-      <td style="color:#7f8c9b;font-size:12px;">${m.upBy||'-'}</td>
-      <td style="white-space:nowrap;"><a href="javascript:void(0)" style="color:#2f6fed;margin-right:10px;" onclick="modCfgAddSub(${ei},${i})">添加子模块</a><a href="javascript:void(0)" style="color:#d03050;" onclick="modCfgDel(${ei},${i})">删除</a></td></tr>`;
-    (m.subs||[]).forEach((s,si)=>{
-      html+=`<tr style="background:#fafbfc;">
-        <td style="color:#95a3b3;font-size:12px;padding-left:16px;white-space:nowrap;">└ 子模块</td>
-        <td><input value="${(s.sid||'').replace(/"/g,'&quot;')}" placeholder="子模块ID" oninput="modCfgSetSub(${ei},${i},${si},'sid',this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;"></td>
-        <td colspan="2"><input value="${(s.param||'').replace(/"/g,'&quot;')}" placeholder="参数信息（如埋点参数/spm）" oninput="modCfgSetSub(${ei},${i},${si},'param',this.value)" style="width:100%;padding:4px 6px;border:1px solid #d7dce5;border-radius:5px;font-size:12px;"></td>
-        <td style="white-space:nowrap;"><a href="javascript:void(0)" style="color:#d03050;" onclick="modCfgDelSub(${ei},${i},${si})">删除</a></td></tr>`;
+/* ============ 子模块配置（核心页面配置 → 子模块配置，独立页面） ============ */
+// subModuleConfig: 页面名 -> [{modId, name, param, upTime, upBy}]
+let subModuleConfig = {};
+let subCfgPageIdx = -1;
+// 从 moduleConfig 里已有的 subs 迁移初始化（历史示例数据）
+Object.keys(moduleConfig).forEach(pn=>{
+  (moduleConfig[pn]||[]).forEach(m=>{
+    (m.subs||[]).forEach(s=>{
+      (subModuleConfig[pn] = subModuleConfig[pn] || []).push({
+        modId: m.id, name: m.name, param: s.param || s.sid || '',
+        upTime: m.upTime || nowStr(), upBy: m.upBy || '王恳'
+      });
     });
   });
-  el.innerHTML=html;
+});
+function openModCfgForPage(i){
+  const p = pageConfig[i]; if(!p) return;
+  subCfgPageIdx = i;
+  if(!subModuleConfig[p.name]) subModuleConfig[p.name] = [];
+  switchTab(6);
+  const t = document.getElementById('subCfgPageTitle'); if(t) t.innerText = p.name || '-';
+  renderSubItemTable();
 }
-function modCfgAdd(ei){ const ed=modCfgEditors[ei]; if(!ed) return; (moduleConfig[ed.name]=moduleConfig[ed.name]||[]).push({id:'',name:'',upTime:nowStr(),upBy:'当前用户',subs:[]}); renderModCfgList(ei); }
-function modCfgSet(ei,i,field,v){ const ed=modCfgEditors[ei]; if(!ed) return; const m=(moduleConfig[ed.name]||[])[i]; if(m){ m[field]=v; m.upTime=nowStr(); m.upBy='当前用户'; } }
-function modCfgDel(ei,i){ const ed=modCfgEditors[ei]; if(!ed||!moduleConfig[ed.name]) return; if(!confirm('确认删除该模块？')) return; moduleConfig[ed.name].splice(i,1); renderModCfgList(ei); }
-function modCfgAddSub(ei,i){ const ed=modCfgEditors[ei]; if(!ed) return; const m=(moduleConfig[ed.name]||[])[i]; if(!m) return; (m.subs=m.subs||[]).push({sid:'',param:''}); m.upTime=nowStr(); m.upBy='当前用户'; renderModCfgList(ei); }
-function modCfgSetSub(ei,i,si,field,v){ const ed=modCfgEditors[ei]; if(!ed) return; const m=(moduleConfig[ed.name]||[])[i]; if(!m||!m.subs) return; const s=m.subs[si]; if(s){ s[field]=v; m.upTime=nowStr(); m.upBy='当前用户'; } }
-function modCfgDelSub(ei,i,si){ const ed=modCfgEditors[ei]; if(!ed) return; const m=(moduleConfig[ed.name]||[])[i]; if(!m||!m.subs) return; m.subs.splice(si,1); m.upTime=nowStr(); m.upBy='当前用户'; renderModCfgList(ei); }
-function saveModCfg(){
-  for(const ed of modCfgEditors){
-    const list=moduleConfig[ed.name]||[];
-    const ids=list.map(m=>(m.id||'').trim());
-    if(ids.some(id=>!id)){ alert(`「${ed.name}」有模块未填写模块ID`); return; }
-    if(new Set(ids).size!==ids.length){ alert(`「${ed.name}」存在重复的模块ID`); return; }
+function renderSubItemTable(){
+  const el = document.getElementById('subItemTable'); if(!el) return;
+  const p = pageConfig[subCfgPageIdx];
+  const list = (p && subModuleConfig[p.name]) || [];
+  const mods = (p && moduleConfig[p.name]) || [];
+  let html = '<tr><th style="width:24%;">模块/页面ID</th><th style="width:22%;">名称</th><th>参数信息</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  if(!mods.length){
+    html += '<tr><td colspan="6" style="color:#e08a00;text-align:center;padding:18px;">该页面暂无模块，请先在「核心页面配置 → 模块配置」中添加</td></tr>';
+    el.innerHTML = html; return;
   }
-  const summary=modCfgEditors.map(ed=>`${ed.name}：${(moduleConfig[ed.name]||[]).length} 个模块`).join('；');
-  closeModCfgModal();
-  alert('已保存子模块配置 —— '+summary);
+  if(!list.length) html += '<tr><td colspan="6" style="color:#aab3c0;text-align:center;padding:18px;">暂无子模块，点击右上角「+ 新增子模块」添加</td></tr>';
+  list.forEach((s,i)=>{
+    const m = mods.find(x=>x.id===s.modId);
+    const tag = m ? ((m.idType||'module')==='page' ? '页面' : '模块') : '';
+    html += `<tr>
+      <td style="color:#7f8c9b;">${s.modId||'—'}${tag?` <span style="font-size:11px;color:#95a3b3;">（${tag}）</span>`:''}</td>
+      <td>${s.name||'—'}</td>
+      <td>${s.param||'—'}</td>
+      <td style="color:#7f8c9b;font-size:12px;white-space:nowrap;">${s.upTime||'—'}</td>
+      <td style="color:#7f8c9b;font-size:12px;">${s.upBy||'—'}</td>
+      <td style="white-space:nowrap;">
+        <a href="javascript:void(0)" style="color:#2f6fed;margin-right:10px;" onclick="openSubItemModal(${i})">编辑</a>
+        <a href="javascript:void(0)" style="color:#d03050;" onclick="delSubItem(${i})">删除</a>
+      </td></tr>`;
+  });
+  el.innerHTML = html;
+}
+let subItemEditIdx = null;
+function openSubItemModal(i){
+  const p = pageConfig[subCfgPageIdx];
+  if(!p){ alert('请先从核心页面列表进入'); return; }
+  const mods = moduleConfig[p.name] || [];
+  if(!mods.length){ alert('该页面暂无模块，请先在「模块配置」中添加'); return; }
+  subItemEditIdx = (typeof i==='number') ? i : null;
+  const s = subItemEditIdx!=null ? (subModuleConfig[p.name]||[])[subItemEditIdx] : {modId:'', name:'', param:''};
+  document.getElementById('subItemTitle').innerText = subItemEditIdx!=null ? '编辑子模块' : '新增子模块';
+  // 填充本页面下可选的 模块/页面ID
+  const sel = document.getElementById('subItemId');
+  sel.innerHTML = '<option value="">请选择</option>' + mods.map(m=>{
+    const tag = (m.idType||'module')==='page' ? '页面' : '模块';
+    return `<option value="${m.id}" ${m.id===s.modId?'selected':''}>${m.id}（${tag}）</option>`;
+  }).join('');
+  sel.value = s.modId || '';
+  document.getElementById('subItemName').value = s.name || '';
+  document.getElementById('subItemParam').value = s.param || '';
+  document.getElementById('subItemModal').style.display = 'flex';
+}
+function closeSubItemModal(){ const el=document.getElementById('subItemModal'); if(el) el.style.display='none'; }
+// 选择本页面下的 ID 后自动带出名称
+function onSubItemIdChange(id){
+  const p = pageConfig[subCfgPageIdx]; if(!p) return;
+  const m = (moduleConfig[p.name]||[]).find(x=>x.id===id);
+  document.getElementById('subItemName').value = m ? (m.name||'') : '';
+}
+function saveSubItem(){
+  const p = pageConfig[subCfgPageIdx]; if(!p) return;
+  const modId = document.getElementById('subItemId').value;
+  if(!modId){ alert('请选择模块/页面ID'); return; }
+  const m = (moduleConfig[p.name]||[]).find(x=>x.id===modId);
+  const name = m ? (m.name||'') : '';
+  const param = document.getElementById('subItemParam').value.trim();
+  const list = subModuleConfig[p.name] = subModuleConfig[p.name] || [];
+  // 同一 ID + 同一参数视为重复
+  if(list.some((x,idx)=>idx!==subItemEditIdx && x.modId===modId && (x.param||'')===param)){ alert('该模块/页面ID与参数的组合已存在'); return; }
+  const data = {modId, name, param, upTime:nowStr(), upBy:'当前用户'};
+  if(subItemEditIdx!=null) Object.assign(list[subItemEditIdx], data);
+  else list.push(data);
+  closeSubItemModal();
+  renderSubItemTable();
+}
+function delSubItem(i){
+  const p = pageConfig[subCfgPageIdx]; if(!p || !subModuleConfig[p.name]) return;
+  if(!confirm('确认删除该子模块？')) return;
+  subModuleConfig[p.name].splice(i,1);
+  renderSubItemTable();
 }
 
 /* ============ 模块二：页面下钻 ============ */
