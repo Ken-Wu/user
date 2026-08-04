@@ -148,6 +148,11 @@
   .kpi .d { font-size: 12px; margin-top: 6px; }
   .up { color: #18a058; } .down { color: #d03050; }
   #sankey { width: 100%; height: 760px; }
+  /* 生效状态徽标 */
+  .st { display:inline-flex; align-items:center; gap:4px; font-size:12px; padding:2px 8px; border-radius:11px; white-space:nowrap; }
+  .st-on  { background:#e8f7ee; color:#12854a; border:1px solid #b7e4c8; }
+  .st-off { background:#fdf1e3; color:#a3620a; border:1px solid #f2d5ab; }
+  .st i { width:6px; height:6px; border-radius:50%; background:currentColor; display:inline-block; }
   /* 感叹号说明 icon + 自定义气泡 */
   .tipi { display:inline-flex; align-items:center; justify-content:center; width:15px; height:15px; border-radius:50%;
     border:1px solid #b0bac7; color:#8b97a6; font-size:11px; font-weight:700; line-height:1; cursor:pointer; flex:none; user-select:none; }
@@ -741,23 +746,23 @@
     </div>
     <div style="display:flex;flex-direction:column;gap:14px;">
       <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:6px;">页面类型</label>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:6px;"><span style="color:#d03050;">*</span> 页面类型</label>
         <div style="display:flex;gap:24px;">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;"><input type="radio" name="pcfgType" value="single" onchange="onPcfgTypeChange('single')">单页面分析</label>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;"><input type="radio" name="pcfgType" value="multi" onchange="onPcfgTypeChange('multi')">多页面聚合数据</label>
         </div>
       </div>
       <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面名称</label>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;"><span style="color:#d03050;">*</span> 页面名称</label>
         <input id="pcfgName" type="text" placeholder="如 询价页" style="width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
       </div>
       <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">页面ID</label>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;"><span style="color:#d03050;">*</span> 页面ID</label>
         <div id="pcfgIdsList"></div>
         <a id="pcfgAddIdLink" href="javascript:void(0)" onclick="addPcfgId()" style="color:#2f6fed;font-size:12px;display:none;">+ 添加页面ID</a>
       </div>
       <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:6px;">页面分类（可多选）</label>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:6px;"><span style="color:#d03050;">*</span> 页面分类（可多选）</label>
         <div style="display:flex;gap:24px;">
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;"><input type="checkbox" name="pcfgCat" value="乘客">乘客</label>
           <label style="display:flex;align-items:center;gap:6px;cursor:pointer;font-size:13px;color:#2c3e50;"><input type="checkbox" name="pcfgCat" value="车主">车主</label>
@@ -765,7 +770,7 @@
         </div>
       </div>
       <div>
-        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">参数配置</label>
+        <label style="display:block;font-size:12px;color:#7f8c9b;margin-bottom:5px;">参数配置 <span style="color:#aab3c0;font-weight:normal;">（选填）</span></label>
         <div id="pcfgParamsList"></div>
         <a href="javascript:void(0)" onclick="addPcfgParam()" style="color:#2f6fed;font-size:12px;">+ 添加参数</a>
       </div>
@@ -1419,6 +1424,7 @@ let pageConfig = [
   {id:'dc_done',        name:'打车履约-行程完成',      img:'', upTime:'2026-06-08 16:16', upBy:'王恳'}
 ];
 // 兜底：未设置页面分类的历史页面按名称赋默认分类（平台级页面=平台，履约=乘客+车主，其余=乘客）
+pageConfig.forEach(p=>{ if(!p.status) p.status='active'; });   // 预置页面视为已生效
 pageConfig.forEach(p=>{
   if(p.category) return;
   if(/^平台首页$/.test(p.name)) p.category = ['平台'];
@@ -1446,7 +1452,7 @@ function renderPageSelects(){
 }
 function renderPageCfgTable(){
   const el = document.getElementById('pageCfgTable'); if(!el) return;
-  let html = '<tr><th>页面ID</th><th>页面名称</th><th>页面分类</th><th>页面效果图</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  let html = '<tr><th>页面ID</th><th>页面名称</th><th>页面分类</th><th>参数配置</th><th>状态</th><th>页面效果图</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
   pageConfig.forEach((p,i)=>{
     const thumb = p.img
       ? `<img src="${p.img}" alt="" style="height:40px;width:auto;border:1px solid #eef1f5;border-radius:4px;vertical-align:middle;cursor:pointer;" onclick="previewCfgImg('${p.img}')">`
@@ -1455,6 +1461,8 @@ function renderPageCfgTable(){
       <td style="color:#7f8c9b;">${p.pageType==='multi' && p.pages && p.pages.length>1 ? p.pages.map(x=>x.id).join('、') : p.id}</td>
       <td>${p.name}${p.pageType==='multi' && p.pages && p.pages.length>1 ? ` <span style="font-size:11px;color:#95a3b3;">· 聚合${p.pages.length}个ID</span>` : ''}</td>
       <td>${(p.category||[]).join('、')||'—'}</td>
+      <td style="font-size:12px;color:#7f8c9b;max-width:220px;">${paramsToText(p.params)||'—'}</td>
+      <td>${statusBadge(p.status)}</td>
       <td>${thumb}</td>
       <td>${p.upTime}</td>
       <td>${p.upBy}</td>
@@ -1472,7 +1480,19 @@ function renderPageCfgTable(){
 let pageCfgEditIndex = null;
 let pageCfgImgData = '';
 let pageCfgCmpImgData = '';
-let pcfgParams = [];   // 「参数配置」
+let pcfgParams = [];   // 「参数配置」：[{name,op,val}]，多条之间为 or 关系
+const PARAM_OPS = ['=','!=','>','>=','<','<=','包含','不包含'];
+// 兼容旧数据：'source=elevator' 字符串 -> {name,op,val}
+function toParamObj(v){
+  if(v && typeof v==='object') return {name:v.name||'', op:v.op||'=', val:v.val||''};
+  const str = (v==null?'':String(v)).trim();
+  if(!str) return {name:'', op:'=', val:''};
+  for(const op of ['>=','<=','!=','=','>','<']){
+    const i = str.indexOf(op);
+    if(i>0) return {name:str.slice(0,i).trim(), op:op, val:str.slice(i+op.length).trim()};
+  }
+  return {name:str, op:'=', val:''};
+}
 let pcfgPageType = 'single';   // single=单页面分析 / multi=多页面聚合数据
 let pcfgIds = [''];            // 页面ID 列表（单页面 1 个 / 多页面聚合可多个），名称只有一个
 function openPageCfgModal(i){
@@ -1486,8 +1506,8 @@ function openPageCfgModal(i){
   if(pcfgPageType==='single') pcfgIds = [pcfgIds[0]];
   document.querySelectorAll('input[name="pcfgType"]').forEach(r=>{ r.checked = (r.value===pcfgPageType); });
   renderPcfgIds();
-  pcfgParams = (p.params || []).slice();
-  if(pcfgParams.length===0) pcfgParams = [''];
+  pcfgParams = (p.params || []).map(toParamObj);
+  if(pcfgParams.length===0) pcfgParams = [{name:'', op:'=', val:''}];
   renderPcfgParams();
   const cats = p.category || [];
   document.querySelectorAll('input[name="pcfgCat"]').forEach(c=>{ c.checked = cats.includes(c.value); });
@@ -1515,15 +1535,32 @@ function addPcfgId(){ pcfgIds.push(''); renderPcfgIds(); }
 function delPcfgId(i){ if(pcfgIds.length<=1) return; pcfgIds.splice(i,1); renderPcfgIds(); }
 function renderPcfgParams(){
   const el = document.getElementById('pcfgParamsList'); if(!el) return;
-  el.innerHTML = pcfgParams.map((v,i)=>`
-    <div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;">
-      <input value="${(v||'').replace(/"/g,'&quot;')}" placeholder="页面参数，如 source=elevator" oninput="setPcfgParam(${i},this.value)" style="flex:1;padding:7px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
-      <span onclick="delPcfgParam(${i})" title="删除" style="cursor:pointer;color:#d03050;font-size:18px;line-height:1;flex:none;">×</span>
-    </div>`).join('');
+  el.innerHTML = pcfgParams.map((v,i)=>{
+    const p = toParamObj(v);
+    const ops = PARAM_OPS.map(o=>`<option value="${o}" ${o===p.op?'selected':''}>${o}</option>`).join('');
+    const orTag = i>0 ? `<span style="position:absolute;left:0;top:-10px;font-size:11px;color:#e08a00;background:#fff;padding:0 4px;">or</span>` : '';
+    return `<div style="position:relative;display:flex;gap:8px;align-items:center;margin-bottom:${i<pcfgParams.length-1?'15':'8'}px;">
+      ${orTag}
+      <input value="${(p.name||'').replace(/"/g,'&quot;')}" placeholder="参数名，如 pass_journey_status" oninput="setPcfgParam(${i},'name',this.value)" style="flex:1.4;min-width:0;padding:7px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      <select onchange="setPcfgParam(${i},'op',this.value)" style="flex:none;width:78px;padding:7px 6px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;background:#fff;">${ops}</select>
+      <input value="${(p.val||'').replace(/"/g,'&quot;')}" placeholder="参数值，如 10" oninput="setPcfgParam(${i},'val',this.value)" style="flex:1;min-width:0;padding:7px 10px;border:1px solid #d7dce5;border-radius:6px;font-size:13px;color:#2c3e50;">
+      <span onclick="delPcfgParam(${i})" title="删除" style="cursor:pointer;color:#d03050;font-size:18px;line-height:1;flex:none;width:16px;text-align:center;">×</span>
+    </div>`;
+  }).join('') + (pcfgParams.length>1 ? '<div style="font-size:11px;color:#95a3b3;margin-top:2px;">多条参数之间为 or 关系（满足任一即可）</div>' : '');
 }
-function setPcfgParam(i,v){ pcfgParams[i]=v; }
-function addPcfgParam(){ pcfgParams.push(''); renderPcfgParams(); }
-function delPcfgParam(i){ pcfgParams.splice(i,1); renderPcfgParams(); }
+function setPcfgParam(i,field,v){ pcfgParams[i] = toParamObj(pcfgParams[i]); pcfgParams[i][field] = v; }
+function addPcfgParam(){ pcfgParams.push({name:'', op:'=', val:''}); renderPcfgParams(); }
+function delPcfgParam(i){ if(pcfgParams.length<=1){ pcfgParams[0]={name:'',op:'=',val:''}; } else { pcfgParams.splice(i,1); } renderPcfgParams(); }
+// 生效状态（只读）：active 已生效 / inactive 未生效
+// 状态由外部审核系统同步，本平台不提供生效/取消操作；新建配置默认未生效，待审核通过后置为已生效
+function statusBadge(st){
+  const on = (st||'inactive')==='active';
+  return `<span class="st ${on?'st-on':'st-off'}"><i></i>${on?'已生效':'未生效'}</span>`;
+}
+// 参数条件转可读文案：pass_journey_status = 10 or xxx = 1
+function paramsToText(list){
+  return (list||[]).map(toParamObj).filter(p=>p.name).map(p=>`${p.name} ${p.op} ${p.val}`).join(' or ');
+}
 function closePageCfgModal(){ document.getElementById('pageCfgModal').style.display='none'; }
 function renderPcfgPreview(){
   const box = document.getElementById('pcfgPreview'); if(!box) return;
@@ -1559,11 +1596,19 @@ function savePageCfgModal(){
   const pages = ids.map(x=>({id:x, name}));   // 名称只有一个，所有页面ID共用
   const id = ids[0];                          // 主标识：用于下拉/表格展示
   if(pageConfig.some((x,idx)=>idx!==pageCfgEditIndex && x.id===id)){ alert('该页面ID已存在'); return; }
-  const params = pcfgParams.map(s=>(s||'').trim()).filter(Boolean);
+  // 页面分类：必填
   const category = Array.from(document.querySelectorAll('input[name="pcfgCat"]:checked')).map(c=>c.value);
+  if(!category.length){ alert('请选择页面分类'); return; }
+  // 参数配置：选填；但已录入的行需参数名与参数值都填写完整
+  const rawParams = pcfgParams.map(toParamObj)
+    .map(x=>({name:(x.name||'').trim(), op:x.op||'=', val:(x.val||'').trim()}));
+  const halfFilled = rawParams.find(x=>(x.name && !x.val) || (!x.name && x.val));
+  if(halfFilled){ alert('参数配置为选填，但已填写的参数需要补全参数名和参数值'); return; }
+  const params = rawParams.filter(x=>x.name && x.val);
   const analysis = document.getElementById('pcfgAnalysis').checked;
   // 不含 img/cmp：编辑时保留已有效果图与对比版本数据
   const data = {id, name, pageType:pcfgPageType, pages, params, category, analysis, upTime:nowStr(), upBy:'当前用户'};
+  if(pageCfgEditIndex==null) data.status = 'inactive';   // 新建默认未生效
   if(pageCfgEditIndex!=null) Object.assign(pageConfig[pageCfgEditIndex], data);
   else pageConfig.push(data);
   closePageCfgModal();
@@ -1625,8 +1670,8 @@ let moduleConfig = {
     {id:'submit',       name:'发单按钮',     upTime:'2026-06-05 14:30', upBy:'王恳'}
   ]
 };
-// 兜底：模块未设置点击率分母时默认「自身曝光量」（已埋曝光）
-Object.keys(moduleConfig).forEach(k=>{ (moduleConfig[k]||[]).forEach(m=>{ if(!m.denom) m.denom='self'; }); });
+// 兜底：模块未设置点击率分母时默认「自身曝光量」（已埋曝光）；预置模块视为已生效
+Object.keys(moduleConfig).forEach(k=>{ (moduleConfig[k]||[]).forEach(m=>{ if(!m.denom) m.denom='self'; if(!m.status) m.status='active'; }); });
 // —— 多编辑器：主版本 + 对比版本上下平铺 ——
 let hmEditors = [];   // [{name, img, sel, kind}]
 let hmDragging = false;
@@ -1850,8 +1895,8 @@ function renderModItemTable(){
   const el = document.getElementById('modItemTable'); if(!el) return;
   const p = pageConfig[moduleCfgPageIdx];
   const list = (p && moduleConfig[p.name]) || [];
-  let html = '<tr><th>ID类型</th><th>ID</th><th>名称</th><th>点击率分母</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
-  if(!list.length) html += '<tr><td colspan="7" style="color:#aab3c0;text-align:center;padding:18px;">暂无模块，点击右上角「+ 新增模块」添加</td></tr>';
+  let html = '<tr><th>ID类型</th><th>ID</th><th>名称</th><th>点击率分母</th><th>状态</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  if(!list.length) html += '<tr><td colspan="8" style="color:#aab3c0;text-align:center;padding:18px;">暂无模块，点击右上角「+ 新增模块」添加</td></tr>';
   list.forEach((m,i)=>{
     const d = m.denom || 'self';
     const isPage = (m.idType||'module')==='page';
@@ -1860,6 +1905,7 @@ function renderModItemTable(){
       <td style="color:#7f8c9b;">${m.id||'—'}</td>
       <td>${m.name||'—'}</td>
       <td>${DENOM_LABEL[d]||'—'}${DENOM_TIP[d] ? ` <span class="tipi" data-tip="${DENOM_TIP[d]}">!</span>` : ''}</td>
+      <td>${statusBadge(m.status)}</td>
       <td style="color:#7f8c9b;font-size:12px;white-space:nowrap;">${m.upTime||'—'}</td>
       <td style="color:#7f8c9b;font-size:12px;">${m.upBy||'—'}</td>
       <td style="white-space:nowrap;">
@@ -1909,6 +1955,7 @@ function saveModItem(){
   const list = moduleConfig[p.name] = moduleConfig[p.name] || [];
   if(list.some((m,idx)=>idx!==modItemEditIdx && m.id===id)){ alert(`该${word}ID已存在`); return; }
   const data = {id, name, idType, denom, upTime:nowStr(), upBy:'当前用户'};
+  if(modItemEditIdx==null) data.status = 'inactive';   // 新建默认未生效
   if(modItemEditIdx!=null) Object.assign(list[modItemEditIdx], data);
   else list.push(data);
   closeModItemModal();
@@ -1931,6 +1978,7 @@ Object.keys(moduleConfig).forEach(pn=>{
     (m.subs||[]).forEach(s=>{
       (subModuleConfig[pn] = subModuleConfig[pn] || []).push({
         modId: m.id, name: m.name, params: [s.param || s.sid || ''].filter(Boolean),
+        status: 'active',
         upTime: m.upTime || nowStr(), upBy: m.upBy || '王恳'
       });
     });
@@ -1949,12 +1997,12 @@ function renderSubItemTable(){
   const p = pageConfig[subCfgPageIdx];
   const list = (p && subModuleConfig[p.name]) || [];
   const mods = (p && moduleConfig[p.name]) || [];
-  let html = '<tr><th style="width:24%;">模块/页面ID</th><th style="width:22%;">名称</th><th>参数名/模块ID</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  let html = '<tr><th style="width:22%;">模块/页面ID</th><th style="width:20%;">名称</th><th>参数名/模块ID</th><th>状态</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
   if(!mods.length){
-    html += '<tr><td colspan="6" style="color:#e08a00;text-align:center;padding:18px;">该页面暂无模块，请先在「核心页面配置 → 模块配置」中添加</td></tr>';
+    html += '<tr><td colspan="7" style="color:#e08a00;text-align:center;padding:18px;">该页面暂无模块，请先在「核心页面配置 → 模块配置」中添加</td></tr>';
     el.innerHTML = html; return;
   }
-  if(!list.length) html += '<tr><td colspan="6" style="color:#aab3c0;text-align:center;padding:18px;">暂无子模块，点击右上角「+ 新增子模块」添加</td></tr>';
+  if(!list.length) html += '<tr><td colspan="7" style="color:#aab3c0;text-align:center;padding:18px;">暂无子模块，点击右上角「+ 新增子模块」添加</td></tr>';
   list.forEach((s,i)=>{
     const m = mods.find(x=>x.id===s.modId);
     const tag = m ? ((m.idType||'module')==='page' ? '页面' : '模块') : '';
@@ -1962,6 +2010,7 @@ function renderSubItemTable(){
       <td style="color:#7f8c9b;">${s.modId||'—'}${tag?` <span style="font-size:11px;color:#95a3b3;">（${tag}）</span>`:''}</td>
       <td>${s.name||'—'}</td>
       <td>${(s.params&&s.params.length) ? s.params.join('、') : '—'}</td>
+      <td>${statusBadge(s.status)}</td>
       <td style="color:#7f8c9b;font-size:12px;white-space:nowrap;">${s.upTime||'—'}</td>
       <td style="color:#7f8c9b;font-size:12px;">${s.upBy||'—'}</td>
       <td style="white-space:nowrap;">
@@ -2037,6 +2086,7 @@ function saveSubItem(){
   const key = j => `${j.modId}|${(j.params||[]).slice().sort().join(',')}`;
   if(list.some((x,idx)=>idx!==subItemEditIdx && key(x)===key({modId, params}))){ alert('该模块/页面ID与录入项的组合已存在'); return; }
   const data = {modId, name, params, upTime:nowStr(), upBy:'当前用户'};
+  if(subItemEditIdx==null) data.status = 'inactive';   // 新建默认未生效
   if(subItemEditIdx!=null) Object.assign(list[subItemEditIdx], data);
   else list.push(data);
   closeSubItemModal();
