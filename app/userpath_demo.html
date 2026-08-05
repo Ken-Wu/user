@@ -545,14 +545,6 @@
         </div>
       </div>
       </div>
-      <!-- 对比版页面（仅展示图片，可关闭，左右排列） -->
-      <div class="cmp-phone" id="cmpPhone" style="display:none;flex:none;">
-        <div style="position:relative;display:flex;align-items:center;justify-content:center;font-size:12px;color:#7f8c9b;margin-bottom:8px;padding:0 4px;">
-          <span>品类中心询价页</span>
-          <span title="关闭对比" onclick="closeCompare()" style="position:absolute;right:4px;cursor:pointer;color:#b0bac7;font-size:18px;line-height:1;">×</span>
-        </div>
-        <div class="phone"><div class="shot-wrap"><img class="ph-shot" src="image/询价页2.png" alt="对比页"></div></div>
-      </div>
       </div><!-- /phonesRow -->
     </div>
 
@@ -1402,7 +1394,7 @@ let pageConfig = [
   {id:'passenger_home', name:'乘客首页',           img:'', upTime:'2026-06-01 10:21', upBy:'王恳'},
   {id:'login',          name:'登录页',             img:'', upTime:'2026-06-01 10:22', upBy:'王恳'},
   {id:'poi',            name:'POI页',              img:'', upTime:'2026-06-02 09:10', upBy:'王恳'},
-  {id:'inquiry',        name:'询价页',             img:'image/询价页.png', cmpId:'inquiry_cat', cmpName:'品类中心询价页', cmpImg:'image/询价页2.png', upTime:'2026-06-05 14:30', upBy:'王恳'},
+  {id:'inquiry',        name:'询价页',             img:'image/询价页.png', upTime:'2026-06-05 14:30', upBy:'王恳'},
   {id:'dispatch_anim',  name:'发单动画',           img:'', upTime:'2026-06-05 14:31', upBy:'王恳'},
   {id:'waiting',        name:'等待接单页',         img:'', upTime:'2026-06-05 14:32', upBy:'王恳'},
   {id:'confirm',        name:'确认同行页',         img:'', upTime:'2026-06-06 11:00', upBy:'王恳'},
@@ -1452,7 +1444,7 @@ function renderPageSelects(){
 }
 function renderPageCfgTable(){
   const el = document.getElementById('pageCfgTable'); if(!el) return;
-  let html = '<tr><th>页面ID</th><th>页面名称</th><th>页面分类</th><th>参数配置</th><th>状态</th><th>页面效果图</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  let html = '<tr><th>页面ID</th><th>页面名称</th><th>页面分类</th><th>参数配置</th><th>页面效果图</th><th>更新时间</th><th>更新人</th><th>状态</th><th>操作</th></tr>';
   pageConfig.forEach((p,i)=>{
     const thumb = p.img
       ? `<img src="${p.img}" alt="" style="height:40px;width:auto;border:1px solid #eef1f5;border-radius:4px;vertical-align:middle;cursor:pointer;" onclick="previewCfgImg('${p.img}')">`
@@ -1462,10 +1454,10 @@ function renderPageCfgTable(){
       <td>${p.name}${p.pageType==='multi' && p.pages && p.pages.length>1 ? ` <span style="font-size:11px;color:#95a3b3;">· 聚合${p.pages.length}个ID</span>` : ''}</td>
       <td>${(p.category||[]).join('、')||'—'}</td>
       <td style="font-size:12px;color:#7f8c9b;max-width:220px;">${paramsToText(p.params)||'—'}</td>
-      <td>${statusBadge(p.status)}</td>
       <td>${thumb}</td>
       <td>${p.upTime}</td>
       <td>${p.upBy}</td>
+      <td>${statusBadge(p.status)}</td>
       <td style="white-space:nowrap;">
         <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openPageCfgModal(${i})">编辑</a>
         <a href="javascript:void(0)" style="color:#2f6fed;margin-right:12px;" onclick="openModuleCfgForPage(${i})">模块配置</a>
@@ -1606,7 +1598,7 @@ function savePageCfgModal(){
   if(halfFilled){ alert('参数配置为选填，但已填写的参数需要补全参数名和参数值'); return; }
   const params = rawParams.filter(x=>x.name && x.val);
   const analysis = document.getElementById('pcfgAnalysis').checked;
-  // 不含 img/cmp：编辑时保留已有效果图与对比版本数据
+  // 不含 img：编辑时保留已上传的效果图，不被清空
   const data = {id, name, pageType:pcfgPageType, pages, params, category, analysis, upTime:nowStr(), upBy:'当前用户'};
   if(pageCfgEditIndex==null) data.status = 'inactive';   // 新建默认未生效
   if(pageCfgEditIndex!=null) Object.assign(pageConfig[pageCfgEditIndex], data);
@@ -1672,8 +1664,8 @@ let moduleConfig = {
 };
 // 兜底：模块未设置点击率分母时默认「自身曝光量」（已埋曝光）；预置模块视为已生效
 Object.keys(moduleConfig).forEach(k=>{ (moduleConfig[k]||[]).forEach(m=>{ if(!m.denom) m.denom='self'; if(!m.status) m.status='active'; }); });
-// —— 多编辑器：主版本 + 对比版本上下平铺 ——
-let hmEditors = [];   // [{name, img, sel, kind}]
+// —— 热力图编辑器（仅当前页面，不含对比版本）——
+let hmEditors = [];   // [{name, img, sel}]
 let hmDragging = false;
 let hmCurPageIdx = -1;
 const HM_EDGE = 7;
@@ -1682,8 +1674,7 @@ function openHmCfgForPage(i){
   hmCurPageIdx = i;
   switchTab(4);
   const title = document.getElementById('hmCfgPageName'); if(title) title.innerText = p.name || '-';
-  hmEditors = [{name:p.name, img:p.img||'', label:'主版本', sel:-1, kind:'main'}];
-  if(p.cmpName) hmEditors.push({name:p.cmpName, img:p.cmpImg||'', label:'对比版本', sel:-1, kind:'cmp'});
+  hmEditors = [{name:p.name, img:p.img||'', sel:-1}];
   hmEditors.forEach(ed=>{ if(!heatmapConfig[ed.name]) heatmapConfig[ed.name]=[]; });
   renderHmArea();
 }
@@ -1696,7 +1687,7 @@ function hmUploadImg(ei, input){
     const url = e.target.result;
     ed.img = url;
     const p = pageConfig[hmCurPageIdx];
-    if(p){ if(ed.kind==='cmp') p.cmpImg = url; else p.img = url; }
+    if(p) p.img = url;
     renderHmArea();
     renderPageCfgTable();
   };
@@ -1705,8 +1696,7 @@ function hmUploadImg(ei, input){
 function renderHmArea(){
   const area = document.getElementById('hmCfgArea'); if(!area) return;
   area.innerHTML = hmEditors.map((ed,ei)=>`
-    <div class="hm-block" style="${ei>0?'border-top:1px dashed #e2e8f2;margin-top:20px;padding-top:20px;':''}">
-      <div style="font-size:14px;font-weight:600;color:#1f2d3d;margin-bottom:10px;">${ed.label}：${ed.name}</div>
+    <div class="hm-block">
       <div class="two-col" style="gap:24px;align-items:flex-start;">
         <div style="flex:none;">
           <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
@@ -1895,7 +1885,7 @@ function renderModItemTable(){
   const el = document.getElementById('modItemTable'); if(!el) return;
   const p = pageConfig[moduleCfgPageIdx];
   const list = (p && moduleConfig[p.name]) || [];
-  let html = '<tr><th>ID类型</th><th>ID</th><th>名称</th><th>点击率分母</th><th>状态</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  let html = '<tr><th>ID类型</th><th>ID</th><th>名称</th><th>点击率分母</th><th>更新时间</th><th>更新人</th><th>状态</th><th>操作</th></tr>';
   if(!list.length) html += '<tr><td colspan="8" style="color:#aab3c0;text-align:center;padding:18px;">暂无模块，点击右上角「+ 新增模块」添加</td></tr>';
   list.forEach((m,i)=>{
     const d = m.denom || 'self';
@@ -1905,9 +1895,9 @@ function renderModItemTable(){
       <td style="color:#7f8c9b;">${m.id||'—'}</td>
       <td>${m.name||'—'}</td>
       <td>${DENOM_LABEL[d]||'—'}${DENOM_TIP[d] ? ` <span class="tipi" data-tip="${DENOM_TIP[d]}">!</span>` : ''}</td>
-      <td>${statusBadge(m.status)}</td>
       <td style="color:#7f8c9b;font-size:12px;white-space:nowrap;">${m.upTime||'—'}</td>
       <td style="color:#7f8c9b;font-size:12px;">${m.upBy||'—'}</td>
+      <td>${statusBadge(m.status)}</td>
       <td style="white-space:nowrap;">
         <a href="javascript:void(0)" style="color:#2f6fed;margin-right:10px;" onclick="openModItemModal(${i})">编辑</a>
         <a href="javascript:void(0)" style="color:#d03050;" onclick="delModItem(${i})">删除</a>
@@ -1997,7 +1987,7 @@ function renderSubItemTable(){
   const p = pageConfig[subCfgPageIdx];
   const list = (p && subModuleConfig[p.name]) || [];
   const mods = (p && moduleConfig[p.name]) || [];
-  let html = '<tr><th style="width:22%;">模块/页面ID</th><th style="width:20%;">名称</th><th>参数名/模块ID</th><th>状态</th><th>更新时间</th><th>更新人</th><th>操作</th></tr>';
+  let html = '<tr><th style="width:22%;">模块/页面ID</th><th style="width:20%;">名称</th><th>参数名/模块ID</th><th>更新时间</th><th>更新人</th><th>状态</th><th>操作</th></tr>';
   if(!mods.length){
     html += '<tr><td colspan="7" style="color:#e08a00;text-align:center;padding:18px;">该页面暂无模块，请先在「核心页面配置 → 模块配置」中添加</td></tr>';
     el.innerHTML = html; return;
@@ -2010,9 +2000,9 @@ function renderSubItemTable(){
       <td style="color:#7f8c9b;">${s.modId||'—'}${tag?` <span style="font-size:11px;color:#95a3b3;">（${tag}）</span>`:''}</td>
       <td>${s.name||'—'}</td>
       <td>${(s.params&&s.params.length) ? s.params.join('、') : '—'}</td>
-      <td>${statusBadge(s.status)}</td>
       <td style="color:#7f8c9b;font-size:12px;white-space:nowrap;">${s.upTime||'—'}</td>
       <td style="color:#7f8c9b;font-size:12px;">${s.upBy||'—'}</td>
+      <td>${statusBadge(s.status)}</td>
       <td style="white-space:nowrap;">
         <a href="javascript:void(0)" style="color:#2f6fed;margin-right:10px;" onclick="openSubItemModal(${i})">编辑</a>
         <a href="javascript:void(0)" style="color:#d03050;" onclick="delSubItem(${i})">删除</a>
@@ -2524,18 +2514,6 @@ function toggleData(btn){
   });
   btn.classList.toggle('off', !dataOn);
   btn.style.opacity = dataOn ? '' : '.4';
-}
-// 版本对比选择：选中则在右侧展示对比页，可关闭（直接操作内联样式，不依赖 CSS）
-function switchVer(ver){
-  const card = document.getElementById('hmCard');
-  const cmp = document.getElementById('cmpPhone');
-  if(ver){ if(cmp) cmp.style.display='block'; if(card) card.style.flex='0 0 760px'; }
-  else { if(cmp) cmp.style.display='none'; if(card) card.style.flex='0 0 460px'; }
-}
-function closeCompare(){
-  const cmp = document.getElementById('cmpPhone'); if(cmp) cmp.style.display='none';
-  const card = document.getElementById('hmCard'); if(card) card.style.flex='0 0 460px';
-  const sel = document.getElementById('verCompare'); if(sel) sel.value='';
 }
 
 
