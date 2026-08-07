@@ -208,6 +208,27 @@
   .alert-act img{width:16px;height:16px;display:block;}
   .alert-act:hover{opacity:.82;}
 
+  /* ===== 可搜索下拉（父模块选择）=====
+     候选面板挂 body 用 fixed 定位：弹窗体与表格单元格都有 overflow，
+     放在容器内会被裁掉 */
+  .cb-pop{position:fixed;z-index:420;display:none;
+          min-width:240px;max-width:440px;max-height:246px;overflow:auto;
+          background:#fff;border:1px solid var(--tb-line);border-radius:6px;
+          box-shadow:0 6px 18px rgba(0,0,0,.14);padding:4px;}
+  .cb-item{padding:6px 8px;border-radius:4px;cursor:pointer;
+           display:flex;flex-direction:column;gap:1px;}
+  .cb-item:hover,.cb-item.on{background:#f0faff;}
+  .cb-item b{font-size:13px;font-weight:500;color:var(--fg-1);}
+  .cb-item i{font-size:11px;font-style:normal;color:var(--tb-cell-muted);word-break:break-all;}
+  .cb-item em{font-style:normal;color:var(--brand-text);font-weight:600;}
+  .cb-empty{padding:10px 8px;font-size:12px;color:var(--tb-cell-muted);text-align:center;}
+  /* 批量添加弹窗里「父模块」附加行 */
+  tr.prow > td{background:#fbfcfd;}
+  .prow-in{display:flex;align-items:center;gap:8px;}
+  .prow-in .f-in{flex:1;min-width:0;padding:6px 10px;}
+  .prow-lb{flex:none;font-size:12px;color:var(--fg-2);}
+  .prow-lb .req{color:var(--danger);}
+
   /* ===== 感叹号说明气泡（沿用原 demo：描边圆圈 + 深色气泡） ===== */
   .tipi{display:inline-flex;align-items:center;justify-content:center;
         width:15px;height:15px;border-radius:50%;
@@ -698,10 +719,11 @@
         <label class="f-lb g6">点击率分母</label>
         <div class="f-radios col" id="mcfg-denoms"></div>
       </div>
-      <!-- 仅「父模块曝光量」时出现：选择本页面下作为分母的模块ID -->
+      <!-- 仅「父模块曝光量」时出现：选择本页面下作为分母的模块（可输入模糊匹配） -->
       <div id="mcfg-parent-wrap" hidden>
         <label class="f-lb"><span class="req">*</span> 父模块</label>
-        <select class="f-in" id="mcfg-parent"></select>
+        <input class="f-in" id="mcfg-parent" type="text" autocomplete="off"
+               placeholder="输入模块ID或名称搜索">
       </div>
     </div>
     <div class="dlg-ft">
@@ -741,6 +763,7 @@
 </div>
 
 <div class="tip-pop" id="tipPop"></div>
+<div class="cb-pop" id="cbPop"></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -959,6 +982,72 @@ function closeModal(){
   setTimeout(()=>{ $('#mask').hidden = true; if(m) m.hidden = true; }, 200);
 }
 
+/* ================= 可搜索下拉：父模块选择 =================
+   两处共用（单条模块弹窗 / 批量添加弹窗的每一行）：
+   输入关键字同时模糊匹配模块ID 与名称，选中后写回 parentId */
+let cbCtx = null;   /* {input, items, get, set} */
+
+function modCandidates(pageName, excludeId){
+  return (moduleConfig[pageName] || []).filter(m => m.id !== excludeId);
+}
+/* 已选模块的展示文案：名称（ID） */
+function parentLabel(pageName, id){
+  if(!id) return '';
+  const m = (moduleConfig[pageName] || []).find(x => x.id === id);
+  return m ? (m.name + '（' + m.id + '）') : id;
+}
+function cbHighlight(text, q){
+  const s = String(text == null ? '' : text);
+  if(!q) return esc(s);
+  const i = s.toLowerCase().indexOf(q);
+  if(i < 0) return esc(s);
+  return esc(s.slice(0,i)) + '<em>' + esc(s.slice(i, i+q.length)) + '</em>' + esc(s.slice(i+q.length));
+}
+function cbRender(kw){
+  if(!cbCtx) return;
+  const pop = $('#cbPop');
+  const q = (kw || '').trim().toLowerCase();
+  const list = cbCtx.items.filter(m =>
+    !q || (m.id||'').toLowerCase().indexOf(q) >= 0 || (m.name||'').toLowerCase().indexOf(q) >= 0);
+  pop.innerHTML = list.length
+    ? list.map(m => '<div class="cb-item" data-cbid="' + esc(m.id) + '">' +
+        '<b>' + cbHighlight(m.name, q) + '</b><i>' + cbHighlight(m.id, q) + '</i></div>').join('')
+    : '<div class="cb-empty">无匹配的模块</div>';
+  pop.style.display = 'block';
+  cbPosition();
+}
+function cbPosition(){
+  if(!cbCtx) return;
+  const pop = $('#cbPop'), r = cbCtx.input.getBoundingClientRect();
+  pop.style.minWidth = Math.max(240, r.width) + 'px';
+  const ph = pop.offsetHeight, vh = window.innerHeight || 800;
+  let top = r.bottom + 4;
+  if(top + ph > vh - 8) top = Math.max(8, r.top - ph - 4);   /* 下方不够就翻到上方 */
+  let left = r.left;
+  const pw = pop.offsetWidth, vw = window.innerWidth || 1200;
+  if(left + pw > vw - 8) left = Math.max(8, vw - pw - 8);
+  pop.style.top = top + 'px';
+  pop.style.left = left + 'px';
+}
+function cbOpen(input, items, get, set){
+  cbCtx = {input:input, items:items, get:get, set:set};
+  cbRender('');            /* 聚焦先列全部候选，开始输入才过滤 */
+}
+function cbClose(){
+  if(!cbCtx) return;
+  /* 关闭时把输入框还原为已选项，避免残留无效的手输文本 */
+  const c = cbCtx; cbCtx = null;
+  $('#cbPop').style.display = 'none';
+  if(c.input && document.body.contains(c.input)) c.input.value = c.get();
+}
+function cbPick(id){
+  if(!cbCtx) return;
+  const c = cbCtx; cbCtx = null;
+  $('#cbPop').style.display = 'none';
+  c.set(id);
+  if(c.input && document.body.contains(c.input)) c.input.value = c.get();
+}
+
 /* ================= 感叹号说明气泡（hover 与点击均展示） ================= */
 function showTip(el, text){
   const pop = $('#tipPop'); if(!pop || !text) return;
@@ -1127,8 +1216,9 @@ function delPage(i){
 }
 
 /* ================= 模块配置 ================= */
-let modPageIdx  = -1;
-let modEditIdx  = null;
+let modPageIdx   = -1;
+let modEditIdx   = null;
+let mcfgParentId = '';   /* 单条模块弹窗里已选的父模块ID */
 
 function openModules(i){
   const p = pageConfig[i]; if(!p) return;
@@ -1185,12 +1275,9 @@ function openModModal(i){
   $('#mcfg-denoms').innerHTML = Object.keys(DENOM_LABEL).map(k =>
     '<label class="f-radio"><input type="radio" name="mcfgDenom" value="' + k + '"' + (k===d?' checked':'') + '>' +
     esc(DENOM_LABEL[k]) + tipi(DENOM_TIP[k]) + '</label>').join('');
-  /* 父模块候选：本页面已维护的模块，排除自己（不能拿自己当分母） */
-  const sel = $('#mcfg-parent');
-  sel.innerHTML = '<option value="">请选择</option>' + (moduleConfig[p.name]||[])
-    .filter((x,idx)=> idx !== modEditIdx)
-    .map(x => '<option value="' + esc(x.id) + '">' + esc(x.name) + '（' + esc(x.id) + '）</option>').join('');
-  sel.value = m.parentId || '';
+  /* 父模块：本页面已维护的模块，排除自己（不能拿自己当分母），支持输入模糊匹配 */
+  mcfgParentId = m.parentId || '';
+  $('#mcfg-parent').value = parentLabel(p.name, mcfgParentId);
   onModDenomChange(d);
   openModal('modal-mod');
 }
@@ -1217,7 +1304,7 @@ function saveMod(){
   if(!name){ toast('请填写' + word + '名称', true); return; }
   const dEl   = $$('input[name="mcfgDenom"]').find(r=>r.checked);
   const denom = dEl ? dEl.value : 'self';
-  const parentId = denom === 'parent' ? $('#mcfg-parent').value : '';
+  const parentId = denom === 'parent' ? mcfgParentId : '';
   if(denom === 'parent' && !parentId){ toast('请选择作为分母的父模块', true); return; }
   const list  = moduleConfig[p.name] = moduleConfig[p.name] || [];
   if(list.some((m,idx)=> idx !== modEditIdx && m.id === id)){ toast('该' + word + 'ID已存在', true); return; }
@@ -1240,23 +1327,34 @@ function delMod(i){
 /* ---- 批量添加 Target 新增模块（Figma 369:16307） ---- */
 let draft = [];
 function renderDraft(){
+  const p    = pageConfig[modPageIdx] || {};
   const opts = Object.keys(DENOM_LABEL).map(k =>
     '<option value="' + k + '">' + esc(DENOM_LABEL[k]) + '</option>').join('');
-  $('#tb-new').innerHTML = draft.map((d,i) =>
-    '<tr>' +
-      '<td><div class="fld"><input value="' + esc(d.id) + '" placeholder="请输入模块ID" data-di="' + i + '" data-k="id"></div></td>' +
-      '<td><div class="fld"><input value="' + esc(d.name) + '" placeholder="请输入模块名称" data-di="' + i + '" data-k="name"></div></td>' +
-      '<td><label class="fld sel">' +
-            '<select data-di="' + i + '" data-k="denom" ' +
-              'style="border:none;outline:none;font:inherit;background:none;width:100%;' +
-              'appearance:none;-webkit-appearance:none;cursor:pointer;' +
-              'color:' + (d.denom ? 'var(--fg-1)' : 'var(--text-tertiary)') + '">' +
-              '<option value="">请选择</option>' + opts +
-            '</select>' +
-            '<img src="' + ICO + 'chevron-down.svg" alt="">' +
-          '</label></td>' +
-      '<td><a class="row-del" data-deldraft="' + i + '">删除</a></td>' +
-    '</tr>').join('');
+  $('#tb-new').innerHTML = draft.map((d,i) => {
+    const row =
+      '<tr>' +
+        '<td><div class="fld"><input value="' + esc(d.id) + '" placeholder="请输入模块ID" data-di="' + i + '" data-k="id"></div></td>' +
+        '<td><div class="fld"><input value="' + esc(d.name) + '" placeholder="请输入模块名称" data-di="' + i + '" data-k="name"></div></td>' +
+        '<td><label class="fld sel">' +
+              '<select data-di="' + i + '" data-k="denom" ' +
+                'style="border:none;outline:none;font:inherit;background:none;width:100%;' +
+                'appearance:none;-webkit-appearance:none;cursor:pointer;' +
+                'color:' + (d.denom ? 'var(--fg-1)' : 'var(--text-tertiary)') + '">' +
+                '<option value="">请选择</option>' + opts +
+              '</select>' +
+              '<img src="' + ICO + 'chevron-down.svg" alt="">' +
+            '</label></td>' +
+        '<td><a class="row-del" data-deldraft="' + i + '">删除</a></td>' +
+      '</tr>';
+    /* 选「父模块曝光量」的行，附加一行选择作为分母的模块（可输入模糊匹配） */
+    if(d.denom !== 'parent') return row;
+    return row +
+      '<tr class="prow"><td colspan="4"><div class="prow-in">' +
+        '<span class="prow-lb"><span class="req">*</span> 父模块</span>' +
+        '<input class="f-in" type="text" autocomplete="off" data-cbp="' + i + '" ' +
+               'placeholder="输入模块ID或名称搜索" value="' + esc(parentLabel(p.name, d.parentId)) + '">' +
+      '</div></td></tr>';
+  }).join('');
   /* select 当前值在插入 DOM 后赋，避免拼接字符串里做 selected 判断 */
   draft.forEach((d,i) => {
     const s = $('#tb-new select[data-di="' + i + '"]');
@@ -1266,7 +1364,7 @@ function renderDraft(){
 function openNewModal(){
   const p = pageConfig[modPageIdx]; if(!p) return;
   /* ID 与名称都从 Target 带出，两者均可编辑 */
-  draft = ((newModules[p.name]) || []).map(x => ({id:x.id||'', name:x.name||'', denom:''}));
+  draft = ((newModules[p.name]) || []).map(x => ({id:x.id||'', name:x.name||'', denom:'', parentId:''}));
   if(!draft.length){ toast('该页面暂无待添加的新增模块'); return; }
   renderDraft();
   openModal('modal-new');
@@ -1274,11 +1372,14 @@ function openNewModal(){
 function saveNew(){
   const p = pageConfig[modPageIdx]; if(!p) return;
   const list = moduleConfig[p.name] = moduleConfig[p.name] || [];
-  const rows = draft.map(d => ({id:(d.id||'').trim(), name:(d.name||'').trim(), denom:d.denom}));
+  const rows = draft.map(d => ({id:(d.id||'').trim(), name:(d.name||'').trim(),
+                               denom:d.denom, parentId:d.parentId||''}));
   /* ID 可编辑，因此保存前要重新校验非空、组内不重复、与已有模块不冲突 */
   if(rows.some(r => !r.id)){ toast('模块ID 不能为空', true); return; }
   const bad = rows.find(r => !r.name || !r.denom);
   if(bad){ toast('请补全「' + bad.id + '」的模块名称与点击率分母', true); return; }
+  const noParent = rows.find(r => r.denom === 'parent' && !r.parentId);
+  if(noParent){ toast('「' + noParent.id + '」选择了父模块曝光量，请选择作为分母的父模块', true); return; }
   const ids = rows.map(r => r.id);
   const dup = ids.find((x,i) => ids.indexOf(x) !== i);
   if(dup){ toast('本次添加中存在重复的模块ID：' + dup, true); return; }
@@ -1286,7 +1387,7 @@ function saveNew(){
   if(clash){ toast('该模块ID已存在：' + clash.id, true); return; }
   const stamp = nowStr();
   rows.forEach(r => list.push({
-    id:r.id, name:r.name, idType:'module', denom:r.denom, parentId:'',
+    id:r.id, name:r.name, idType:'module', denom:r.denom, parentId:r.parentId,
     upTime:stamp, upBy:'当前用户', status:'inactive'
   }));
   newModules[p.name] = [];        /* 清空后页面表的「新模块数」与提示条同时归零 */
@@ -1632,6 +1733,11 @@ document.addEventListener('click', e => {
   const t = e.target;
   const hit = sel => t.closest(sel);
 
+  /* --- 父模块候选：点条目选中；点面板外则收起 --- */
+  const cbi = hit('.cb-item');
+  if(cbi){ e.preventDefault(); cbPick(cbi.dataset.cbid); return; }
+  if(cbCtx && t !== cbCtx.input && !hit('#cbPop')) cbClose();
+
   /* --- 感叹号气泡：点击也展示，点其他地方收起 --- */
   const tip = hit('.tipi');
   if(tip){ e.stopPropagation(); showTip(tip, tip.getAttribute('data-tip')); return; }
@@ -1722,9 +1828,35 @@ document.addEventListener('mouseout', e => {
   if(t) hideTip();
 });
 
+/* 父模块输入框获得焦点 → 打开候选（focusin 可委托，focus 不冒泡） */
+document.addEventListener('focusin', e => {
+  const el = e.target;
+  if(!el || !el.dataset) return;
+  const p = pageConfig[modPageIdx];
+  if(el.id === 'mcfg-parent'){
+    if(!p) return;
+    const exclude = modEditIdx != null ? ((moduleConfig[p.name]||[])[modEditIdx]||{}).id : '';
+    cbOpen(el, modCandidates(p.name, exclude),
+           ()=> parentLabel(p.name, mcfgParentId),
+           id => { mcfgParentId = id; });
+    return;
+  }
+  if(el.dataset.cbp != null){
+    if(!p) return;
+    const i = +el.dataset.cbp;
+    cbOpen(el, modCandidates(p.name, (draft[i]||{}).id),
+           ()=> parentLabel(p.name, (draft[i]||{}).parentId),
+           id => { if(draft[i]) draft[i].parentId = id; });
+    return;
+  }
+  if(cbCtx) cbClose();
+});
+
 /* 输入同步 */
 document.addEventListener('input', e => {
   const el = e.target, d = el.dataset || {};
+  /* 父模块搜索框：按输入内容过滤候选，不写入数据（选中才写） */
+  if(cbCtx && el === cbCtx.input){ cbRender(el.value); return; }
   if(d.pid  != null) pcfgIds[+d.pid] = el.value;
   else if(d.pp != null){ pcfgParams[+d.pp] = toParamObj(pcfgParams[+d.pp]); pcfgParams[+d.pp][d.k] = el.value; }
   else if(d.sp != null) subParams[+d.sp] = el.value;
@@ -1744,7 +1876,11 @@ document.addEventListener('change', e => {
   if(el.id === 'scfg-id'){ onSubIdChange(el.value); return; }
   if(d.pp != null && d.k === 'op'){ pcfgParams[+d.pp] = toParamObj(pcfgParams[+d.pp]); pcfgParams[+d.pp].op = el.value; return; }
   if(d.di != null && d.k === 'denom'){
-    draft[+d.di].denom = el.value;
+    const i = +d.di, prev = draft[i].denom;
+    draft[i].denom = el.value;
+    if(el.value !== 'parent') draft[i].parentId = '';   /* 切走时清掉已选父模块 */
+    /* 进出「父模块曝光量」都要重渲染，附加行才会跟着出现或收起 */
+    if(prev === 'parent' || el.value === 'parent'){ cbClose(); renderDraft(); return; }
     el.style.color = el.value ? 'var(--fg-1)' : 'var(--text-tertiary)';
     return;
   }
@@ -1764,14 +1900,17 @@ document.addEventListener('change', e => {
 
 document.addEventListener('keydown', e => {
   if(e.key !== 'Escape') return;
+  if(cbCtx){ cbClose(); return; }        /* 先关父模块候选，不要连带关掉弹窗 */
   const lb = $('.lb');
   if(lb){ lb.classList.remove('show'); setTimeout(()=>lb.remove(),200); return; }
   if(curModal){ closeModal(); return; }
   if(!$('#view-pages').hidden) return;
   showView('pages');
 });
-/* capture 阶段：表格容器等内部元素滚动时也收起气泡（scroll 事件不冒泡） */
-window.addEventListener('scroll', hideTip, {passive:true, capture:true});
+/* capture 阶段：表格容器等内部元素滚动时也收起浮层（scroll 事件不冒泡）。
+   气泡与候选面板都是 fixed 定位，容器滚动后位置会失准，直接收起 */
+window.addEventListener('scroll', ()=>{ hideTip(); cbClose(); }, {passive:true, capture:true});
+window.addEventListener('resize', ()=>{ hideTip(); cbClose(); });
 
 /* ================= 启动 =================
    支持 hash 直达，便于分享与逐屏核对：
