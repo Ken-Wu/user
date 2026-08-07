@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>用户路径分析</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-font-smoothing:antialiased; }
+  body {
+    width:390px; min-height:844px; background:#F5F6F8;
+    font-family:-apple-system,"PingFang SC","Helvetica Neue",sans-serif;
+    color:#1A1D26;
+  }
+  .status { height:44px; display:flex; align-items:center; justify-content:space-between;
+            padding:0 20px; font-size:13px; font-weight:600; }
+  .nav { height:48px; display:flex; align-items:center; padding:0 16px; background:#fff;
+         border-bottom:1px solid #EDEFF2; }
+  .nav .back { font-size:20px; color:#5A6172; margin-right:12px; }
+  .nav h1 { font-size:17px; font-weight:600; }
+  .nav .act { margin-left:auto; font-size:14px; color:#2B6BFF; }
+
+  .filters { display:flex; gap:8px; padding:12px 16px; overflow:hidden; }
+  .chip { padding:6px 12px; background:#fff; border:1px solid #E3E6EC; border-radius:16px;
+          font-size:13px; color:#5A6172; white-space:nowrap; }
+  .chip.on { background:#EAF1FF; border-color:#2B6BFF; color:#2B6BFF; font-weight:500; }
+
+  .kpis { display:flex; gap:10px; padding:0 16px 14px; }
+  .kpi { flex:1; background:#fff; border-radius:12px; padding:12px 10px; }
+  .kpi .lbl { font-size:11px; color:#8C93A3; margin-bottom:5px; }
+  .kpi .val { font-size:20px; font-weight:700; letter-spacing:-.3px; }
+  .kpi .val span { font-size:11px; font-weight:500; color:#8C93A3; margin-left:1px; }
+  .kpi .dt { font-size:11px; margin-top:3px; font-weight:500; }
+  .up { color:#00A870; } .down { color:#E5483D; }
+
+  .card { background:#fff; border-radius:12px; margin:0 16px 14px; padding:16px; }
+  .card h2 { font-size:15px; font-weight:600; margin-bottom:2px; }
+  .card .sub { font-size:11px; color:#A0A6B4; margin-bottom:16px; }
+
+  .step { margin-bottom:14px; }
+  .step .top { display:flex; align-items:baseline; margin-bottom:6px; }
+  .step .name { font-size:13px; font-weight:500; }
+  .step .pv { font-size:12px; color:#8C93A3; margin-left:auto; }
+  .step .rate { font-size:13px; font-weight:600; margin-left:10px; }
+  .bar { height:26px; border-radius:5px; background:linear-gradient(90deg,#2B6BFF,#5B8CFF); }
+  .drop { font-size:11px; color:#E5483D; margin-top:5px; padding-left:2px; }
+
+  .nodes { display:flex; flex-direction:column; gap:9px; }
+  .node { display:flex; align-items:center; gap:10px; }
+  .node .rk { width:18px; height:18px; border-radius:5px; background:#F0F2F5; color:#8C93A3;
+              font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+  .node .rk.t3 { background:#2B6BFF; color:#fff; }
+  .node .nm { font-size:13px; width:104px; }
+  .node .tk { display:block; flex:1; height:7px; background:#F0F2F5;
+              border-radius:4px; overflow:hidden; }
+  .node .fl { display:block; height:100%; background:#2B6BFF; border-radius:4px; }
+  .node .pct { font-size:12px; color:#5A6172; width:42px; text-align:right;
+               font-variant-numeric:tabular-nums; }
+
+  .tabbar { width:390px; height:64px; background:#fff; margin-top:6px;
+            border-top:1px solid #EDEFF2; display:flex; }
+  .tab { flex:1; display:flex; flex-direction:column; align-items:center;
+         justify-content:center; gap:3px; font-size:10px; color:#A0A6B4; }
+  .tab .ic { font-size:19px; }
+  .tab.on { color:#2B6BFF; font-weight:500; }
+</style>
+</head>
+<body>
+  <div class="status"><span>9:41</span><span>●●● ᯤ 100%</span></div>
+
+  <div class="nav">
+    <span class="back">‹</span><h1>用户路径分析</h1><span class="act">保存</span>
+  </div>
+
+  <div class="filters">
+    <span class="chip on">近 7 天</span>
+    <span class="chip">顺风车</span>
+    <span class="chip">全平台</span>
+    <span class="chip">+ 筛选</span>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="lbl">路径总人数</div>
+      <div class="val">28.4<span>万</span></div><div class="dt up">↑ 12.3%</div></div>
+    <div class="kpi"><div class="lbl">完成转化</div>
+      <div class="val">31.7<span>%</span></div><div class="dt up">↑ 2.1pp</div></div>
+    <div class="kpi"><div class="lbl">平均步长</div>
+      <div class="val">4.6<span>步</span></div><div class="dt down">↓ 0.4</div></div>
+  </div>
+
+  <div class="card">
+    <h2>核心转化漏斗</h2>
+    <div class="sub">首页 → 询价 → 发单 → 支付</div>
+
+    <div class="step"><div class="top"><span class="name">首页曝光</span>
+      <span class="pv">284,102</span><span class="rate">100%</span></div>
+      <div class="bar" style="width:100%"></div></div>
+
+    <div class="step"><div class="top"><span class="name">进入询价页</span>
+      <span class="pv">176,340</span><span class="rate">62.1%</span></div>
+      <div class="bar" style="width:62%"></div>
+      <div class="drop">↓ 流失 107,762 人（37.9%）</div></div>
+
+    <div class="step"><div class="top"><span class="name">提交发单</span>
+      <span class="pv">102,881</span><span class="rate">36.2%</span></div>
+      <div class="bar" style="width:36%"></div>
+      <div class="drop">↓ 流失 73,459 人（41.7%）· 最大流失环节</div></div>
+
+    <div class="step" style="margin-bottom:0"><div class="top"><span class="name">完成支付</span>
+      <span class="pv">90,015</span><span class="rate">31.7%</span></div>
+      <div class="bar" style="width:32%"></div>
+      <div class="drop">↓ 流失 12,866 人（12.5%）</div></div>
+  </div>
+
+  <div class="card">
+    <h2>高频流失节点</h2>
+    <div class="sub">按离开占比排序 · TOP 6</div>
+    <div class="nodes">
+      <div class="node"><span class="rk t3">1</span><span class="nm">询价页-价格展示</span>
+        <span class="tk"><span class="fl" style="width:88%"></span></span><span class="pct">24.1%</span></div>
+      <div class="node"><span class="rk t3">2</span><span class="nm">地址搜索页</span>
+        <span class="tk"><span class="fl" style="width:66%"></span></span><span class="pct">18.0%</span></div>
+      <div class="node"><span class="rk t3">3</span><span class="nm">等待应答页</span>
+        <span class="tk"><span class="fl" style="width:54%"></span></span><span class="pct">14.7%</span></div>
+      <div class="node"><span class="rk">4</span><span class="nm">优惠券选择</span>
+        <span class="tk"><span class="fl" style="width:34%"></span></span><span class="pct">9.3%</span></div>
+      <div class="node"><span class="rk">5</span><span class="nm">支付确认页</span>
+        <span class="tk"><span class="fl" style="width:26%"></span></span><span class="pct">7.1%</span></div>
+      <div class="node"><span class="rk">6</span><span class="nm">行程详情页</span>
+        <span class="tk"><span class="fl" style="width:17%"></span></span><span class="pct">4.6%</span></div>
+    </div>
+  </div>
+
+  <div class="tabbar">
+    <div class="tab on"><span class="ic">◈</span>路径</div>
+    <div class="tab"><span class="ic">◱</span>漏斗</div>
+    <div class="tab"><span class="ic">◎</span>留存</div>
+    <div class="tab"><span class="ic">☰</span>我的</div>
+  </div>
+</body>
+</html>

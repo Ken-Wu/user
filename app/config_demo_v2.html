@@ -1,0 +1,1823 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天眼用户行为 · 配置</title>
+<style>
+  /* ============================================================
+     Design tokens
+     顶栏 / 品牌色沿用路径分析、页面分析两页（Figma Frame 2130969444）
+     表格与卡片取自 Figma:
+       核心页面配置  366:11280
+       模块配置      370:17201
+       添加模块弹窗  369:16307
+     配置能力（新增/编辑页面、模块、子模块、热力图）逻辑对齐 userpath_demo.html
+     ============================================================ */
+  :root{
+    --brand:#00b2ff;
+    --brand-hover:#00a1e6;
+    --brand-text:#0098fe;        /* brand2（文字色） */
+    --text-primary:#17181a;
+    --text-secondary:#5e6266;
+    --text-tertiary:#8d9399;
+    --bg-secondary:#f4f7fa;      /* 顶栏 tab 容器底 */
+    --page-bg:#f4f6f8;           /* 366:11280 画板底 */
+    --surface:#fff;
+    --radius-pill:100px;
+    --radius-card:12px;
+    --radius-ctl:6px;
+
+    /* 表格与弹窗的文字层级：一级 #333 / 二级 #666；
+       占位符、「--」等第三层仍用浅灰，避免与二级信息混在一起 */
+    --fg-1:#333333;
+    --fg-2:#666666;
+
+    /* 配置类表格（366:11307 / 370:17232 / 369:16534） */
+    --tb-head-bg:#f8fafc;
+    --tb-head-fg:var(--fg-2);
+    --tb-line:#e5e7eb;
+    --tb-cell-fg:var(--fg-1);      /* 单元格内容（ID / 时间 / 更新人）统一一级色 */
+    --tb-cell-strong:var(--fg-1);  /* 名称等主文字 */
+    --tb-cell-muted:#9ca3af;       /* 占位「--」/ 补充标注，第三层 */
+    --tb-row-hover:#fafbfc;
+    --tb-row-sel:#f0faff;        /* 热力图区域列表选中行 */
+    --link:#0083ff;
+    --danger:#ff4d4f;
+
+    /* 分类标签（364:14830 / 364:14842 / 364:14846） */
+    --tag-platform-bg:#fff0e5;   --tag-platform-fg:#ff4d00;
+    --tag-rider-bg:#e5f9ff;      --tag-rider-fg:#0098fe;
+    --tag-driver-bg:#e5fff5;     --tag-driver-fg:#00a69b;
+
+    /* 状态（393:17824） */
+    --ok:#00a69b;
+
+    /* 提示条（370:17411） */
+    --alert-bg:#fffbe6;
+    --alert-border:#f2aa00;
+    --alert-strong:#faad14;
+    --warn-text:#e08a00;
+
+    /* 表单控件（369:16807） */
+    --ctl-border:#e6e8eb;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  /* scrollbar-gutter：始终预留滚动条槽位。
+     否则视图切换（24 行的核心页面配置 → 2 行的子模块配置）或弹窗锁滚动时，
+     滚动条出现/消失会改变视口宽度，让 fixed 顶栏里居中的 tab 容器左右跳动 */
+  html{overscroll-behavior:none;scrollbar-gutter:stable;}
+  /* 兜底：不支持 scrollbar-gutter 的浏览器改为常驻滚动条，同样不会跳 */
+  @supports not (scrollbar-gutter:stable){
+    html{overflow-y:scroll;}
+  }
+  body{
+    background:var(--page-bg); color:var(--text-primary);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,Arial,sans-serif;
+    font-size:14px; -webkit-font-smoothing:antialiased;
+    overscroll-behavior:none;
+    padding-top:64px;              /* 让出 fixed 顶栏 */
+  }
+
+  /* ===== 顶部导航 1440x64（与另两页完全一致） ===== */
+  .nav{height:64px;background:var(--surface);display:flex;align-items:center;padding:0 25px;
+       position:fixed;top:0;left:0;right:0;z-index:100;
+       box-shadow:5px 17px 30px 0 rgba(17,61,112,.13);}
+  .nav-brand{display:flex;align-items:center;gap:8px;}
+  .nav-logo{width:30px;height:30px;flex:none;display:block;object-fit:contain;}
+  .nav-title{font-size:18px;font-weight:600;line-height:25px;letter-spacing:.2px;}
+  .nav-tabs{position:absolute;left:50%;transform:translateX(-50%);
+            height:40px;padding:2px;background:var(--bg-secondary);border-radius:var(--radius-pill);display:flex;gap:2px;}
+  .nav-tab{width:112px;height:36px;border-radius:var(--radius-pill);display:flex;align-items:center;justify-content:center;
+           font-size:18px;font-weight:600;color:var(--text-secondary);cursor:pointer;text-decoration:none;
+           transition:color .26s ease,transform .12s ease;}
+  .nav-tab:hover{color:var(--text-primary);}
+  .nav-tab:active{transform:scale(.96);}
+  .nav-cfg{margin-left:auto;height:30px;padding:0 12px;border:none;border-radius:var(--radius-pill);
+           display:flex;align-items:center;gap:3px;font-size:16px;cursor:pointer;text-decoration:none;
+           background:var(--bg-secondary);color:var(--text-secondary);}
+  .nav-cfg img{width:16px;height:16px;display:block;}
+  /* 当前就在配置页 → 激活态：品牌底 + 白字白图标（Figma 393:17776 / 393:17778） */
+  .nav-cfg.active{background:var(--brand);color:#fff;cursor:default;}
+  .nav-cfg.active img{filter:brightness(0) invert(1);}
+
+  /* ===== 内容区（366:11298 workspace-wrapper） ===== */
+  .wrap{padding:16px 24px;}
+  .card{background:var(--surface);border-radius:var(--radius-card);padding:24px;
+        display:flex;flex-direction:column;gap:24px;
+        filter:drop-shadow(0 2px 4px rgba(0,0,0,.03));}
+
+  /* 卡片头（366:11300） */
+  .card-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;}
+  .card-hd-txt{display:flex;flex-direction:column;gap:8px;min-width:0;}
+  .card-title{font-size:18px;font-weight:700;color:var(--fg-1);}
+  .card-desc{font-size:13px;line-height:1.5;color:var(--fg-2);}
+  /* 返回态标题（370:17225）：箭头 + 标题同排 */
+  .card-title-back{display:flex;align-items:center;gap:0;}
+  .btn-back{width:24px;height:24px;flex:none;border:none;background:none;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;color:var(--tb-cell-strong);
+            border-radius:4px;transition:background .18s ease;}
+  .btn-back:hover{background:var(--tb-head-bg);}
+
+  /* 主按钮（366:11304） */
+  .btn-primary{background:var(--brand);border:none;border-radius:var(--radius-ctl);
+               padding:10px 20px;display:flex;align-items:center;gap:8px;flex:none;
+               font-size:14px;font-weight:700;color:#fff;cursor:pointer;white-space:nowrap;
+               font-family:inherit;transition:background .18s ease;}
+  .btn-primary:hover{background:var(--brand-hover);}
+  .btn-primary:active{transform:translateY(1px);}
+  .btn-primary img{width:14px;height:14px;display:block;}
+  .btn-line{background:#fff;border:1px solid var(--brand);border-radius:var(--radius-ctl);
+            padding:9px 16px;font-size:14px;font-weight:600;color:var(--brand-text);cursor:pointer;
+            font-family:inherit;flex:none;white-space:nowrap;transition:background .18s ease;}
+  .btn-line:hover{background:#f0faff;}
+
+  /* ===== 表格（366:11307）=====
+     separate + auto：行分割线可控，列宽随内容自适应（长 ID 不被截断）
+     .tb-scroll 兜底横向滚动 */
+  .tb-scroll{overflow-x:auto;}
+  table.tb{width:100%;border-collapse:separate;border-spacing:0;table-layout:auto;}
+  table.tb th{background:var(--tb-head-bg);color:var(--tb-head-fg);
+              font-size:13px;font-weight:700;text-align:left;white-space:nowrap;
+              padding:12px;border-bottom:1px solid var(--tb-line);}
+  table.tb td{padding:14px 12px;border-bottom:1px solid var(--tb-line);
+              font-size:13px;color:var(--tb-cell-fg);vertical-align:middle;line-height:1.5;}
+  table.tb tbody tr{transition:background .16s ease;}
+  table.tb tbody tr:hover{background:var(--tb-row-hover);}
+  /* 列宽约束：min-width 保证可读下限，内容更长时自动撑开 */
+  .w-id{min-width:130px;}
+  .w-id-long{min-width:270px;}
+  .w-name{min-width:120px;}
+  .w-name-long{min-width:170px;}
+  /* 112 = 两个 37px 标签 + 4px 间距 + 左右各 12px 内边距，保证「乘客 车主」并排 */
+  .w-cats{min-width:112px;}
+  .w-denom{min-width:140px;}
+  .w-param{min-width:160px;}
+  .w-img{width:90px;}
+  .w-num{width:90px;}
+  .w-time{min-width:132px;}
+  .w-by{width:82px;}
+  .w-st{width:94px;}
+  .w-act{width:1%;}
+  /* 长英文标识：优先在顿号等标点处折行，单个标识过长时才强制断，不做截断 */
+  .cell-id{color:var(--tb-cell-fg);overflow-wrap:break-word;}
+  /* 名称是短语义文本，保持单行；整表过宽时由 .tb-scroll 横向滚动 */
+  .cell-name{color:var(--tb-cell-strong);white-space:nowrap;}
+  .cell-muted{color:var(--tb-cell-muted);}
+  .cell-sub{font-size:11px;color:var(--tb-cell-muted);}
+  .nowrap{white-space:nowrap;}
+  .tb-empty{text-align:center;color:var(--tb-cell-muted);padding:28px 12px !important;}
+  .tb-empty.warn{color:var(--warn-text);}
+
+  /* 分类标签（364:14834） */
+  .tags{display:flex;gap:4px;flex-wrap:wrap;}
+  .tag{height:20px;min-width:37px;padding:0 6px;border-radius:4px;font-size:13px;line-height:20px;
+       display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;}
+  .tag-platform{background:var(--tag-platform-bg);color:var(--tag-platform-fg);}
+  .tag-rider{background:var(--tag-rider-bg);color:var(--tag-rider-fg);}
+  .tag-driver{background:var(--tag-driver-bg);color:var(--tag-driver-fg);}
+
+  /* 效果图缩略（366:11377） */
+  .thumb{width:40px;height:40px;border:1px solid var(--tb-line);border-radius:2px;
+         object-fit:cover;object-position:top center;display:block;cursor:zoom-in;background:#fff;}
+
+  /* 状态（393:17823）：5px 圆点 + 文字 */
+  .status{display:inline-flex;align-items:center;gap:6px;font-size:13px;white-space:nowrap;}
+  .status::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;flex:none;}
+  .status-on{color:var(--ok);}
+  /* 未生效：设计稿仅给出文案，色值按同族灰阶推断 */
+  .status-off{color:var(--text-tertiary);}
+
+  /* 操作链接（366:11324） */
+  .acts{display:flex;flex-wrap:nowrap;gap:12px;font-size:13px;white-space:nowrap;}
+  .acts a{color:var(--link);text-decoration:none;cursor:pointer;}
+  .acts a:hover{text-decoration:underline;}
+  .acts a.del{color:var(--danger);}
+
+  /* 新模块数：纯展示，不可点击（进模块配置后由页内提示条引导去添加） */
+  .newnum{color:var(--fg-1);}
+
+  /* ===== 提示条（370:17411） ===== */
+  .alert{background:var(--alert-bg);border:1px solid var(--alert-border);border-radius:4px;
+         padding:8px 16px;display:flex;align-items:center;gap:6px;font-size:13px;line-height:22px;}
+  .alert img.ico{width:16px;height:16px;display:block;flex:none;}
+  .alert-txt{color:var(--fg-1);}
+  .alert-num{color:var(--alert-strong);font-weight:600;}
+  .alert-act{margin-left:12px;display:inline-flex;align-items:center;gap:0;
+             color:var(--brand-text);font-weight:600;text-decoration:none;cursor:pointer;}
+  .alert-act img{width:16px;height:16px;display:block;}
+  .alert-act:hover{opacity:.82;}
+
+  /* ===== 感叹号说明气泡（沿用原 demo：描边圆圈 + 深色气泡） ===== */
+  .tipi{display:inline-flex;align-items:center;justify-content:center;
+        width:15px;height:15px;border-radius:50%;
+        border:1px solid #b0bac7;color:#8b97a6;
+        font-size:11px;font-weight:700;line-height:1;cursor:pointer;vertical-align:middle;
+        flex:none;user-select:none;transition:color .16s ease,border-color .16s ease,background .16s ease;}
+  .tipi:hover{border-color:var(--brand);color:var(--brand);background:#f0faff;}
+  .tip-pop{position:fixed;z-index:400;max-width:240px;display:none;
+           background:#2c3e50;color:#fff;font-size:12px;line-height:1.5;
+           padding:7px 10px;border-radius:6px;pointer-events:none;
+           box-shadow:0 6px 18px rgba(0,0,0,.22);}
+
+  /* ===== 弹窗（369:16307） ===== */
+  .mask{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:200;
+        opacity:0;transition:opacity .2s ease;}
+  .mask.show{opacity:1;}
+  /* 设计稿 718px 是 10 行内容撑满时的高度；这里改为按内容自适应并以 718 为上限，
+     行数少时不留空白，行数多时内部滚动 */
+  .modal{position:fixed;left:50%;top:50%;z-index:201;
+         width:783px;max-width:calc(100vw - 32px);max-height:min(718px,calc(100vh - 64px));
+         background:var(--surface);border-radius:var(--radius-card);overflow:hidden;
+         display:flex;flex-direction:column;
+         box-shadow:0 3px 6px -4px rgba(0,0,0,.12),0 6px 16px 0 rgba(0,0,0,.08),0 9px 28px 8px rgba(0,0,0,.05);
+         transform:translate(-50%,-50%) scale(.96);opacity:0;
+         transition:transform .2s cubic-bezier(.45,.05,.15,1),opacity .2s ease;}
+  .modal.show{transform:translate(-50%,-50%) scale(1);opacity:1;}
+  .modal.narrow{width:560px;}
+  [hidden]{display:none !important;}
+  .modal-hd{padding:16px 24px;display:flex;align-items:center;justify-content:space-between;
+            box-shadow:inset 0 -1px 0 0 #f0f0f0;flex:none;}
+  .modal-hd h3{font-size:16px;font-weight:500;line-height:24px;color:var(--fg-1);}
+  .modal-x{width:16px;height:16px;border:none;background:none;cursor:pointer;padding:0;
+           display:flex;align-items:center;justify-content:center;}
+  .modal-x img{width:11.31px;height:11.64px;display:block;}
+  .modal-bd{flex:1;min-height:0;padding:24px;overflow:auto;}
+  .modal-ft{padding:10px 16px;display:flex;align-items:center;justify-content:flex-end;gap:8px;
+            box-shadow:inset 0 1px 0 0 #f0f0f0;flex:none;}
+  .btn-ghost,.btn-solid{padding:5px 16px;border-radius:4px;font-size:14px;line-height:22px;
+                        cursor:pointer;font-family:inherit;}
+  .btn-ghost{background:#fff;border:1px solid #d9d9d9;color:var(--fg-1);}
+  .btn-ghost:hover{border-color:var(--brand);color:var(--brand);}
+  .btn-solid{background:var(--brand);border:1px solid var(--brand);color:#fff;}
+  .btn-solid:hover{background:var(--brand-hover);border-color:var(--brand-hover);}
+
+  /* ===== 配置弹窗（页面 / 模块 / 子模块）=====
+     结构与配色沿用原 demo userpath_demo.html：遮罩自带 flex 居中、14px 圆角卡片、
+     label 在控件上方；仅把强调蓝 #2f6fed 换成新品牌蓝，危险红换成 #ff4d4f */
+  .dlg{display:none;position:fixed;inset:0;background:rgba(15,23,33,.6);z-index:210;
+       align-items:center;justify-content:center;}
+  .dlg.show{display:flex;}
+  .dlg-box{position:relative;background:#fff;border-radius:14px;padding:20px 24px;
+           box-shadow:0 16px 48px rgba(0,0,0,.3);
+           max-width:94vw;max-height:calc(100vh - 48px);overflow:auto;}
+  .dlg-hd{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;}
+  .dlg-hd b{font-size:16px;font-weight:600;color:var(--fg-1);}
+  .dlg-x{cursor:pointer;color:#b0bac7;font-size:22px;line-height:1;user-select:none;}
+  .dlg-x:hover{color:var(--fg-2);}
+  .dlg-bd{display:flex;flex-direction:column;gap:14px;}
+  .dlg-ft{display:flex;justify-content:flex-end;gap:10px;margin-top:20px;}
+  .f-lb{display:block;font-size:12px;color:var(--fg-2);margin-bottom:5px;}
+  .f-lb.g6{margin-bottom:6px;}
+  .req{color:var(--danger);}
+  .f-opt{font-weight:normal;color:#aab3c0;}
+  .f-in{width:100%;padding:8px 10px;border:1px solid #d7dce5;border-radius:6px;
+        font-family:inherit;font-size:13px;color:var(--fg-1);background:#fff;outline:none;}
+  .f-in:focus{border-color:var(--brand);}
+  .f-in::placeholder{color:#aab3c0;}
+  .f-in[readonly]{border-color:#e6eaf0;background:#f6f8fb;}
+  select.f-in{cursor:pointer;}
+  .f-radios{display:flex;gap:24px;}
+  .f-radios.col{flex-direction:column;gap:10px;}
+  .f-radio{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:13px;color:var(--fg-1);}
+  /* 单选 / 多选：形状沿用原生观感（圆形 / 圆角方形），颜色换新品牌蓝。
+     不用 accent-color —— 该属性在高亮度蓝下会被浏览器反转成深色勾与深色圆环，
+     与原 demo 的白勾不一致，因此改为自绘并把勾固定为白色 */
+  .f-radio input{appearance:none;-webkit-appearance:none;
+                 width:14px;height:14px;flex:none;margin:0;position:relative;
+                 border:1px solid #c8ced8;background:#fff;cursor:pointer;
+                 transition:border-color .16s ease,background-color .16s ease;}
+  .f-radio input[type="radio"]{border-radius:50%;}
+  .f-radio input[type="checkbox"]{border-radius:3px;}
+  .f-radio input:hover{border-color:var(--brand);}
+  .f-radio input:checked{border-color:var(--brand);}
+  /* 单选：中心实心圆点 */
+  .f-radio input[type="radio"]:checked::after{content:"";position:absolute;
+    left:50%;top:50%;transform:translate(-50%,-50%);
+    width:8px;height:8px;border-radius:50%;background:var(--brand);}
+  /* 多选：蓝底 + 白勾（勾用 SVG 固定为白色，不受浏览器对比度反转影响） */
+  .f-radio input[type="checkbox"]:checked{background-color:var(--brand);
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'><path d='M2.7 6.4 5.1 8.8 9.4 3.9' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+    background-repeat:no-repeat;background-position:center;background-size:12px 12px;}
+  .f-radio input:focus-visible{outline:2px solid rgba(0,178,255,.35);outline-offset:1px;}
+  .f-link{color:var(--brand-text);font-size:12px;cursor:pointer;text-decoration:none;}
+  .f-link:hover{text-decoration:underline;}
+  /* 多行录入（页面ID / 参数 / 参数名） */
+  .f-row{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+  .f-row .f-in{flex:1;min-width:0;}
+  .f-row.or{position:relative;}
+  .f-row.or::before{content:"or";position:absolute;left:0;top:-10px;
+                    font-size:11px;color:var(--warn-text);background:#fff;padding:0 4px;}
+  .f-x{cursor:pointer;color:var(--danger);font-size:18px;line-height:1;
+       flex:none;width:16px;text-align:center;user-select:none;}
+  .f-x:hover{opacity:.7;}
+  .f-note{font-size:11px;color:var(--fg-2);margin-top:2px;}
+  /* 页面分析开关行 */
+  .f-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;
+        border-top:1px dashed #eef1f5;padding-top:14px;}
+  .f-sw-t{font-size:13px;font-weight:600;color:var(--fg-1);}
+  .f-sw-d{font-size:11px;color:var(--fg-2);margin-top:2px;}
+  /* 按钮：原 demo .btn / .btn-ghost，主色换新蓝 */
+  .d-btn{padding:8px 24px;background:var(--brand);color:#fff;border:none;border-radius:6px;
+         cursor:pointer;font-size:14px;font-weight:600;font-family:inherit;}
+  .d-btn:hover{background:var(--brand-hover);}
+  .d-ghost{padding:7px 24px;background:#fff;color:var(--fg-1);border:1px solid #d7dce5;border-radius:6px;
+           cursor:pointer;font-size:14px;font-family:inherit;}
+  .d-ghost:hover{border-color:var(--brand);color:var(--brand);}
+  /* 开关 toggle（原 demo .sw） */
+  .sw{position:relative;display:inline-block;width:40px;height:22px;flex:none;}
+  .sw input{opacity:0;width:0;height:0;}
+  .sw i{position:absolute;inset:0;background:#d7dce5;border-radius:22px;cursor:pointer;transition:.2s;}
+  .sw i::before{content:"";position:absolute;width:18px;height:18px;left:2px;top:2px;
+                background:#fff;border-radius:50%;transition:.2s;}
+  .sw input:checked + i{background:var(--brand);}
+  .sw input:checked + i::before{transform:translateX(18px);}
+  /* 效果图上传 */
+  .up-lb{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;
+         border:1px solid var(--brand);border-radius:var(--radius-ctl);padding:5px 12px;
+         font-size:13px;color:var(--brand-text);cursor:pointer;white-space:nowrap;
+         transition:background .16s ease;}
+  .up-lb:hover{background:#f0faff;}
+  .up-lb input{display:none;}
+  .up-prev{min-height:56px;display:flex;align-items:center;}
+  .up-prev img{max-height:180px;max-width:100%;border:1px solid var(--tb-line);border-radius:6px;display:block;}
+  .up-prev .ph{font-size:12px;color:var(--text-tertiary);}
+
+  /* 弹窗内的编辑行（369:16544） */
+  table.tb-edit{width:100%;border-collapse:separate;border-spacing:0;table-layout:auto;}
+  table.tb-edit th{background:var(--tb-head-bg);color:var(--tb-head-fg);
+                   font-size:13px;font-weight:700;text-align:left;white-space:nowrap;
+                   padding:12px 8px;border-bottom:1px solid var(--tb-line);}
+  table.tb-edit td{padding:12px 6px;border-bottom:1px solid var(--tb-line);vertical-align:middle;}
+  table.tb-edit td:first-child{padding-left:12px;}
+  table.tb-edit td:last-child{padding-right:12px;}
+  .fld{min-height:32px;border:1px solid var(--ctl-border);border-radius:var(--radius-ctl);
+       padding:5px 8px;display:flex;align-items:center;justify-content:space-between;gap:6px;
+       font-size:13px;color:var(--fg-1);background:#fff;}
+  /* 模块ID 列：ID 从 Target 带出但可改，给足宽度以便长标识尽量整条可见 */
+  table.tb-edit th:first-child{min-width:330px;}
+  .fld.sel{cursor:pointer;transition:border-color .16s ease;}
+  .fld.sel:hover{border-color:var(--brand);}
+  .fld.sel img{width:12px;height:12px;display:block;flex:none;}
+  .fld .ph{color:var(--text-tertiary);}
+  .fld input{border:none;outline:none;font:inherit;color:inherit;width:100%;background:none;}
+  .row-del{color:var(--danger);font-size:13px;cursor:pointer;text-decoration:none;white-space:nowrap;}
+  .row-del:hover{text-decoration:underline;}
+
+  /* ===== 热力图配置 ===== */
+  .hm-wrap{display:flex;gap:24px;align-items:flex-start;}
+  .hm-left{flex:none;width:300px;display:flex;flex-direction:column;gap:10px;}
+  .hm-hint{font-size:12px;line-height:18px;color:var(--fg-2);}
+  .hm-stage{position:relative;width:300px;user-select:none;
+            border:1px solid var(--tb-line);border-radius:6px;overflow:hidden;background:#fafbfc;}
+  .hm-stage img{display:block;width:100%;pointer-events:none;}
+  .hm-stage .empty{padding:64px 12px;text-align:center;color:var(--text-tertiary);font-size:12px;line-height:1.6;}
+  .hm-right{flex:1;min-width:0;display:flex;flex-direction:column;gap:10px;}
+  .hm-sub{font-size:14px;font-weight:700;color:var(--tb-cell-strong);}
+  /* 不设 max-height：区域多时也完整展开，避免末尾几行被裁掉 */
+  .hm-list-box{overflow-x:auto;}
+  .hz{position:absolute;box-sizing:border-box;overflow:visible;}
+  .hz.off{border:1.5px solid var(--brand);background:rgba(0,178,255,.12);cursor:pointer;}
+  .hz.on{border:2px solid var(--danger);background:rgba(255,77,79,.14);z-index:5;cursor:grab;}
+  .hz b{position:absolute;left:0;top:0;font-size:9px;font-weight:500;line-height:13px;
+        padding:0 3px;white-space:nowrap;pointer-events:none;color:#fff;max-width:100%;
+        overflow:hidden;text-overflow:ellipsis;}
+  .hz.off b{background:var(--brand);}
+  .hz.on b{background:var(--danger);}
+  .hz .x{position:absolute;right:-8px;top:-8px;width:16px;height:16px;line-height:15px;text-align:center;
+         background:var(--danger);color:#fff;border-radius:50%;font-size:12px;cursor:pointer;}
+  .hz-tmp{position:absolute;border:1.5px dashed var(--danger);background:rgba(255,77,79,.1);}
+  tr.hm-sel{background:var(--tb-row-sel) !important;}
+  .hm-cell-sel{width:100%;min-height:30px;border:1px solid var(--ctl-border);border-radius:5px;
+               padding:4px 24px 4px 8px;font-family:inherit;font-size:12px;color:var(--fg-1);
+               background:#fff;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;
+               background-image:url("ui-demo/%E5%88%87%E5%9B%BE/chevron-down.svg");
+               background-repeat:no-repeat;background-position:right 8px center;background-size:12px;}
+  .hm-cell-sel:focus{border-color:var(--brand);}
+
+  /* ===== toast ===== */
+  .toast{position:fixed;left:50%;top:84px;transform:translate(-50%,-8px);z-index:300;
+         background:rgba(23,24,26,.9);color:#fff;font-size:13px;line-height:20px;
+         padding:8px 14px;border-radius:6px;pointer-events:none;max-width:min(560px,86vw);
+         opacity:0;transition:opacity .2s ease,transform .2s ease;}
+  .toast.show{opacity:1;transform:translate(-50%,0);}
+  .toast.err{background:rgba(200,40,45,.94);}
+
+  /* 图片放大预览 */
+  .lb{position:fixed;inset:0;z-index:250;background:rgba(0,0,0,.66);
+      display:flex;align-items:center;justify-content:center;cursor:zoom-out;
+      opacity:0;transition:opacity .2s ease;}
+  .lb.show{opacity:1;}
+  .lb img{max-width:min(420px,86vw);max-height:86vh;border-radius:8px;display:block;
+          box-shadow:0 12px 40px rgba(0,0,0,.4);}
+
+  @media (max-width:1200px){
+    .nav{padding:0 16px;}
+    .nav-tabs{position:relative;left:auto;transform:none;margin:0 auto;}
+    .nav-tab{width:96px;font-size:16px;}
+    .wrap{padding:12px;}
+    .card{padding:16px;}
+    .hm-wrap{flex-direction:column;}
+    .hm-right{width:100%;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <div class="nav-brand">
+    <img class="nav-logo" src="ui-demo/%E5%88%87%E5%9B%BE/Mask%20group.png" alt="天眼">
+    <div class="nav-title">天眼用户行为</div>
+  </div>
+  <div class="nav-tabs">
+    <a class="nav-tab" href="userpath_demo_v2.html">路径分析</a>
+    <a class="nav-tab" href="pageanalysis_demo_v2.html">页面分析</a>
+  </div>
+  <a class="nav-cfg active" href="#" aria-current="page">
+    <img src="ui-demo/%E5%88%87%E5%9B%BE/settings.svg" alt="">
+    <span>配置</span>
+  </a>
+</div>
+
+<div class="wrap">
+  <!-- ========== 视图 1：核心页面配置（Figma 366:11280） ========== -->
+  <section class="card" id="view-pages">
+    <div class="card-hd">
+      <div class="card-hd-txt">
+        <div class="card-title">核心页面配置</div>
+        <div class="card-desc">维护核心页面清单，用户路径中只呈现已维护的核心页面，非核心页面统一为其它</div>
+      </div>
+      <button class="btn-primary" id="btn-add-page">
+        <img src="ui-demo/%E5%88%87%E5%9B%BE/plus.svg" alt="">新增页面
+      </button>
+    </div>
+    <div class="tb-scroll">
+      <table class="tb">
+        <thead><tr>
+          <th class="w-id">页面ID</th>
+          <th class="w-name">页面名称</th>
+          <th class="w-cats">页面分类</th>
+          <th class="w-img">页面效果图</th>
+          <th class="w-num">新模块数</th>
+          <th class="w-time">更新时间</th>
+          <th class="w-by">更新人</th>
+          <th class="w-st">状态</th>
+          <th class="w-act">操作</th>
+        </tr></thead>
+        <tbody id="tb-pages"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========== 视图 2：模块配置（Figma 370:17201） ========== -->
+  <section class="card" id="view-modules" hidden>
+    <div class="card-hd">
+      <div class="card-hd-txt">
+        <div class="card-title card-title-back">
+          <button class="btn-back" data-back title="返回核心页面配置" aria-label="返回">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M14.5 7.5L10 12l4.5 4.5" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <span id="mod-title">模块配置</span>
+        </div>
+      </div>
+      <button class="btn-primary" id="btn-add-mod">
+        <img src="ui-demo/%E5%88%87%E5%9B%BE/plus.svg" alt="">新增模块
+      </button>
+    </div>
+
+    <div class="alert" id="mod-alert">
+      <img class="ico" src="ui-demo/%E5%88%87%E5%9B%BE/alert-warning.svg" alt="">
+      <span class="alert-txt">Target中该页面有<span class="alert-num" id="alert-num">6个</span>新增模块，请及时维护</span>
+      <a class="alert-act" id="btn-add-mods">去添加<img src="ui-demo/%E5%88%87%E5%9B%BE/arrow-right.svg" alt=""></a>
+    </div>
+
+    <div class="tb-scroll">
+      <table class="tb">
+        <thead><tr>
+          <th class="w-num">ID类型</th>
+          <th class="w-id-long">ID</th>
+          <th class="w-name-long">名称</th>
+          <th class="w-denom">点击率分母</th>
+          <th class="w-time">更新时间</th>
+          <th class="w-by">更新人</th>
+          <th class="w-st">状态</th>
+          <th class="w-act">操作</th>
+        </tr></thead>
+        <tbody id="tb-modules"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========== 视图 3：子模块配置 ========== -->
+  <section class="card" id="view-subs" hidden>
+    <div class="card-hd">
+      <div class="card-hd-txt">
+        <div class="card-title card-title-back">
+          <button class="btn-back" data-back title="返回核心页面配置" aria-label="返回">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M14.5 7.5L10 12l4.5 4.5" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <span id="sub-title">子模块配置</span>
+        </div>
+        <div class="card-desc">把模块内的元素按参数名 / 模块ID 拆分成子模块，用于下钻到元素级的曝光与点击</div>
+      </div>
+      <button class="btn-primary" id="btn-add-sub">
+        <img src="ui-demo/%E5%88%87%E5%9B%BE/plus.svg" alt="">新增子模块
+      </button>
+    </div>
+    <div class="tb-scroll">
+      <table class="tb">
+        <thead><tr>
+          <th class="w-id-long">模块/页面ID</th>
+          <th class="w-name-long">名称</th>
+          <th class="w-param">参数名/模块ID</th>
+          <th class="w-time">更新时间</th>
+          <th class="w-by">更新人</th>
+          <th class="w-st">状态</th>
+          <th class="w-act">操作</th>
+        </tr></thead>
+        <tbody id="tb-subs"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========== 视图 4：热力图配置 ========== -->
+  <section class="card" id="view-heat" hidden>
+    <div class="card-hd">
+      <div class="card-hd-txt">
+        <div class="card-title card-title-back">
+          <button class="btn-back" data-back title="返回核心页面配置" aria-label="返回">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M14.5 7.5L10 12l4.5 4.5" stroke="currentColor" stroke-width="1.6"
+                    stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </button>
+          <span id="heat-title">热力图配置</span>
+        </div>
+        <div class="card-desc">在页面效果图上框出模块位置，页面分析的热力图按这里的区域呈现曝光与点击</div>
+      </div>
+      <button class="btn-primary" id="btn-save-heat">保存热力区域</button>
+    </div>
+    <div class="hm-wrap">
+      <div class="hm-left">
+        <label class="up-lb">
+          <span id="hm-up-txt">上传效果图</span>
+          <input type="file" accept="image/png,image/jpeg" id="hm-file">
+        </label>
+        <div class="hm-hint" id="hm-hint">上传效果图后即可在图上绘制热力区域</div>
+        <div class="hm-stage" id="hm-stage"></div>
+      </div>
+      <div class="hm-right">
+        <div class="hm-sub">区域列表</div>
+        <div class="hm-list-box tb-scroll">
+          <table class="tb">
+            <thead><tr>
+              <th class="w-num">#</th>
+              <th>模块</th>
+              <th class="w-act">操作</th>
+            </tr></thead>
+            <tbody id="tb-heat"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ========== 弹窗：批量添加新模块（Figma 369:16307） ========== -->
+<div class="mask" id="mask" hidden></div>
+<div class="modal" id="modal-new" hidden role="dialog" aria-modal="true" aria-labelledby="modal-new-title">
+  <div class="modal-hd">
+    <h3 id="modal-new-title">添加模块</h3>
+    <button class="modal-x" data-close aria-label="关闭">
+      <img src="ui-demo/%E5%88%87%E5%9B%BE/modal-close.svg" alt="">
+    </button>
+  </div>
+  <div class="modal-bd">
+    <table class="tb-edit">
+      <thead><tr>
+        <th class="w-id-long">模块ID</th><th class="w-name">模块名称</th>
+        <th class="w-denom">点击率分母</th><th class="w-act">操作</th>
+      </tr></thead>
+      <tbody id="tb-new"></tbody>
+    </table>
+  </div>
+  <div class="modal-ft">
+    <button class="btn-ghost" data-close>取消</button>
+    <button class="btn-solid" id="save-new">保存</button>
+  </div>
+</div>
+
+<!-- ========== 弹窗：新增 / 编辑页面（结构照原 demo pageCfgModal） ========== -->
+<div class="dlg" id="modal-page" role="dialog" aria-modal="true" aria-labelledby="pcfg-title">
+  <div class="dlg-box" style="width:600px;">
+    <div class="dlg-hd">
+      <b id="pcfg-title">新增页面</b>
+      <span class="dlg-x" data-close aria-label="关闭">×</span>
+    </div>
+    <div class="dlg-bd">
+      <div>
+        <label class="f-lb g6"><span class="req">*</span> 页面类型</label>
+        <div class="f-radios">
+          <label class="f-radio"><input type="radio" name="pcfgType" value="single">单页面分析</label>
+          <label class="f-radio"><input type="radio" name="pcfgType" value="multi">多页面聚合数据</label>
+        </div>
+      </div>
+      <div>
+        <label class="f-lb"><span class="req">*</span> 页面名称</label>
+        <input class="f-in" id="pcfg-name" type="text" placeholder="如 询价页">
+      </div>
+      <div>
+        <label class="f-lb"><span class="req">*</span> 页面ID</label>
+        <div id="pcfg-ids"></div>
+        <a class="f-link" id="pcfg-add-id" hidden>+ 添加页面ID</a>
+      </div>
+      <div>
+        <label class="f-lb g6"><span class="req">*</span> 页面分类（可多选）</label>
+        <div class="f-radios">
+          <label class="f-radio"><input type="checkbox" name="pcfgCat" value="乘客">乘客</label>
+          <label class="f-radio"><input type="checkbox" name="pcfgCat" value="车主">车主</label>
+          <label class="f-radio"><input type="checkbox" name="pcfgCat" value="平台">平台</label>
+        </div>
+      </div>
+      <div>
+        <label class="f-lb">参数配置 <span class="f-opt">（选填）</span></label>
+        <div id="pcfg-params"></div>
+        <a class="f-link" id="pcfg-add-param">+ 添加参数</a>
+      </div>
+      <div class="f-sw">
+        <div>
+          <div class="f-sw-t">页面分析</div>
+          <div class="f-sw-d">开启后该页面纳入「页面分析」的可选页面</div>
+        </div>
+        <label class="sw"><input type="checkbox" id="pcfg-analysis"><i></i></label>
+      </div>
+    </div>
+    <div class="dlg-ft">
+      <button class="d-ghost" data-close>取消</button>
+      <button class="d-btn" id="save-page">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 弹窗：新增 / 编辑模块（结构照原 demo modItemModal） ========== -->
+<div class="dlg" id="modal-mod" role="dialog" aria-modal="true" aria-labelledby="mcfg-title">
+  <div class="dlg-box" style="width:560px;">
+    <div class="dlg-hd">
+      <b id="mcfg-title">新增模块</b>
+      <span class="dlg-x" data-close aria-label="关闭">×</span>
+    </div>
+    <div class="dlg-bd">
+      <div>
+        <label class="f-lb g6">ID类型</label>
+        <div class="f-radios">
+          <label class="f-radio"><input type="radio" name="mcfgIdType" value="module">模块ID</label>
+          <label class="f-radio">
+            <input type="radio" name="mcfgIdType" value="page">页面ID
+            <span class="tipi" data-tip="部分弹窗Target中配置为页面ID，可以通过改选项调整为模块在当前页面数据中呈现">!</span>
+          </label>
+        </div>
+      </div>
+      <div>
+        <label class="f-lb" id="mcfg-id-lb">模块ID</label>
+        <input class="f-in" id="mcfg-id" type="text" placeholder="英文标识，如 category">
+      </div>
+      <div>
+        <label class="f-lb" id="mcfg-name-lb">模块名称</label>
+        <input class="f-in" id="mcfg-name" type="text" placeholder="如 品类列表-组">
+      </div>
+      <div>
+        <label class="f-lb g6">点击率分母</label>
+        <div class="f-radios col" id="mcfg-denoms"></div>
+      </div>
+      <!-- 仅「父模块曝光量」时出现：选择本页面下作为分母的模块ID -->
+      <div id="mcfg-parent-wrap" hidden>
+        <label class="f-lb"><span class="req">*</span> 父模块</label>
+        <select class="f-in" id="mcfg-parent"></select>
+      </div>
+    </div>
+    <div class="dlg-ft">
+      <button class="d-ghost" data-close>取消</button>
+      <button class="d-btn" id="save-mod">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 弹窗：新增 / 编辑子模块（结构照原 demo subItemModal） ========== -->
+<div class="dlg" id="modal-sub" role="dialog" aria-modal="true" aria-labelledby="scfg-title">
+  <div class="dlg-box" style="width:520px;">
+    <div class="dlg-hd">
+      <b id="scfg-title">新增子模块</b>
+      <span class="dlg-x" data-close aria-label="关闭">×</span>
+    </div>
+    <div class="dlg-bd">
+      <div>
+        <label class="f-lb">模块/页面ID</label>
+        <select class="f-in" id="scfg-id"></select>
+      </div>
+      <div>
+        <label class="f-lb">名称</label>
+        <input class="f-in" id="scfg-name" type="text" readonly placeholder="选择ID后自动带出">
+      </div>
+      <div>
+        <label class="f-lb">参数名/模块ID</label>
+        <div id="scfg-params"></div>
+        <a class="f-link" id="scfg-add-param">+ 添加参数名/模块ID</a>
+      </div>
+    </div>
+    <div class="dlg-ft">
+      <button class="d-ghost" data-close>取消</button>
+      <button class="d-btn" id="save-sub">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="tip-pop" id="tipPop"></div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   数据
+   页面清单与字段结构对齐 userpath_demo.html 的 pageConfig；
+   模块 ID 取自本仓库《usergrowth_create_journey_lift_明细.md》，非编造。
+   ============================================================ */
+let pageConfig = [
+  {id:'home',           name:'平台首页',                 img:'', upTime:'2026-06-01 10:20', upBy:'王恳'},
+  /* 乘客首页：打车 / 顺风车两个页面ID 聚合为一个分析口径 */
+  {id:'passenger_home', name:'乘客首页',                 img:'', upTime:'2026-06-01 10:21', upBy:'王恳',
+   pageType:'multi', pages:[{id:'passenger_home',name:'乘客首页'},{id:'passenger_home_dc',name:'乘客首页'}]},
+  {id:'login',          name:'登录页',                   img:'', upTime:'2026-06-01 10:22', upBy:'王恳'},
+  {id:'poi',            name:'POI页',                    img:'', upTime:'2026-06-02 09:10', upBy:'王恳'},
+  {id:'inquiry',        name:'询价页',                   img:'image/%E8%AF%A2%E4%BB%B7%E9%A1%B5.png',
+                                                                 upTime:'2026-06-05 14:30', upBy:'王恳'},
+  {id:'dispatch_anim',  name:'发单动画',                 img:'', upTime:'2026-06-05 14:31', upBy:'王恳'},
+  /* 等待接单页：同一页面ID 下用行程状态参数区分不同阶段 */
+  {id:'waiting',        name:'等待接单页',               img:'', upTime:'2026-06-05 14:32', upBy:'王恳',
+   params:[{name:'pass_journey_status',op:'=',val:'10'},{name:'pass_journey_status',op:'=',val:'20'}]},
+  {id:'confirm',        name:'确认同行页',               img:'', upTime:'2026-06-06 11:00', upBy:'王恳'},
+  {id:'risk_prepay',    name:'风控预付页',               img:'', upTime:'2026-06-07 10:00', upBy:'王恳'},
+  {id:'pay',            name:'支付页',                   img:'', upTime:'2026-06-07 10:01', upBy:'王恳'},
+  {id:'sfc_cancel',     name:'顺风车履约-订单取消',       img:'', upTime:'2026-06-08 16:00', upBy:'王恳'},
+  {id:'sfc_wait_d',     name:'顺风车履约-待车主接单',     img:'', upTime:'2026-06-08 16:01', upBy:'王恳'},
+  {id:'sfc_wait_p',     name:'顺风车履约-待乘客确认',     img:'', upTime:'2026-06-08 16:02', upBy:'王恳'},
+  {id:'sfc_d_start',    name:'顺风车履约-待车主到达起点', img:'', upTime:'2026-06-08 16:03', upBy:'王恳'},
+  {id:'sfc_p_board',    name:'顺风车履约-待乘客上车',     img:'', upTime:'2026-06-08 16:04', upBy:'王恳'},
+  {id:'sfc_arrive',     name:'顺风车履约-待司乘到达终点', img:'', upTime:'2026-06-08 16:05', upBy:'王恳'},
+  {id:'sfc_done',       name:'顺风车履约-行程完成',       img:'', upTime:'2026-06-08 16:06', upBy:'王恳'},
+  {id:'dc_cancel',      name:'打车履约-订单取消',         img:'', upTime:'2026-06-08 16:10', upBy:'王恳'},
+  {id:'dc_wait_d',      name:'打车履约-待车主接单',       img:'', upTime:'2026-06-08 16:11', upBy:'王恳'},
+  {id:'dc_wait_p',      name:'打车履约-待乘客确认',       img:'', upTime:'2026-06-08 16:12', upBy:'王恳'},
+  {id:'dc_d_start',     name:'打车履约-待车主到达起点',   img:'', upTime:'2026-06-08 16:13', upBy:'王恳'},
+  {id:'dc_p_board',     name:'打车履约-待乘客上车',       img:'', upTime:'2026-06-08 16:14', upBy:'王恳'},
+  {id:'dc_arrive',      name:'打车履约-待司乘到达终点',   img:'', upTime:'2026-06-08 16:15', upBy:'王恳'},
+  {id:'dc_done',        name:'打车履约-行程完成',         img:'', upTime:'2026-06-08 16:16', upBy:'王恳'}
+];
+/* 兜底：预置页面视为已生效；未设置分类的按名称赋默认值
+   平台级页面=平台，履约=乘客+车主，其余=乘客 */
+pageConfig.forEach(p=>{
+  if(!p.status) p.status = 'active';
+  if(!p.category){
+    if(/^平台首页$/.test(p.name)) p.category = ['平台'];
+    else if(/履约/.test(p.name))  p.category = ['乘客','车主'];
+    else p.category = ['乘客'];
+  }
+});
+
+/* 各页面的模块清单：页面名 -> [{id,name,idType,denom,upTime,upBy,status,subs}]
+   denom = 点击率分母口径：self 自身曝光量 / page 页面曝光量 / parent 父模块曝光量 / none 无点击率 */
+let moduleConfig = {
+  '询价页': [
+    {id:'usergrowth_fold_sku_icon',                    name:'品类折叠图标（收起/展开）',     denom:'self',   upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'usergrowth_create_journey_lift_price_detail', name:'价格详情气泡',                  denom:'self',   upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'usergrowth_create_journey_lift_sku_list',     name:'电梯询价页_品类卡片',           denom:'self',   upTime:'2026-06-05 14:30', upBy:'王恳',
+      subs:[{param:'sku_code'},{param:'spm=inquiry.sku.select'}]},
+    {id:'usergrowth_create_journey_lift_module_list',  name:'电梯询价页_模块展示',           denom:'page',   upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'usergrowth_create_journey_lift_services',     name:'电梯询价页_顺风车增值服务模块', denom:'page',   upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'usergrowth_create_journey_lift_map',          name:'地图',                          denom:'page',   upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'usergrowth_create_journey_lift_remark',       name:'备注入口',                      denom:'page',   upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'usergrowth_create_journey_lift_highway_tips', name:'高速费说明',                    denom:'page',   upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'usergrowth_create_journey_lift_create_order', name:'发单按钮',                      denom:'page',   upTime:'2026-06-05 14:30', upBy:'王恳'},
+    {id:'usergrowth_create_journey_lift_login',        name:'登录引导',                      denom:'none',   upTime:'2026-06-05 14:30', upBy:'王恳', status:'inactive'},
+    /* 弹窗内模块未埋曝光，用触发它的「高速费说明」入口曝光作分母 */
+    {id:'usergrowth_create_journey_charge_popup',      name:'高速费弹窗',   idType:'page',   denom:'parent',
+     parentId:'usergrowth_create_journey_lift_highway_tips',                 upTime:'2026-06-05 14:30', upBy:'王恳'}
+  ],
+  '乘客首页': [
+    {id:'usergrowth_new_united_homepage_sku',        name:'首页品类入口', denom:'self', upTime:'2026-06-01 10:21', upBy:'王恳'},
+    {id:'usergrowth_new_united_homepage_banner',     name:'首页运营banner', denom:'page', upTime:'2026-06-01 10:21', upBy:'王恳'},
+    {id:'usergrowth_new_united_homepage_order_card', name:'进行中订单卡片', denom:'page', upTime:'2026-06-01 10:21', upBy:'王恳'}
+  ]
+};
+/* 兜底：未设分母的默认「自身曝光量」；预置模块视为已生效 */
+Object.keys(moduleConfig).forEach(k=>{
+  (moduleConfig[k]||[]).forEach(m=>{
+    if(!m.denom)  m.denom  = 'self';
+    if(!m.status) m.status = 'active';
+    if(!m.idType) m.idType = 'module';
+  });
+});
+
+/* 子模块：页面名 -> [{modId,name,params[],upTime,upBy,status}]
+   从 moduleConfig 里已有的 subs 迁移初始化 */
+let subModuleConfig = {};
+Object.keys(moduleConfig).forEach(pn=>{
+  (moduleConfig[pn]||[]).forEach(m=>{
+    (m.subs||[]).forEach(s=>{
+      (subModuleConfig[pn] = subModuleConfig[pn] || []).push({
+        modId:m.id, name:m.name, params:[s.param||s.sid||''].filter(Boolean),
+        status:'active', upTime:m.upTime||nowStr(), upBy:m.upBy||'王恳'
+      });
+    });
+  });
+});
+
+/* 热力区域：页面名 -> [{left,top,width,height,modId,modName}]（位置为百分比） */
+let heatmapConfig = {
+  '询价页': [
+    {left:83,  top:17.5, width:14,   height:7.2,  modId:'usergrowth_create_journey_lift_map',          modName:'地图'},
+    {left:1,   top:25.5, width:98,   height:7,    modId:'usergrowth_create_journey_lift_services',     modName:'电梯询价页_顺风车增值服务模块'},
+    {left:1,   top:33,   width:98,   height:4.6,  modId:'usergrowth_create_journey_lift_highway_tips', modName:'高速费说明'},
+    {left:1,   top:38,   width:16,   height:38.5, modId:'usergrowth_fold_sku_icon',                    modName:'品类折叠图标（收起/展开）'},
+    {left:17.5,top:38,   width:81.5, height:40.5, modId:'usergrowth_create_journey_lift_sku_list',     modName:'电梯询价页_品类卡片'},
+    {left:1,   top:79,   width:98,   height:6,    modId:'usergrowth_create_journey_lift_module_list',  modName:'电梯询价页_模块展示'},
+    {left:70,  top:85.5, width:29,   height:5,    modId:'usergrowth_create_journey_lift_remark',       modName:'备注入口'},
+    {left:1,   top:90,   width:52,   height:7,    modId:'usergrowth_create_journey_lift_price_detail', modName:'价格详情气泡'},
+    {left:55,  top:90,   width:44,   height:7,    modId:'usergrowth_create_journey_lift_create_order', modName:'发单按钮'}
+  ]
+};
+
+/* Target 侧新增、待维护的模块（页面名 -> [{id,name}]）
+   ID 与名称都从 Target 带出，在「添加模块」弹窗里可直接改，再补点击率分母；
+   页面表的「新模块数」与模块页的提示条都由这份数据派生，保证两处一致。
+   名称取自《usergrowth_create_journey_lift_明细.md》《usergrowth_wait_journey_明细.md》 */
+let newModules = {
+  '询价页': [
+    {id:'usergrowth_create_journey_lift_coupon_package_expose', name:'券包搭售模块_实际曝光'},
+    {id:'usergrowth_create_journey_lift_daijiao_popup',         name:'电梯询价页_代叫弹窗'},
+    {id:'usergrowth_create_journey_lift_remark_popup',          name:'电梯询价页_行程备注弹窗'},
+    {id:'usergrowth_create_journey_lift_charge_popup',          name:'电梯询价页_附加费用说明'},
+    {id:'usergrowth_create_journey_lift_guard_center',          name:'安全中心'},
+    {id:'usergrowth_create_journey_lift_expect_manage',         name:'电梯询价页预期管理模块'}
+  ],
+  '等待接单页': [
+    {id:'usergrowth_wait_journey_agg_wating_high_prob_box', name:'高概率盒子卡片'},
+    {id:'usergrowth_wait_journey_arrival_time_close',       name:'到达时间弹窗-关闭'},
+    {id:'usergrowth_wait_journey_arrival_time_confrim',     name:'到达时间弹窗-确认'}
+  ]
+};
+
+const PARAM_OPS  = ['=','!=','>','>=','<','<=','包含','不包含'];
+const DENOM_LABEL = {self:'自身曝光量', page:'页面曝光量', parent:'父模块曝光量', none:'无点击率'};
+const DENOM_TIP   = {
+  self:'本身有埋曝光可选',
+  page:'模块未埋曝光，以页面曝光作为分母',
+  parent:'弹窗中的模块未埋曝光数据，以父模块曝光作为分母',
+  none:''
+};
+const ICO = 'ui-demo/%E5%88%87%E5%9B%BE/';
+
+/* ================= 工具 ================= */
+const $  = (s,r)=> (r||document).querySelector(s);
+const $$ = (s,r)=> Array.from((r||document).querySelectorAll(s));
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function nowStr(){
+  const d = new Date(), p = n => String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+
+let toastTimer = 0;
+function toast(msg, isErr){
+  const t = $('#toast');
+  t.textContent = msg;
+  t.classList.toggle('err', !!isErr);
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=> t.classList.remove('show'), 2200);
+}
+
+const TAG_CLS = {'平台':'tag-platform','乘客':'tag-rider','车主':'tag-driver'};
+function tagsHTML(cats){
+  const list = cats || [];
+  if(!list.length) return '<span class="cell-muted">--</span>';
+  return '<div class="tags">' +
+    list.map(c => '<span class="tag ' + (TAG_CLS[c]||'tag-rider') + '">' + esc(c) + '</span>').join('') +
+    '</div>';
+}
+/* 生效状态（只读）：由外部审核系统同步，本平台不提供生效/取消操作 */
+function statusHTML(st){
+  const on = (st||'inactive') === 'active';
+  return '<span class="status ' + (on?'status-on':'status-off') + '">' + (on?'已生效':'未生效') + '</span>';
+}
+/* 兼容旧数据：'source=elevator' 字符串 -> {name,op,val} */
+function toParamObj(v){
+  if(v && typeof v === 'object') return {name:v.name||'', op:v.op||'=', val:v.val||''};
+  const str = (v==null?'':String(v)).trim();
+  if(!str) return {name:'', op:'=', val:''};
+  for(const op of ['>=','<=','!=','=','>','<']){
+    const i = str.indexOf(op);
+    if(i > 0) return {name:str.slice(0,i).trim(), op:op, val:str.slice(i+op.length).trim()};
+  }
+  return {name:str, op:'=', val:''};
+}
+function tipi(text){
+  return text ? ' <span class="tipi" data-tip="' + esc(text) + '">!</span>' : '';
+}
+
+/* ================= 弹窗基础 ================= */
+/* 两种弹窗并存：
+   .dlg  配置类弹窗（页面 / 模块 / 子模块），遮罩与卡片一体，沿用原 demo
+   .modal「添加模块」弹窗，独立 #mask 遮罩，按 Figma 369:16307 实现 */
+let curModal = null;
+function openModal(id){
+  curModal = id;
+  const m = $('#'+id);
+  if(m.classList.contains('dlg')){
+    m.classList.add('show');
+  } else {
+    $('#mask').hidden = false;
+    m.hidden = false;
+    requestAnimationFrame(()=>{ $('#mask').classList.add('show'); m.classList.add('show'); });
+  }
+  document.body.style.overflow = 'hidden';
+}
+function closeModal(){
+  if(!curModal) return;
+  const id = curModal; curModal = null;
+  const m = $('#'+id);
+  document.body.style.overflow = '';
+  if(m && m.classList.contains('dlg')){ m.classList.remove('show'); return; }
+  $('#mask').classList.remove('show');
+  if(m) m.classList.remove('show');
+  setTimeout(()=>{ $('#mask').hidden = true; if(m) m.hidden = true; }, 200);
+}
+
+/* ================= 感叹号说明气泡（hover 与点击均展示） ================= */
+function showTip(el, text){
+  const pop = $('#tipPop'); if(!pop || !text) return;
+  pop.textContent = text;
+  pop.style.display = 'block';
+  const r = el.getBoundingClientRect();
+  const pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = r.left + r.width/2 - pw/2;
+  left = Math.max(8, Math.min(left, (window.innerWidth||1200) - pw - 8));
+  let top = r.top - ph - 8;
+  if(top < 8) top = r.bottom + 8;      /* 上方空间不足则显示在下方 */
+  pop.style.left = left + 'px';
+  pop.style.top  = top + 'px';
+}
+function hideTip(){ const p = $('#tipPop'); if(p) p.style.display = 'none'; }
+
+/* ================= 视图切换 ================= */
+const VIEWS = ['pages','modules','subs','heat'];
+function showView(v){
+  VIEWS.forEach(name => { $('#view-'+name).hidden = (name !== v); });
+  hideTip();
+  window.scrollTo({top:0, behavior:'auto'});
+}
+
+/* ================= 核心页面配置 ================= */
+function renderPages(){
+  $('#tb-pages').innerHTML = pageConfig.map((p,i) => {
+    const multi = p.pageType === 'multi' && p.pages && p.pages.length > 1;
+    /* 多页面聚合：每个页面ID 独占一行 */
+    const idTxt = multi
+      ? p.pages.map(x => '<div>' + esc(x.id) + '</div>').join('')
+      : esc(p.id);
+    const thumb = p.img
+      ? '<img class="thumb" src="' + esc(p.img) + '" alt="' + esc(p.name) + '效果图" data-zoom="' + esc(p.img) + '">'
+      : '<span class="cell-muted">--</span>';
+    const nNew = (newModules[p.name] || []).length;
+    const news = nNew > 0
+      ? '<span class="newnum">' + nNew + '</span>'
+      : '<span class="cell-muted">--</span>';
+    return '<tr>' +
+      '<td class="cell-id">' + idTxt + '</td>' +
+      '<td class="cell-name">' + esc(p.name) + '</td>' +
+      '<td>' + tagsHTML(p.category) + '</td>' +
+      '<td>' + thumb + '</td>' +
+      '<td>' + news + '</td>' +
+      '<td class="nowrap">' + esc(p.upTime) + '</td>' +
+      '<td>' + esc(p.upBy) + '</td>' +
+      '<td>' + statusHTML(p.status) + '</td>' +
+      '<td><div class="acts">' +
+        '<a data-editpage="' + i + '">编辑</a>' +
+        '<a data-mods="' + i + '">模块配置</a>' +
+        '<a data-subs="' + i + '">子模块配置</a>' +
+        '<a data-heat="' + i + '">热力图配置</a>' +
+        '<a class="del" data-delpage="' + i + '">删除</a>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('');
+}
+
+/* ---- 页面配置弹窗 ---- */
+let pageEditIdx = null;      /* null = 新增 */
+let pcfgType    = 'single';  /* single 单页面分析 / multi 多页面聚合 */
+let pcfgIds     = [''];
+let pcfgParams  = [];
+
+function openPageModal(i){
+  pageEditIdx = (typeof i === 'number') ? i : null;
+  const p = pageEditIdx != null ? pageConfig[pageEditIdx]
+                                : {id:'', name:'', pageType:'single', pages:[], params:[], analysis:false};
+  $('#pcfg-title').textContent = pageEditIdx != null ? '编辑页面' : '新增页面';
+  pcfgType = p.pageType || 'single';
+  $('#pcfg-name').value = p.name || '';
+  pcfgIds = (p.pages && p.pages.length) ? p.pages.map(x=>x.id||'') : [p.id||''];
+  if(!pcfgIds.length) pcfgIds = [''];
+  if(pcfgType === 'single') pcfgIds = [pcfgIds[0]];
+  $$('input[name="pcfgType"]').forEach(r=>{ r.checked = (r.value === pcfgType); });
+  renderPcfgIds();
+
+  pcfgParams = (p.params || []).map(toParamObj);
+  if(!pcfgParams.length) pcfgParams = [{name:'', op:'=', val:''}];
+  renderPcfgParams();
+
+  const cats = p.category || [];
+  $$('input[name="pcfgCat"]').forEach(c=>{ c.checked = cats.includes(c.value); });
+  $('#pcfg-analysis').checked = !!p.analysis;
+  openModal('modal-page');
+}
+function renderPcfgIds(){
+  const multi = pcfgType === 'multi';
+  $('#pcfg-ids').innerHTML = pcfgIds.map((v,i) =>
+    '<div class="f-row">' +
+      '<input class="f-in" value="' + esc(v) + '" placeholder="英文标识，如 inquiry" data-pid="' + i + '">' +
+      (multi ? '<span class="f-x" data-delpid="' + i + '" title="删除">×</span>' : '') +
+    '</div>').join('');
+  $('#pcfg-add-id').hidden = !multi;
+}
+function renderPcfgParams(){
+  const ops = p => PARAM_OPS.map(o=>'<option value="'+o+'"'+(o===p.op?' selected':'')+'>'+o+'</option>').join('');
+  const last = pcfgParams.length - 1;
+  $('#pcfg-params').innerHTML = pcfgParams.map((v,i) => {
+    const p = toParamObj(v);
+    return '<div class="f-row' + (i>0?' or':'') + '" style="margin-bottom:' + (i<last?'15':'8') + 'px">' +
+      '<input class="f-in" style="flex:1.4;padding:7px 10px" value="' + esc(p.name) + '" placeholder="参数名，如 pass_journey_status" data-pp="' + i + '" data-k="name">' +
+      '<select class="f-in" style="flex:none;width:78px;padding:7px 6px" data-pp="' + i + '" data-k="op">' + ops(p) + '</select>' +
+      '<input class="f-in" style="padding:7px 10px" value="' + esc(p.val) + '" placeholder="参数值，如 10" data-pp="' + i + '" data-k="val">' +
+      '<span class="f-x" data-delpp="' + i + '" title="删除">×</span>' +
+    '</div>';
+  }).join('') + (pcfgParams.length > 1
+    ? '<div class="f-note">多条参数之间为 or 关系（满足任一即可）</div>' : '');
+}
+function savePage(){
+  const name = $('#pcfg-name').value.trim();
+  let ids = pcfgIds.map(s=>(s||'').trim()).filter(Boolean);
+  if(pcfgType === 'single') ids = ids.slice(0,1);
+  if(!name){ toast('请填写页面名称', true); return; }
+  if(!ids.length){ toast('请填写页面ID', true); return; }
+  if(new Set(ids).size !== ids.length){ toast('存在重复的页面ID', true); return; }
+  const id = ids[0];                                  /* 主标识：用于表格展示 */
+  if(pageConfig.some((x,idx)=> idx !== pageEditIdx && x.id === id)){ toast('该页面ID已存在', true); return; }
+
+  const category = $$('input[name="pcfgCat"]:checked').map(c=>c.value);
+  if(!category.length){ toast('请选择页面分类', true); return; }
+
+  /* 参数配置：选填；但已录入的行需参数名与参数值都填写完整 */
+  const raw = pcfgParams.map(toParamObj)
+    .map(x=>({name:(x.name||'').trim(), op:x.op||'=', val:(x.val||'').trim()}));
+  if(raw.find(x => (x.name && !x.val) || (!x.name && x.val))){
+    toast('参数配置为选填，但已填写的参数需要补全参数名和参数值', true); return;
+  }
+  const params = raw.filter(x=>x.name && x.val);
+  const pages  = ids.map(x=>({id:x, name:name}));     /* 名称只有一个，所有页面ID共用 */
+  /* 不含 img：效果图在热力图配置页上传，编辑时不被清空（与原 demo 一致） */
+  const data = {
+    id:id, name:name, pageType:pcfgType, pages:pages, params:params, category:category,
+    analysis:$('#pcfg-analysis').checked, upTime:nowStr(), upBy:'当前用户'
+  };
+
+  if(pageEditIdx != null){
+    const old = pageConfig[pageEditIdx];
+    const oldName = old.name;
+    Object.assign(old, data);
+    /* 页面名是模块 / 子模块 / 热力图 / 待维护模块四份配置的索引键，
+       改名时一并迁移，避免已有配置失联 */
+    if(oldName && oldName !== name){
+      [moduleConfig, subModuleConfig, heatmapConfig, newModules].forEach(store => {
+        if(Object.prototype.hasOwnProperty.call(store, oldName)){
+          store[name] = store[oldName];
+          delete store[oldName];
+        }
+      });
+    }
+  } else {
+    data.status = 'inactive';     /* 新建默认未生效，待审核通过后置为已生效 */
+    pageConfig.push(data);
+  }
+  closeModal();
+  renderPages();
+  toast(pageEditIdx != null ? '已保存页面配置' : '已新增页面，状态为未生效');
+}
+function delPage(i){
+  const p = pageConfig[i]; if(!p) return;
+  if(!confirm('确认删除页面「' + p.name + '」？删除后相关分析下拉将同步移除。')) return;
+  pageConfig.splice(i,1);
+  renderPages();
+  toast('已删除页面「' + p.name + '」');
+}
+
+/* ================= 模块配置 ================= */
+let modPageIdx  = -1;
+let modEditIdx  = null;
+
+function openModules(i){
+  const p = pageConfig[i]; if(!p) return;
+  modPageIdx = i;
+  if(!moduleConfig[p.name]) moduleConfig[p.name] = [];
+  $('#mod-title').textContent = p.name + '模块配置';
+  renderModules();
+  showView('modules');
+}
+function renderModules(){
+  const p = pageConfig[modPageIdx];
+  const list = (p && moduleConfig[p.name]) || [];
+  const news = (p && newModules[p.name]) || [];
+
+  /* 无新增模块时不展示提示条 */
+  $('#mod-alert').hidden = news.length === 0;
+  $('#alert-num').textContent = news.length + '个';
+
+  $('#tb-modules').innerHTML = list.length ? list.map((m,i) => {
+    const d = m.denom || 'self';
+    const isPage = (m.idType||'module') === 'page';
+    return '<tr>' +
+      '<td class="nowrap">' + (isPage
+        ? '页面ID' + tipi('部分弹窗Target中配置为页面ID，可以通过改选项调整为模块在当前页面数据中呈现')
+        : '模块ID') + '</td>' +
+      '<td class="cell-id">' + esc(m.id||'--') + '</td>' +
+      '<td class="cell-name">' + esc(m.name||'--') + '</td>' +
+      '<td>' + esc(DENOM_LABEL[d]||'--') + tipi(DENOM_TIP[d]) +
+        (d === 'parent' && m.parentId
+          ? '<div class="cell-sub">' + esc(((list.find(x=>x.id===m.parentId)||{}).name) || m.parentId) + '</div>'
+          : '') + '</td>' +
+      '<td class="nowrap">' + esc(m.upTime||'--') + '</td>' +
+      '<td>' + esc(m.upBy||'--') + '</td>' +
+      '<td>' + statusHTML(m.status) + '</td>' +
+      '<td><div class="acts">' +
+        '<a data-editmod="' + i + '">编辑</a>' +
+        '<a class="del" data-delmod="' + i + '">删除</a>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="8" class="tb-empty">暂无模块，点击右上角「+ 新增模块」添加</td></tr>';
+}
+function openModModal(i){
+  if(modPageIdx < 0){ toast('请先从核心页面列表进入', true); return; }
+  modEditIdx = (typeof i === 'number') ? i : null;
+  const p = pageConfig[modPageIdx];
+  const m = modEditIdx != null ? (moduleConfig[p.name]||[])[modEditIdx] : {id:'', name:'', denom:'self'};
+  $('#mcfg-title').textContent = modEditIdx != null ? '编辑模块' : '新增模块';
+  const it = m.idType || 'module';
+  $$('input[name="mcfgIdType"]').forEach(r=>{ r.checked = (r.value === it); });
+  onModIdTypeChange(it);
+  $('#mcfg-id').value   = m.id || '';
+  $('#mcfg-name').value = m.name || '';
+  const d = m.denom || 'self';
+  $('#mcfg-denoms').innerHTML = Object.keys(DENOM_LABEL).map(k =>
+    '<label class="f-radio"><input type="radio" name="mcfgDenom" value="' + k + '"' + (k===d?' checked':'') + '>' +
+    esc(DENOM_LABEL[k]) + tipi(DENOM_TIP[k]) + '</label>').join('');
+  /* 父模块候选：本页面已维护的模块，排除自己（不能拿自己当分母） */
+  const sel = $('#mcfg-parent');
+  sel.innerHTML = '<option value="">请选择</option>' + (moduleConfig[p.name]||[])
+    .filter((x,idx)=> idx !== modEditIdx)
+    .map(x => '<option value="' + esc(x.id) + '">' + esc(x.name) + '（' + esc(x.id) + '）</option>').join('');
+  sel.value = m.parentId || '';
+  onModDenomChange(d);
+  openModal('modal-mod');
+}
+/* 只有「父模块曝光量」需要再选一个作为分母的模块 */
+function onModDenomChange(d){
+  $('#mcfg-parent-wrap').hidden = (d !== 'parent');
+}
+/* 切换 ID 类型：页面ID 时字段名改为页面ID / 页面名称 */
+function onModIdTypeChange(t){
+  const isPage = t === 'page';
+  $('#mcfg-id-lb').textContent   = isPage ? '页面ID'   : '模块ID';
+  $('#mcfg-name-lb').textContent = isPage ? '页面名称' : '模块名称';
+  $('#mcfg-id').placeholder      = isPage ? '英文标识，如 inquiry' : '英文标识，如 category';
+  $('#mcfg-name').placeholder    = isPage ? '如 询价页' : '如 品类列表-组';
+}
+function saveMod(){
+  const p = pageConfig[modPageIdx]; if(!p) return;
+  const itEl   = $$('input[name="mcfgIdType"]').find(r=>r.checked);
+  const idType = itEl ? itEl.value : 'module';
+  const word   = idType === 'page' ? '页面' : '模块';
+  const id     = $('#mcfg-id').value.trim();
+  const name   = $('#mcfg-name').value.trim();
+  if(!id){   toast('请填写' + word + 'ID', true);   return; }
+  if(!name){ toast('请填写' + word + '名称', true); return; }
+  const dEl   = $$('input[name="mcfgDenom"]').find(r=>r.checked);
+  const denom = dEl ? dEl.value : 'self';
+  const parentId = denom === 'parent' ? $('#mcfg-parent').value : '';
+  if(denom === 'parent' && !parentId){ toast('请选择作为分母的父模块', true); return; }
+  const list  = moduleConfig[p.name] = moduleConfig[p.name] || [];
+  if(list.some((m,idx)=> idx !== modEditIdx && m.id === id)){ toast('该' + word + 'ID已存在', true); return; }
+  const data = {id:id, name:name, idType:idType, denom:denom, parentId:parentId, upTime:nowStr(), upBy:'当前用户'};
+  if(modEditIdx != null) Object.assign(list[modEditIdx], data);
+  else { data.status = 'inactive'; list.push(data); }
+  closeModal();
+  renderModules();
+  toast(modEditIdx != null ? '已保存模块配置' : '已新增模块，状态为未生效');
+}
+function delMod(i){
+  const p = pageConfig[modPageIdx]; if(!p || !moduleConfig[p.name]) return;
+  const m = moduleConfig[p.name][i]; if(!m) return;
+  if(!confirm('确认删除模块「' + (m.name||m.id) + '」？')) return;
+  moduleConfig[p.name].splice(i,1);
+  renderModules();
+  toast('已删除模块');
+}
+
+/* ---- 批量添加 Target 新增模块（Figma 369:16307） ---- */
+let draft = [];
+function renderDraft(){
+  const opts = Object.keys(DENOM_LABEL).map(k =>
+    '<option value="' + k + '">' + esc(DENOM_LABEL[k]) + '</option>').join('');
+  $('#tb-new').innerHTML = draft.map((d,i) =>
+    '<tr>' +
+      '<td><div class="fld"><input value="' + esc(d.id) + '" placeholder="请输入模块ID" data-di="' + i + '" data-k="id"></div></td>' +
+      '<td><div class="fld"><input value="' + esc(d.name) + '" placeholder="请输入模块名称" data-di="' + i + '" data-k="name"></div></td>' +
+      '<td><label class="fld sel">' +
+            '<select data-di="' + i + '" data-k="denom" ' +
+              'style="border:none;outline:none;font:inherit;background:none;width:100%;' +
+              'appearance:none;-webkit-appearance:none;cursor:pointer;' +
+              'color:' + (d.denom ? 'var(--fg-1)' : 'var(--text-tertiary)') + '">' +
+              '<option value="">请选择</option>' + opts +
+            '</select>' +
+            '<img src="' + ICO + 'chevron-down.svg" alt="">' +
+          '</label></td>' +
+      '<td><a class="row-del" data-deldraft="' + i + '">删除</a></td>' +
+    '</tr>').join('');
+  /* select 当前值在插入 DOM 后赋，避免拼接字符串里做 selected 判断 */
+  draft.forEach((d,i) => {
+    const s = $('#tb-new select[data-di="' + i + '"]');
+    if(s) s.value = d.denom || '';
+  });
+}
+function openNewModal(){
+  const p = pageConfig[modPageIdx]; if(!p) return;
+  /* ID 与名称都从 Target 带出，两者均可编辑 */
+  draft = ((newModules[p.name]) || []).map(x => ({id:x.id||'', name:x.name||'', denom:''}));
+  if(!draft.length){ toast('该页面暂无待添加的新增模块'); return; }
+  renderDraft();
+  openModal('modal-new');
+}
+function saveNew(){
+  const p = pageConfig[modPageIdx]; if(!p) return;
+  const list = moduleConfig[p.name] = moduleConfig[p.name] || [];
+  const rows = draft.map(d => ({id:(d.id||'').trim(), name:(d.name||'').trim(), denom:d.denom}));
+  /* ID 可编辑，因此保存前要重新校验非空、组内不重复、与已有模块不冲突 */
+  if(rows.some(r => !r.id)){ toast('模块ID 不能为空', true); return; }
+  const bad = rows.find(r => !r.name || !r.denom);
+  if(bad){ toast('请补全「' + bad.id + '」的模块名称与点击率分母', true); return; }
+  const ids = rows.map(r => r.id);
+  const dup = ids.find((x,i) => ids.indexOf(x) !== i);
+  if(dup){ toast('本次添加中存在重复的模块ID：' + dup, true); return; }
+  const clash = rows.find(r => list.some(m => m.id === r.id));
+  if(clash){ toast('该模块ID已存在：' + clash.id, true); return; }
+  const stamp = nowStr();
+  rows.forEach(r => list.push({
+    id:r.id, name:r.name, idType:'module', denom:r.denom, parentId:'',
+    upTime:stamp, upBy:'当前用户', status:'inactive'
+  }));
+  newModules[p.name] = [];        /* 清空后页面表的「新模块数」与提示条同时归零 */
+  const n = draft.length;
+  closeModal();
+  renderPages();
+  renderModules();
+  toast('已添加 ' + n + ' 个模块，状态为未生效');
+}
+
+/* ================= 子模块配置 ================= */
+let subPageIdx = -1;
+let subEditIdx = null;
+let subParams  = [];
+
+function openSubs(i){
+  const p = pageConfig[i]; if(!p) return;
+  subPageIdx = i;
+  if(!subModuleConfig[p.name]) subModuleConfig[p.name] = [];
+  $('#sub-title').textContent = p.name + '子模块配置';
+  renderSubs();
+  showView('subs');
+}
+function renderSubs(){
+  const p    = pageConfig[subPageIdx];
+  const list = (p && subModuleConfig[p.name]) || [];
+  const mods = (p && moduleConfig[p.name])    || [];
+  const el   = $('#tb-subs');
+  if(!mods.length){
+    el.innerHTML = '<tr><td colspan="7" class="tb-empty warn">该页面暂无模块，请先在「核心页面配置 → 模块配置」中添加</td></tr>';
+    return;
+  }
+  el.innerHTML = list.length ? list.map((s,i) => {
+    const m   = mods.find(x=>x.id === s.modId);
+    const tag = m ? ((m.idType||'module') === 'page' ? '页面' : '模块') : '';
+    return '<tr>' +
+      '<td class="cell-id">' + esc(s.modId||'--') +
+        (tag ? ' <span class="cell-sub">（' + tag + '）</span>' : '') + '</td>' +
+      '<td class="cell-name">' + esc(s.name||'--') + '</td>' +
+      '<td class="cell-id">' + ((s.params && s.params.length) ? esc(s.params.join('、')) : '<span class="cell-muted">--</span>') + '</td>' +
+      '<td class="nowrap">' + esc(s.upTime||'--') + '</td>' +
+      '<td>' + esc(s.upBy||'--') + '</td>' +
+      '<td>' + statusHTML(s.status) + '</td>' +
+      '<td><div class="acts">' +
+        '<a data-editsub="' + i + '">编辑</a>' +
+        '<a class="del" data-delsub="' + i + '">删除</a>' +
+      '</div></td>' +
+    '</tr>';
+  }).join('') : '<tr><td colspan="7" class="tb-empty">暂无子模块，点击右上角「+ 新增子模块」添加</td></tr>';
+}
+function openSubModal(i){
+  const p = pageConfig[subPageIdx];
+  if(!p){ toast('请先从核心页面列表进入', true); return; }
+  const mods = moduleConfig[p.name] || [];
+  if(!mods.length){ toast('该页面暂无模块，请先在「模块配置」中添加', true); return; }
+  subEditIdx = (typeof i === 'number') ? i : null;
+  const s = subEditIdx != null ? (subModuleConfig[p.name]||[])[subEditIdx] : {modId:'', name:'', params:[]};
+  $('#scfg-title').textContent = subEditIdx != null ? '编辑子模块' : '新增子模块';
+  /* 填充本页面下可选的 模块/页面ID */
+  const sel = $('#scfg-id');
+  sel.innerHTML = '<option value="">请选择</option>' + mods.map(m => {
+    const tag = (m.idType||'module') === 'page' ? '页面' : '模块';
+    return '<option value="' + esc(m.id) + '">' + esc(m.id) + '（' + tag + '）</option>';
+  }).join('');
+  sel.value = s.modId || '';
+  $('#scfg-name').value = s.name || '';
+  subParams = (s.params || []).slice();
+  if(!subParams.length) subParams = [''];
+  renderSubParams();
+  openModal('modal-sub');
+}
+function renderSubParams(){
+  $('#scfg-params').innerHTML = subParams.map((v,i) =>
+    '<div class="f-row">' +
+      '<input class="f-in" value="' + esc(v) + '" placeholder="参数名或模块ID，如 category / spm" data-sp="' + i + '">' +
+      '<span class="f-x" data-delsp="' + i + '" title="删除">×</span>' +
+    '</div>').join('');
+}
+/* 选择本页面下的 ID 后自动带出名称 */
+function onSubIdChange(id){
+  const p = pageConfig[subPageIdx]; if(!p) return;
+  const m = (moduleConfig[p.name]||[]).find(x=>x.id === id);
+  $('#scfg-name').value = m ? (m.name||'') : '';
+}
+function saveSub(){
+  const p = pageConfig[subPageIdx]; if(!p) return;
+  const modId = $('#scfg-id').value;
+  if(!modId){ toast('请选择模块/页面ID', true); return; }
+  const m = (moduleConfig[p.name]||[]).find(x=>x.id === modId);
+  const name = m ? (m.name||'') : '';
+  const params = subParams.map(x=>(x||'').trim()).filter(Boolean);
+  if(new Set(params).size !== params.length){ toast('存在重复的录入项', true); return; }
+  const list = subModuleConfig[p.name] = subModuleConfig[p.name] || [];
+  /* 同一 ID + 完全相同的录入项视为重复 */
+  const key = j => j.modId + '|' + (j.params||[]).slice().sort().join(',');
+  if(list.some((x,idx)=> idx !== subEditIdx && key(x) === key({modId:modId, params:params}))){
+    toast('该模块/页面ID与录入项的组合已存在', true); return;
+  }
+  const data = {modId:modId, name:name, params:params, upTime:nowStr(), upBy:'当前用户'};
+  if(subEditIdx != null) Object.assign(list[subEditIdx], data);
+  else { data.status = 'inactive'; list.push(data); }
+  closeModal();
+  renderSubs();
+  toast(subEditIdx != null ? '已保存子模块配置' : '已新增子模块，状态为未生效');
+}
+function delSub(i){
+  const p = pageConfig[subPageIdx]; if(!p || !subModuleConfig[p.name]) return;
+  if(!confirm('确认删除该子模块？')) return;
+  subModuleConfig[p.name].splice(i,1);
+  renderSubs();
+  toast('已删除子模块');
+}
+
+/* ================= 热力图配置 ================= */
+const HM_EDGE = 7;          /* 边缘判定像素：靠边为缩放，靠内为移动 */
+const HM_MIN  = 8;          /* 区域最小边长 */
+let hmPageIdx  = -1;
+let hmSel      = -1;
+let hmDragging = false;
+
+function openHeat(i){
+  const p = pageConfig[i]; if(!p) return;
+  hmPageIdx = i;
+  hmSel = -1;
+  if(!heatmapConfig[p.name]) heatmapConfig[p.name] = [];
+  $('#heat-title').textContent = p.name + '热力图配置';
+  renderHeat();
+  showView('heat');
+}
+function hmPage(){ return pageConfig[hmPageIdx]; }
+function hmZones(){ const p = hmPage(); return (p && heatmapConfig[p.name]) || []; }
+
+function renderHeat(){
+  const p = hmPage(); if(!p) return;
+  $('#hm-up-txt').textContent = p.img ? '更换效果图' : '上传效果图';
+  $('#hm-hint').textContent = p.img
+    ? '拖拽绘制区域；选中后可拖动、缩放'
+    : '上传效果图后即可在图上绘制热力区域';
+  const stage = $('#hm-stage');
+  stage.style.cursor = p.img ? 'crosshair' : 'default';
+  stage.innerHTML = p.img
+    ? '<img src="' + esc(p.img) + '" alt="">'
+    : '<div class="empty">请点击上方「上传效果图」<br>后在图上绘制区域</div>';
+  renderHmZones();
+  renderHmList();
+}
+function renderHmZones(){
+  const stage = $('#hm-stage'); if(!stage) return;
+  $$('.hz', stage).forEach(e=>e.remove());
+  hmZones().forEach((z,i) => {
+    const on = i === hmSel;
+    const d = document.createElement('div');
+    d.className = 'hz ' + (on ? 'on' : 'off');
+    d.style.cssText = 'left:' + z.left + '%;top:' + z.top + '%;width:' + z.width + '%;height:' + z.height + '%;';
+    d.innerHTML = '<b>' + esc(z.modName || z.modId || ('区域'+(i+1))) + '</b>' +
+                  (on ? '<span class="x" data-hmdel="' + i + '" title="删除区域">×</span>' : '');
+    if(on){
+      d.addEventListener('mousemove', ev => {
+        if(hmDragging) return;
+        const r = d.getBoundingClientRect();
+        d.style.cursor = hmCursorFor(hmEdgeDir(ev.clientX-r.left, ev.clientY-r.top, r.width, r.height));
+      });
+      d.addEventListener('mousedown', ev => {
+        if(ev.target.classList.contains('x')) return;
+        ev.stopPropagation(); ev.preventDefault();
+        const r = d.getBoundingClientRect();
+        hmStartDrag(i, d, ev, hmEdgeDir(ev.clientX-r.left, ev.clientY-r.top, r.width, r.height));
+      });
+    } else {
+      d.addEventListener('mousedown', ev => { ev.stopPropagation(); hmSelect(i); });
+    }
+    stage.appendChild(d);
+  });
+}
+function hmEdgeDir(mx,my,w,h){
+  const l = mx<=HM_EDGE, r = mx>=w-HM_EDGE, t = my<=HM_EDGE, b = my>=h-HM_EDGE;
+  if(t&&l) return 'nw'; if(t&&r) return 'ne'; if(b&&l) return 'sw'; if(b&&r) return 'se';
+  if(t) return 'n';     if(b) return 's';     if(l) return 'w';     if(r) return 'e';
+  return '';
+}
+function hmCursorFor(dir){
+  return {nw:'nwse-resize',se:'nwse-resize',ne:'nesw-resize',sw:'nesw-resize',
+          n:'ns-resize',s:'ns-resize',e:'ew-resize',w:'ew-resize'}[dir] || 'grab';
+}
+function hmStartDrag(i, d, ev, dir){
+  const stage = $('#hm-stage'); if(!stage) return;
+  const zone = hmZones()[i]; if(!zone) return;
+  const sr = stage.getBoundingClientRect();
+  const startX = ev.clientX, startY = ev.clientY;
+  const z0 = {l:zone.left/100*sr.width, t:zone.top/100*sr.height,
+              w:zone.width/100*sr.width, h:zone.height/100*sr.height};
+  hmDragging = true;
+  d.style.cursor = dir ? hmCursorFor(dir) : 'grabbing';
+  document.body.style.userSelect = 'none';
+  function onMove(e){
+    const dx = e.clientX-startX, dy = e.clientY-startY;
+    let l = z0.l, t = z0.t, w = z0.w, h = z0.h;
+    if(dir === ''){
+      l = Math.max(0, Math.min(z0.l+dx, sr.width-w));
+      t = Math.max(0, Math.min(z0.t+dy, sr.height-h));
+    } else {
+      if(dir.includes('w')){ l = z0.l+dx; w = z0.w-dx; if(w<HM_MIN){w=HM_MIN;l=z0.l+z0.w-HM_MIN;} if(l<0){w+=l;l=0;} }
+      if(dir.includes('e')){ w = z0.w+dx; if(w<HM_MIN)w=HM_MIN; if(l+w>sr.width) w=sr.width-l; }
+      if(dir.includes('n')){ t = z0.t+dy; h = z0.h-dy; if(h<HM_MIN){h=HM_MIN;t=z0.t+z0.h-HM_MIN;} if(t<0){h+=t;t=0;} }
+      if(dir.includes('s')){ h = z0.h+dy; if(h<HM_MIN)h=HM_MIN; if(t+h>sr.height) h=sr.height-t; }
+    }
+    zone.left = l/sr.width*100;  zone.top    = t/sr.height*100;
+    zone.width= w/sr.width*100;  zone.height = h/sr.height*100;
+    d.style.left = zone.left+'%';  d.style.top    = zone.top+'%';
+    d.style.width= zone.width+'%'; d.style.height = zone.height+'%';
+  }
+  function onUp(){
+    hmDragging = false;
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+    document.body.style.userSelect = '';
+    renderHmZones(); renderHmList();
+  }
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+}
+function hmSelect(i){
+  hmSel = i;
+  renderHmZones(); renderHmList();
+  const row = $('#tb-heat tr[data-hmrow="' + i + '"]');
+  const box = $('.hm-list-box');
+  /* 自实现滚动：scrollIntoView 在容器不可滚时会连带滚动整页 */
+  if(row && box){
+    const rt = row.offsetTop, rb = rt + row.offsetHeight;
+    if(rt < box.scrollTop) box.scrollTop = rt - 8;
+    else if(rb > box.scrollTop + box.clientHeight) box.scrollTop = rb - box.clientHeight + 8;
+  }
+}
+function renderHmList(){
+  const p = hmPage(); if(!p) return;
+  const zs   = hmZones();
+  const mods = moduleConfig[p.name] || [];
+  const el   = $('#tb-heat');
+  if(!zs.length){
+    el.innerHTML = '<tr><td colspan="3" class="tb-empty">暂无区域，请在左侧图上拖拽绘制</td></tr>';
+    return;
+  }
+  el.innerHTML = zs.map((z,i) => {
+    let opts = '<option value="">未选择模块</option>', matched = false;
+    mods.forEach(m => {
+      const on = m.id === z.modId;
+      if(on) matched = true;
+      opts += '<option value="' + esc(m.id) + '"' + (on?' selected':'') + '>' +
+              esc(m.name) + '（' + esc(m.id) + '）</option>';
+    });
+    if(z.modId && !matched){
+      opts += '<option value="' + esc(z.modId) + '" selected>' + esc(z.modName||z.modId) + '（未在清单）</option>';
+    }
+    const tip = mods.length ? ''
+      : '<div class="f-note" style="color:var(--warn-text)">该页面暂无模块，请先在「模块配置」中添加</div>';
+    return '<tr data-hmrow="' + i + '"' + (i===hmSel ? ' class="hm-sel"' : '') + '>' +
+      '<td>' + (i+1) + '</td>' +
+      '<td><select class="hm-cell-sel" data-hmpick="' + i + '">' + opts + '</select>' + tip + '</td>' +
+      '<td><div class="acts"><a class="del" data-hmdel="' + i + '">删除</a></div></td>' +
+    '</tr>';
+  }).join('');
+}
+function hmPick(i, mid){
+  const p = hmPage(); if(!p) return;
+  const z = hmZones()[i]; if(!z) return;
+  const m = (moduleConfig[p.name]||[]).find(x=>x.id === mid);
+  z.modId = m ? m.id : ''; z.modName = m ? m.name : '';
+  renderHmZones(); renderHmList();
+}
+function hmDel(i){
+  const p = hmPage(); if(!p || !heatmapConfig[p.name]) return;
+  heatmapConfig[p.name].splice(i,1);
+  hmSel = -1;
+  renderHmZones(); renderHmList();
+}
+function saveHeat(){
+  const p = hmPage();
+  if(!p){ toast('请先从核心页面列表进入', true); return; }
+  const zs = hmZones();
+  const blank = zs.filter(z=>!z.modId).length;
+  if(blank){ toast('有 ' + blank + ' 个区域尚未选择模块，请先补全', true); return; }
+  p.upTime = nowStr(); p.upBy = '当前用户';
+  renderPages();
+  toast('已保存「' + p.name + '」的 ' + zs.length + ' 个热力区域');
+}
+/* 在效果图上拖拽绘制新区域 */
+(function bindHmDraw(){
+  const stage = $('#hm-stage'); if(!stage) return;
+  let drawing = false, sx = 0, sy = 0, temp = null, moved = false;
+  stage.addEventListener('mousedown', e => {
+    const p = hmPage(); if(!p || !p.img) return;
+    const r = stage.getBoundingClientRect();
+    drawing = true; moved = false;
+    sx = e.clientX-r.left; sy = e.clientY-r.top;
+    temp = document.createElement('div');
+    temp.className = 'hz-tmp';
+    temp.style.left = sx+'px'; temp.style.top = sy+'px';
+    stage.appendChild(temp);
+    e.preventDefault();
+  });
+  stage.addEventListener('mousemove', e => {
+    if(!drawing || !temp) return;
+    moved = true;
+    const r  = stage.getBoundingClientRect();
+    const cx = Math.max(0, Math.min(e.clientX-r.left, r.width));
+    const cy = Math.max(0, Math.min(e.clientY-r.top,  r.height));
+    temp.style.left  = Math.min(sx,cx)+'px'; temp.style.top    = Math.min(sy,cy)+'px';
+    temp.style.width = Math.abs(cx-sx)+'px'; temp.style.height = Math.abs(cy-sy)+'px';
+  });
+  const finish = () => {
+    if(!drawing) return;
+    drawing = false;
+    if(!temp) return;
+    const p = hmPage();
+    const r = stage.getBoundingClientRect();
+    const l = parseFloat(temp.style.left)||0,  t = parseFloat(temp.style.top)||0;
+    const w = parseFloat(temp.style.width)||0, h = parseFloat(temp.style.height)||0;
+    temp.remove(); temp = null;
+    if(p && moved && w > 6 && h > 6){
+      const arr = (heatmapConfig[p.name] = heatmapConfig[p.name] || []);
+      arr.push({left:l/r.width*100, top:t/r.height*100,
+                width:w/r.width*100, height:h/r.height*100, modId:'', modName:''});
+      hmSel = arr.length-1;
+      renderHmZones(); renderHmList();
+    }
+  };
+  stage.addEventListener('mouseup', finish);
+  stage.addEventListener('mouseleave', finish);
+})();
+
+/* ================= 效果图放大预览 ================= */
+function openLightbox(src){
+  const lb = document.createElement('div');
+  lb.className = 'lb';
+  lb.innerHTML = '<img src="' + esc(src) + '" alt="">';
+  lb.addEventListener('click', ()=>{ lb.classList.remove('show'); setTimeout(()=>lb.remove(),200); });
+  document.body.appendChild(lb);
+  requestAnimationFrame(()=> lb.classList.add('show'));
+}
+
+/* ================= 事件（统一委托） ================= */
+document.addEventListener('click', e => {
+  const t = e.target;
+  const hit = sel => t.closest(sel);
+
+  /* --- 感叹号气泡：点击也展示，点其他地方收起 --- */
+  const tip = hit('.tipi');
+  if(tip){ e.stopPropagation(); showTip(tip, tip.getAttribute('data-tip')); return; }
+  hideTip();
+
+  /* --- 弹窗关闭：× / 取消 / 点遮罩（.dlg 遮罩与卡片一体，判断点中的是自身） --- */
+  if(hit('[data-close]') || t === $('#mask') || (curModal && t === $('#'+curModal))){ closeModal(); return; }
+
+  /* --- 核心页面配置 --- */
+  if(hit('#btn-add-page')){ openPageModal(null); return; }
+  let el;
+  if((el = hit('[data-editpage]'))){ e.preventDefault(); openPageModal(+el.dataset.editpage); return; }
+  if((el = hit('[data-delpage]'))){  e.preventDefault(); delPage(+el.dataset.delpage);        return; }
+  if((el = hit('[data-mods]'))){     e.preventDefault(); openModules(+el.dataset.mods);       return; }
+  if((el = hit('[data-subs]'))){     e.preventDefault(); openSubs(+el.dataset.subs);          return; }
+  if((el = hit('[data-heat]'))){     e.preventDefault(); openHeat(+el.dataset.heat);          return; }
+
+  /* --- 页面配置弹窗 --- */
+  if(hit('#pcfg-add-id')){    pcfgIds.push(''); renderPcfgIds(); return; }
+  if((el = hit('[data-delpid]'))){
+    const i = +el.dataset.delpid;
+    if(pcfgIds.length > 1){ pcfgIds.splice(i,1); renderPcfgIds(); }
+    return;
+  }
+  if(hit('#pcfg-add-param')){ pcfgParams.push({name:'',op:'=',val:''}); renderPcfgParams(); return; }
+  if((el = hit('[data-delpp]'))){
+    const i = +el.dataset.delpp;
+    if(pcfgParams.length <= 1) pcfgParams[0] = {name:'',op:'=',val:''};
+    else pcfgParams.splice(i,1);
+    renderPcfgParams();
+    return;
+  }
+  if(hit('#save-page')){ savePage(); return; }
+
+  /* --- 模块配置 --- */
+  if(hit('#btn-add-mod')){  openModModal(null); return; }
+  if(hit('#btn-add-mods')){ e.preventDefault(); openNewModal(); return; }
+  if((el = hit('[data-editmod]'))){ e.preventDefault(); openModModal(+el.dataset.editmod); return; }
+  if((el = hit('[data-delmod]'))){  e.preventDefault(); delMod(+el.dataset.delmod);        return; }
+  if(hit('#save-mod')){ saveMod(); return; }
+  if((el = hit('[data-deldraft]'))){
+    e.preventDefault();
+    draft.splice(+el.dataset.deldraft, 1);
+    if(!draft.length){ closeModal(); toast('已清空待添加列表'); return; }
+    renderDraft();
+    return;
+  }
+  if(hit('#save-new')){ saveNew(); return; }
+
+  /* --- 子模块配置 --- */
+  if(hit('#btn-add-sub')){ openSubModal(null); return; }
+  if((el = hit('[data-editsub]'))){ e.preventDefault(); openSubModal(+el.dataset.editsub); return; }
+  if((el = hit('[data-delsub]'))){  e.preventDefault(); delSub(+el.dataset.delsub);        return; }
+  if(hit('#scfg-add-param')){ subParams.push(''); renderSubParams(); return; }
+  if((el = hit('[data-delsp]'))){
+    const i = +el.dataset.delsp;
+    if(subParams.length <= 1) subParams[0] = '';
+    else subParams.splice(i,1);
+    renderSubParams();
+    return;
+  }
+  if(hit('#save-sub')){ saveSub(); return; }
+
+  /* --- 热力图配置 --- */
+  if(hit('#btn-save-heat')){ saveHeat(); return; }
+  if((el = hit('[data-hmdel]'))){ e.preventDefault(); e.stopPropagation(); hmDel(+el.dataset.hmdel); return; }
+  if((el = hit('[data-hmrow]'))){
+    /* 点下拉本身不触发行选中：重渲染会把刚展开的选项面板关掉 */
+    if(t.closest('select')) return;
+    hmSelect(+el.dataset.hmrow);
+    return;
+  }
+
+  /* --- 返回 --- */
+  if(hit('[data-back]')){ showView('pages'); return; }
+
+  /* --- 效果图放大 --- */
+  if((el = hit('[data-zoom]'))){ openLightbox(el.dataset.zoom); return; }
+}, false);
+
+/* hover 气泡 */
+document.addEventListener('mouseover', e => {
+  const t = e.target.closest && e.target.closest('.tipi');
+  if(t) showTip(t, t.getAttribute('data-tip'));
+});
+document.addEventListener('mouseout', e => {
+  const t = e.target.closest && e.target.closest('.tipi');
+  if(t) hideTip();
+});
+
+/* 输入同步 */
+document.addEventListener('input', e => {
+  const el = e.target, d = el.dataset || {};
+  if(d.pid  != null) pcfgIds[+d.pid] = el.value;
+  else if(d.pp != null){ pcfgParams[+d.pp] = toParamObj(pcfgParams[+d.pp]); pcfgParams[+d.pp][d.k] = el.value; }
+  else if(d.sp != null) subParams[+d.sp] = el.value;
+  else if(d.di != null && (d.k === 'id' || d.k === 'name')) draft[+d.di][d.k] = el.value;
+});
+document.addEventListener('change', e => {
+  const el = e.target, d = el.dataset || {};
+  if(el.name === 'pcfgType'){
+    pcfgType = el.value;
+    if(pcfgType === 'single' && pcfgIds.length > 1) pcfgIds = [pcfgIds[0]];
+    if(!pcfgIds.length) pcfgIds = [''];
+    renderPcfgIds();
+    return;
+  }
+  if(el.name === 'mcfgIdType'){ onModIdTypeChange(el.value); return; }
+  if(el.name === 'mcfgDenom'){  onModDenomChange(el.value);  return; }
+  if(el.id === 'scfg-id'){ onSubIdChange(el.value); return; }
+  if(d.pp != null && d.k === 'op'){ pcfgParams[+d.pp] = toParamObj(pcfgParams[+d.pp]); pcfgParams[+d.pp].op = el.value; return; }
+  if(d.di != null && d.k === 'denom'){
+    draft[+d.di].denom = el.value;
+    el.style.color = el.value ? 'var(--fg-1)' : 'var(--text-tertiary)';
+    return;
+  }
+  if(d.hmpick != null){ hmPick(+d.hmpick, el.value); return; }
+  /* 效果图上传（只在热力图配置页，与原 demo 一致） */
+  if(el.id === 'hm-file'){
+    const f = el.files && el.files[0]; if(!f) return;
+    const p = hmPage(); if(!p) return;
+    const rd = new FileReader();
+    /* 在热力图配置里上传的图回写到页面配置，列表缩略图同步 */
+    rd.onload = ev => { p.img = ev.target.result; renderHeat(); renderPages(); };
+    rd.readAsDataURL(f);
+    el.value = '';
+    return;
+  }
+});
+
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Escape') return;
+  const lb = $('.lb');
+  if(lb){ lb.classList.remove('show'); setTimeout(()=>lb.remove(),200); return; }
+  if(curModal){ closeModal(); return; }
+  if(!$('#view-pages').hidden) return;
+  showView('pages');
+});
+/* capture 阶段：表格容器等内部元素滚动时也收起气泡（scroll 事件不冒泡） */
+window.addEventListener('scroll', hideTip, {passive:true, capture:true});
+
+/* ================= 启动 =================
+   支持 hash 直达，便于分享与逐屏核对：
+     #pages（默认）             核心页面配置
+     #pages-add                 + 打开「新增页面」弹窗
+     #pages-edit/<pageId>       + 打开「编辑页面」弹窗
+     #modules/<pageId>          模块配置
+     #modules-new/<pageId>      + 打开「新增模块」弹窗
+     #modules-add/<pageId>      + 打开「批量添加 Target 新增模块」弹窗
+     #submodules/<pageId>       子模块配置
+     #submodules-new/<pageId>   + 打开「新增子模块」弹窗
+     #heatmap/<pageId>          热力图配置
+*/
+function idxOfPage(pid){
+  const i = pageConfig.findIndex(p=>p.id === pid);
+  return i >= 0 ? i : pageConfig.findIndex(p=>p.id === 'inquiry');
+}
+function bootFromHash(){
+  const h = decodeURIComponent(location.hash.replace(/^#/,''));
+  const seg = h.split('/');
+  renderPages();
+
+  if(seg[0] === 'pages-add'){  showView('pages'); openPageModal(null);                return; }
+  if(seg[0] === 'pages-edit'){ showView('pages'); openPageModal(idxOfPage(seg[1]));   return; }
+
+  if(seg[0] === 'modules' || seg[0] === 'modules-add' || seg[0] === 'modules-new'){
+    openModules(idxOfPage(seg[1]));
+    if(seg[0] === 'modules-add') openNewModal();
+    if(seg[0] === 'modules-new') openModModal(null);
+    return;
+  }
+  /* #modules-edit/<pageId>/<模块序号> 直达某个模块的编辑态，便于核对 */
+  if(seg[0] === 'modules-edit'){
+    openModules(idxOfPage(seg[1]));
+    openModModal(Math.max(0, Number(seg[2]) || 0));
+    return;
+  }
+  if(seg[0] === 'submodules' || seg[0] === 'submodules-new'){
+    openSubs(idxOfPage(seg[1]));
+    if(seg[0] === 'submodules-new') openSubModal(null);
+    return;
+  }
+  if(seg[0] === 'heatmap'){ openHeat(idxOfPage(seg[1])); return; }
+  showView('pages');
+}
+bootFromHash();
+</script>
+</body>
+</html>

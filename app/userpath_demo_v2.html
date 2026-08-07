@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>天眼用户行为 · 路径分析</title>
+<script src="echarts.min.js"></script>
+<script>if(!window.echarts){document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"><\/scr'+'ipt>');}</script>
+<style>
+  /* ===== Design tokens（来自 Figma Frame 2130969442） ===== */
+  :root{
+    --brand:#00b2ff;
+    --brand-hover:#00a1e6;
+    --brand-soft:#e6f7ff;
+    --border:#e6e8eb;
+    --text-primary:#17181a;
+    --text-secondary:#5e6266;
+    --bg-secondary:#f4f7fa;
+    --surface:#fff;
+    --radius-filters:12px;  /* 筛选卡 */
+    --radius-result:16px;   /* 结果卡 */
+    --radius-ctl:6px;       /* 下拉/按钮 */
+    --radius-pill:100px;    /* tab / 配置 */
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  /* 关掉滚动边界的橡皮筋回弹：否则文档被拖动时 sticky 顶栏会跟着位移再弹回 */
+  html{overscroll-behavior:none;}
+  body{
+    background:var(--bg-secondary); color:var(--text-primary);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,Arial,sans-serif;
+    font-size:14px; -webkit-font-smoothing:antialiased;
+    overscroll-behavior:none;
+    padding-top:64px;              /* 让出 fixed 顶栏的高度 */
+  }
+
+  /* ===== 顶部导航 1440x64 =====
+     用 fixed 而非 sticky：fixed 相对视口定位，滚动边界回弹时不随文档位移 */
+  .nav{height:64px;background:var(--surface);display:flex;align-items:center;padding:0 25px;
+       position:fixed;top:0;left:0;right:0;z-index:100;
+       box-shadow:5px 17px 30px 0 rgba(17,61,112,.13);}
+  .nav-brand{display:flex;align-items:center;gap:8px;}
+  .nav-logo{width:30px;height:30px;flex:none;display:block;object-fit:contain;}
+  .nav-title{font-size:18px;font-weight:600;line-height:25px;letter-spacing:.2px;}
+  /* tabs：外层 230x40 容器，内层胶囊 112x36 */
+  .nav-tabs{position:absolute;left:50%;transform:translateX(-50%);
+            height:40px;padding:2px;background:var(--bg-secondary);border-radius:var(--radius-pill);display:flex;gap:2px;}
+  /* 激活胶囊独立成层，切换时在两个 tab 之间滑动（跨页由 View Transitions 做 morph） */
+  .nav-pill{position:absolute;top:2px;left:2px;width:112px;height:36px;z-index:0;
+            border-radius:var(--radius-pill);background:var(--brand);
+            transition:transform .28s cubic-bezier(.45,.05,.15,1);}
+  .nav-tabs[data-active="path"] .nav-pill{transform:translateX(0);}
+  .nav-tabs[data-active="page"] .nav-pill{transform:translateX(114px);}   /* 112 + gap 2 */
+  .nav-tab{position:relative;z-index:1;
+           width:112px;height:36px;border-radius:var(--radius-pill);display:flex;align-items:center;justify-content:center;
+           font-size:18px;font-weight:600;color:var(--text-secondary);cursor:pointer;text-decoration:none;
+           transition:color .26s ease,transform .12s ease;}
+  .nav-tab:hover{color:var(--text-primary);}
+  .nav-tab:active{transform:scale(.96);}
+  .nav-tab.active,.nav-tab.active:hover{color:#fff;}
+  .nav-cfg{margin-left:auto;height:30px;padding:0 12px;border:none;border-radius:var(--radius-pill);
+           display:flex;align-items:center;gap:3px;color:var(--text-secondary);font-size:16px;cursor:pointer;
+           background:var(--bg-secondary);text-decoration:none;}
+  .nav-cfg:hover{color:var(--brand);}
+  .nav-cfg img{width:16px;height:16px;display:block;}
+
+  /* ===== 主体 ===== */
+  .page{padding:20px;}
+  .card{background:var(--surface);}
+
+  /* ===== 筛选卡片：圆角12 + 轻投影，无描边 =====
+     自适应网格：列宽 213px 起，1440 视口下自动排成 6 列，
+     恰好还原设计的「4 个单列 + 时间范围占 2 列」两行布局；变窄时按列数自然回流 */
+  .filters{padding:20px;border-radius:var(--radius-filters);box-shadow:0 4px 6px rgba(0,0,0,.02);}
+  .flt-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(213px,1fr));gap:16px;align-items:center;
+            grid-auto-flow:row dense;}
+  .flt{display:flex;align-items:center;gap:8px;min-width:0;}
+  .flt.wide{grid-column:span 2;}
+  .flt-label{width:54px;flex:none;font-size:12px;line-height:17px;color:#666;text-align:right;white-space:nowrap;}
+  .flt-ctl{flex:1;min-width:0;height:32px;}
+  /* 下拉 */
+  .sel{width:100%;height:32px;padding:0 26px 0 8px;border:1px solid var(--border);border-radius:var(--radius-ctl);
+       background:var(--surface);color:#1d1d21;font-size:13px;line-height:18px;cursor:pointer;
+       appearance:none;-webkit-appearance:none;
+       background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%235e6266' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+       background-repeat:no-repeat;background-position:right 8px center;background-size:12px 12px;}
+  .sel:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 2px rgba(0,178,255,.12);}
+  /* 日期范围 */
+  .daterange{display:flex;align-items:center;gap:6px;height:32px;padding:0 8px;background:var(--surface);
+             border:1px solid var(--border);border-radius:var(--radius-ctl);}
+  .daterange:focus-within{border-color:var(--brand);box-shadow:0 0 0 2px rgba(0,178,255,.12);}
+  .daterange input{flex:1;min-width:0;border:none;outline:none;background:transparent;
+                   font-size:13px;color:#1d1d21;font-family:inherit;}
+  .daterange span{color:var(--text-secondary);}
+  /* 操作按钮 90x32：始终占据最后两列并右对齐 */
+  .flt-actions{display:flex;gap:12px;grid-column:-3 / -1;justify-self:end;}
+  /* 窄屏（不足 2 列）时取消跨列，避免溢出 */
+  @media (max-width:560px){
+    .flt.wide,.flt-actions{grid-column:auto;}
+    .flt-actions{justify-self:start;}
+  }
+  /* 窄屏顶栏：tab 取消绝对居中，避免与 Logo / 配置 重叠 */
+  @media (max-width:1000px){
+    .nav{padding:0 16px;}
+    .nav-tabs{position:relative;left:auto;transform:none;margin:0 auto;}  /* relative：保住胶囊定位上下文 */
+    .nav-tab{width:96px;font-size:16px;}
+    .nav-pill{width:96px;}
+    .nav-tabs[data-active="page"] .nav-pill{transform:translateX(98px);}
+  }
+  .btn{width:90px;height:32px;border-radius:var(--radius-ctl);font-size:13px;font-weight:500;cursor:pointer;
+       border:1px solid #eee;background:var(--surface);color:#666;font-family:inherit;}
+  .btn:hover{border-color:var(--brand);color:var(--brand);}
+  .btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;font-weight:600;}
+  .btn.primary:hover{background:var(--brand-hover);border-color:var(--brand-hover);color:#fff;}
+
+  /* ===== 结果卡片 ===== */
+  .result{margin-top:20px;padding:20px;border-radius:var(--radius-result);box-shadow:0 6px 12px rgba(94,98,102,.04);}
+  .result-hd{display:flex;align-items:center;gap:12px;margin-bottom:8px;}
+  .result-title{font-size:16px;font-weight:600;line-height:22px;}
+  .hl-toggle{height:24px;padding:0 10px;border:none;border-radius:var(--radius-pill);background:var(--bg-secondary);
+             color:var(--text-secondary);font-size:12px;display:inline-flex;align-items:center;gap:4px;
+             cursor:pointer;user-select:none;}
+  .hl-toggle:hover{color:var(--brand);}
+  .hl-toggle.on{background:var(--brand);color:#fff;}
+  .hl-toggle svg{width:13px;height:13px;}
+  /* 滑块组：每步Top / 展示步数 */
+  .disp{display:flex;align-items:center;gap:24px;margin-left:auto;}
+  .disp-item{display:flex;align-items:center;gap:5px;font-size:12px;line-height:17px;color:var(--text-primary);}
+  .disp-item input[type=range]{width:60px;height:12px;appearance:none;-webkit-appearance:none;background:transparent;cursor:pointer;}
+  .disp-item input[type=range]::-webkit-slider-runnable-track{height:2px;background:rgba(23,24,26,.4);border-radius:10px;}
+  .disp-item input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;
+        background:var(--brand);margin-top:-5px;}
+  .disp-item input[type=range]::-moz-range-track{height:2px;background:rgba(23,24,26,.4);border-radius:10px;}
+  .disp-item input[type=range]::-moz-range-thumb{width:12px;height:12px;border:none;border-radius:50%;background:var(--brand);}
+  .disp-v{min-width:15px;font-size:12px;color:var(--text-primary);font-variant-numeric:tabular-nums;}
+
+  #sankey{width:100%;height:760px;}
+
+  /* ===== 节点浮层（沿用原 demo） ===== */
+  .node-pop{position:fixed;z-index:200;width:264px;   /* 高于 sticky 顶栏(100)，避免浮层被遮挡 */background:#fff;border:1px solid var(--border);border-radius:10px;
+            box-shadow:0 12px 32px rgba(23,24,26,.18);display:none;overflow:hidden;}
+  .node-pop.show{display:block;}
+  .np-hd{padding:11px 14px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px;
+         color:var(--text-primary);display:flex;justify-content:space-between;align-items:center;}
+  .np-close{color:#b0bac7;cursor:pointer;font-size:18px;line-height:1;}
+  .np-close:hover{color:#d03050;}
+  .np-thumb{height:128px;background:linear-gradient(135deg,#eef7fd,#f7fbfe);border-bottom:1px solid var(--border);
+            position:relative;display:flex;align-items:center;justify-content:center;}
+  .np-mock{width:78px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px 8px 10px;
+           box-shadow:0 2px 8px rgba(23,24,26,.08);}
+  .np-mock .m-bar{height:10px;background:var(--brand);border-radius:3px;margin-bottom:6px;}
+  .np-mock .m-line{height:5px;background:#e8eef4;border-radius:3px;margin-bottom:4px;}
+  .np-mock .m-line.short{width:60%;}
+  .np-mock .m-block{height:22px;background:#f1f5f9;border-radius:4px;margin:6px 0;}
+  .np-mock .m-btn{height:9px;width:50%;background:#ffcc80;border-radius:3px;margin-top:6px;}
+  .np-thumb-tag{position:absolute;right:8px;bottom:6px;font-size:11px;color:var(--text-secondary);
+                background:rgba(255,255,255,.75);padding:1px 6px;border-radius:8px;}
+  .np-stats{padding:12px 14px;display:flex;flex-direction:column;gap:9px;}
+  .np-stat{display:flex;justify-content:space-between;font-size:13px;}
+  .np-stat .k{color:var(--text-secondary);}
+  .np-stat .v{font-weight:600;color:var(--text-primary);}
+  .np-acts{padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px;}
+  .np-btn{flex:1;padding:7px 0;border-radius:var(--radius-ctl);font-size:12px;cursor:pointer;
+          border:1px solid var(--border);background:#fff;color:var(--text-primary);text-align:center;white-space:nowrap;}
+  .np-btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;}
+  .np-btn:hover{opacity:.88;}
+
+  /* ===== 顶栏 tab 切换 =====
+     只有激活胶囊做滑动，页面其余部分保持原样：不淡化、不位移。
+     胶囊在当前页面滑到位之后才跳转（见页尾 JS），因此新旧两页的顶栏
+     在导航发生时视觉完全一致，切换无感。
+     跨文档 View Transitions 仅用于消除导航白屏，所有视觉动画一律关闭：
+     若让 root 交叉淡化会闪烁；若让胶囊单独 morph，root 快照中胶囊
+     位置为空，中途激活 tab 已是白字却仍在灰底上，文字会像消失一样。 */
+  @view-transition{navigation:auto;}
+  ::view-transition-group(*),::view-transition-old(*),::view-transition-new(*){
+      animation:none !important;}
+  ::view-transition-old(root){opacity:0;}
+  ::view-transition-new(root){opacity:1;}
+  @media (prefers-reduced-motion:reduce){
+    .nav-pill{transition:none;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 顶部导航 ===== -->
+<div class="nav">
+  <div class="nav-brand">
+    <img class="nav-logo" src="ui-demo/切图/Mask%20group.png" alt="天眼">
+    <div class="nav-title">天眼用户行为</div>
+  </div>
+  <div class="nav-tabs" data-active="path" data-active-init="path">
+    <span class="nav-pill" aria-hidden="true"></span>
+    <span class="nav-tab active" data-tab="path">路径分析</span>
+    <a class="nav-tab" href="pageanalysis_demo_v2.html" data-tab="page">页面分析</a>
+  </div>
+  <a class="nav-cfg" href="config_demo_v2.html" title="核心页面配置 / 模块配置">
+    <img src="ui-demo/切图/settings.png" alt="">
+    <span>配置</span>
+  </a>
+</div>
+
+<div class="page">
+
+  <!-- ===== 筛选卡片 ===== -->
+  <div class="card filters">
+    <div class="flt-grid">
+      <div class="flt">
+        <label class="flt-label">行为分析</label>
+        <div class="flt-ctl"><select class="sel"><option>乘客</option><option>车主</option></select></div>
+      </div>
+      <div class="flt">
+        <label class="flt-label">起始页面</label>
+        <div class="flt-ctl"><select class="sel" id="startPageSel"></select></div>
+      </div>
+      <div class="flt">
+        <label class="flt-label">终止页面</label>
+        <div class="flt-ctl"><select class="sel" id="endPageSel"></select></div>
+      </div>
+      <div class="flt wide">
+        <label class="flt-label">时间范围</label>
+        <div class="flt-ctl">
+          <div class="daterange">
+            <input type="date" id="dateStart" value="2026-06-01" oninput="onDateChange()">
+            <span>-</span>
+            <input type="date" id="dateEnd" value="2026-06-21" oninput="onDateChange()">
+          </div>
+        </div>
+      </div>
+      <div class="flt">
+        <label class="flt-label">一级平台</label>
+        <div class="flt-ctl"><select class="sel"><option>顺风车</option><option>打车</option><option>全部</option></select></div>
+      </div>
+      <div class="flt">
+        <label class="flt-label">流量入口</label>
+        <div class="flt-ctl"><select class="sel"><option>全部</option><option>APP</option><option>支付宝小程序</option><option>微信小程序</option></select></div>
+      </div>
+      <div class="flt">
+        <label class="flt-label">同跨城</label>
+        <div class="flt-ctl"><select class="sel"><option>全部</option><option>同城</option><option>跨城</option></select></div>
+      </div>
+      <div class="flt">
+        <label class="flt-label">实时/预约</label>
+        <div class="flt-ctl"><select class="sel"><option>全部</option><option>实时</option><option>预约</option></select></div>
+      </div>
+      <div class="flt">
+        <label class="flt-label">新老客</label>
+        <div class="flt-ctl"><select class="sel"><option>全部</option><option>新客</option><option>老客</option></select></div>
+      </div>
+      <div class="flt-actions">
+        <button class="btn primary" onclick="renderSankey()">查询</button>
+        <button class="btn" onclick="resetFilters()">重置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 结果卡片：页面流转 ===== -->
+  <div class="card result">
+    <div class="result-hd">
+      <div class="result-title">页面流转</div>
+      <span class="hl-toggle" id="btnMultiHL" title="多选高亮：开启后点击节点叠加高亮该节点及邻接路径" onclick="toggleMultiHL(this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/><circle cx="12" cy="12" r="4"/></svg>
+        <span>多选高亮</span>
+      </span>
+      <div class="disp">
+        <div class="disp-item">
+          <span>每步Top</span>
+          <input type="range" min="3" max="25" value="25" id="topRange" oninput="setTopX(this.value)">
+          <span class="disp-v" id="topVal">25</span>
+        </div>
+        <div class="disp-item">
+          <span>展示步数</span>
+          <input type="range" min="2" max="25" value="25" id="stepRange" oninput="setSteps(this.value)">
+          <span class="disp-v" id="stepVal">25</span>
+        </div>
+      </div>
+    </div>
+    <div style="overflow-x:auto;width:100%;">
+      <div id="sankey"></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ===== 节点点击浮层 ===== -->
+<div class="node-pop" id="nodePop">
+  <div class="np-hd"><span id="npName">页面</span><span class="np-close" onclick="closeNodePop()">×</span></div>
+  <div class="np-thumb">
+    <div class="np-mock">
+      <div class="m-bar"></div><div class="m-line"></div><div class="m-line short"></div>
+      <div class="m-block"></div><div class="m-line"></div><div class="m-btn"></div>
+    </div>
+    <span class="np-thumb-tag" id="npThumbName">页面缩略图</span>
+  </div>
+  <div class="np-stats">
+    <div class="np-stat"><span class="k">日均页面总 PV</span><span class="v" id="npTotalPv">-</span></div>
+    <div class="np-stat"><span class="k">日均页面总 UV</span><span class="v" id="npTotalUv">-</span></div>
+    <div class="np-stat"><span class="k">当前节点日均 PV</span><span class="v" id="npPv">-</span></div>
+    <div class="np-stat"><span class="k">当前节点日均终止 PV</span><span class="v" id="npLoss">-</span></div>
+    <div class="np-stat"><span class="k">终止率</span><span class="v" id="npRate">-</span></div>
+  </div>
+  <div class="np-acts">
+    <div class="np-btn primary" id="npHlBtn" onclick="onHlBtn()">高亮节点</div>
+    <div class="np-btn" onclick="drillNode()">查看页面详情</div>
+  </div>
+</div>
+
+<script>
+/* ============ 全局配置状态 ============ */
+let cfg = { metric:'pv', topX:25, steps:25, dir:'fwd' };
+function setTopX(v){ cfg.topX=+v; document.getElementById('topVal').innerText=v; pathHL=null; renderSankey(); }
+function setSteps(v){ cfg.steps=+v; document.getElementById('stepVal').innerText=v; pathHL=null; renderSankey(); }
+
+/* ============ 模块一：桑基图数据 ============ */
+// 每步的页面节点（按流量从大到小），最后两位固定为 更多 / 终止
+// 结构：steps[i] = [{name, val}], 末尾自动补 更多 + 终止
+const rawSteps = [
+  // 第0步（起点，可有多个入口）
+  [{name:'平台首页', val:128000},{name:'乘客首页', val:104000}],
+  // 第1步（从首页几乎可到达任意页面，含在途履约页——恢复进行中订单/推送深链/查看已完成行程等）
+  [{name:'乘客首页',val:92000},{name:'询价页',val:62000},{name:'登录页',val:40000},{name:'POI页',val:28000},
+   {name:'其他页面',val:24000,other:true},{name:'发单动画',val:16000},{name:'平台首页',val:12000},
+   {name:'等待接单页',val:8000},{name:'确认同行页',val:5000},{name:'顺风车履约-待车主接单',val:4200},
+   {name:'支付页',val:3000},{name:'顺风车履约-待乘客上车',val:2600},{name:'风控预付页',val:2200},
+   {name:'顺风车履约-行程完成',val:1900},{name:'顺风车履约-订单取消',val:1500},{name:'顺风车履约-待乘客确认',val:1200},
+   {name:'顺风车履约-待车主到达起点',val:900},{name:'顺风车履约-待司乘到达终点',val:700}],
+  // 第2步
+  [{name:'询价页',val:98000},{name:'POI页',val:42000},{name:'发单动画',val:32000},{name:'登录页',val:20000},
+   {name:'乘客首页',val:16000},{name:'其他页面',val:14000,other:true},{name:'等待接单页',val:12000},
+   {name:'确认同行页',val:8000},{name:'风控预付页',val:6000},{name:'支付页',val:4000}],
+  // 第3步
+  [{name:'询价页',val:90000},{name:'发单动画',val:54000},{name:'等待接单页',val:32000},{name:'POI页',val:16000},
+   {name:'确认同行页',val:14000},{name:'风控预付页',val:10000},{name:'支付页',val:7000},{name:'乘客首页',val:5000},
+   {name:'其他页面',val:4000,other:true}],
+  // 第4步
+  [{name:'发单动画',val:92000},{name:'等待接单页',val:46000},{name:'确认同行页',val:28000},{name:'询价页',val:15000},
+   {name:'风控预付页',val:13000},{name:'支付页',val:9000},{name:'顺风车履约-待车主接单',val:6000},{name:'POI页',val:4000}],
+  // 第5步
+  [{name:'等待接单页',val:86000},{name:'确认同行页',val:42000},{name:'风控预付页',val:26000},{name:'支付页',val:17000},
+   {name:'发单动画',val:9000},{name:'顺风车履约-待车主接单',val:8000},{name:'顺风车履约-订单取消',val:5000}],
+  // 第6步
+  [{name:'确认同行页',val:78000},{name:'风控预付页',val:42000},{name:'支付页',val:28000},{name:'等待接单页',val:11000},
+   {name:'顺风车履约-待车主接单',val:9000},{name:'顺风车履约-订单取消',val:6000}],
+  // 第7步：风控预付 → 支付
+  [{name:'风控预付页',val:70000},{name:'支付页',val:46000},{name:'确认同行页',val:13000},
+   {name:'顺风车履约-待车主接单',val:11000},{name:'顺风车履约-订单取消',val:7000}],
+  // 第8步：进入顺风车履约（示例展示顺风车履约，状态同打车）
+  [{name:'支付页',val:74000},{name:'顺风车履约-待车主接单',val:32000},{name:'风控预付页',val:11000},
+   {name:'顺风车履约-订单取消',val:9000},{name:'顺风车履约-待乘客确认',val:6000}],
+  // 第9步
+  [{name:'顺风车履约-待车主接单',val:66000},{name:'顺风车履约-待乘客确认',val:24000},{name:'顺风车履约-订单取消',val:13000},
+   {name:'支付页',val:7000},{name:'顺风车履约-待车主到达起点',val:5000}],
+  // 第10步
+  [{name:'顺风车履约-待乘客确认',val:58000},{name:'顺风车履约-待车主到达起点',val:30000},{name:'顺风车履约-订单取消',val:9000},
+   {name:'顺风车履约-待车主接单',val:6000},{name:'顺风车履约-待乘客上车',val:5000}],
+  // 第11步
+  [{name:'顺风车履约-待车主到达起点',val:54000},{name:'顺风车履约-待乘客上车',val:28000},{name:'顺风车履约-待司乘到达终点',val:13000},
+   {name:'顺风车履约-订单取消',val:6000}],
+  // 第12步
+  [{name:'顺风车履约-待乘客上车',val:48000},{name:'顺风车履约-待司乘到达终点',val:26000},{name:'顺风车履约-行程完成',val:18000},
+   {name:'顺风车履约-待车主到达起点',val:6000}],
+  // 第13步：行程完成后返回/复购（同一时间窗内的重复使用）
+  [{name:'顺风车履约-行程完成',val:44000},{name:'平台首页',val:22000},{name:'乘客首页',val:16000},
+   {name:'其他页面',val:10000,other:true},{name:'顺风车履约-待司乘到达终点',val:5000}],
+  // 第14步
+  [{name:'乘客首页',val:40000},{name:'平台首页',val:24000},{name:'询价页',val:20000},
+   {name:'其他页面',val:9000,other:true},{name:'登录页',val:5000}],
+  // 第15步（二次下单探索）
+  [{name:'询价页',val:52000},{name:'POI页',val:24000},{name:'乘客首页',val:14000},{name:'发单动画',val:10000},
+   {name:'登录页',val:6000},{name:'其他页面',val:4000,other:true}],
+  // 第16步
+  [{name:'询价页',val:54000},{name:'发单动画',val:30000},{name:'等待接单页',val:16000},{name:'POI页',val:8000},{name:'确认同行页',val:6000}],
+  // 第17步
+  [{name:'发单动画',val:52000},{name:'等待接单页',val:28000},{name:'确认同行页',val:18000},{name:'风控预付页',val:9000},{name:'询价页',val:6000}],
+  // 第18步
+  [{name:'等待接单页',val:50000},{name:'确认同行页',val:28000},{name:'风控预付页',val:18000},{name:'支付页',val:10000},{name:'发单动画',val:6000}],
+  // 第19步
+  [{name:'确认同行页',val:48000},{name:'风控预付页',val:28000},{name:'支付页',val:18000},{name:'顺风车履约-待车主接单',val:8000},{name:'等待接单页',val:5000}],
+  // 第20步
+  [{name:'风控预付页',val:46000},{name:'支付页',val:30000},{name:'顺风车履约-待车主接单',val:14000},{name:'顺风车履约-订单取消',val:6000}],
+  // 第21步
+  [{name:'支付页',val:48000},{name:'顺风车履约-待车主接单',val:26000},{name:'顺风车履约-待乘客确认',val:12000},{name:'顺风车履约-订单取消',val:6000}],
+  // 第22步
+  [{name:'顺风车履约-待车主接单',val:44000},{name:'顺风车履约-待乘客确认',val:24000},{name:'顺风车履约-待车主到达起点',val:14000},{name:'顺风车履约-订单取消',val:5000}],
+  // 第23步
+  [{name:'顺风车履约-待乘客确认',val:42000},{name:'顺风车履约-待车主到达起点',val:24000},{name:'顺风车履约-待乘客上车',val:14000},{name:'顺风车履约-待司乘到达终点',val:7000}],
+  // 第24步
+  [{name:'顺风车履约-待乘客上车',val:40000},{name:'顺风车履约-待司乘到达终点',val:24000},{name:'顺风车履约-行程完成',val:16000},{name:'顺风车履约-待车主到达起点',val:6000}]
+];
+
+// 各页面的总 PV / UV（页面维度汇总，模拟数据）
+const pageStats = {
+  '平台首页':   {pv:240000, uv:182000},
+  '乘客首页':   {pv:162000, uv:121000},
+  '登录页':     {pv:96000,  uv:74000},
+  'POI页':      {pv:112000, uv:84000},
+  '询价页':     {pv:99000,  uv:71000},
+  '发单动画':   {pv:86000,  uv:62000},
+  '等待接单页': {pv:80000,  uv:58000},
+  '确认同行页': {pv:72000,  uv:53000},
+  '风控预付页': {pv:64000,  uv:49000},
+  '支付页':     {pv:60000,  uv:46000},
+  '顺风车履约-订单取消':        {pv:18000, uv:14500},
+  '顺风车履约-待车主接单':      {pv:54000, uv:42000},
+  '顺风车履约-待乘客确认':      {pv:46000, uv:36000},
+  '顺风车履约-待车主到达起点':  {pv:42000, uv:33500},
+  '顺风车履约-待乘客上车':      {pv:36000, uv:29000},
+  '顺风车履约-待司乘到达终点':  {pv:31000, uv:25500},
+  '顺风车履约-行程完成':        {pv:27000, uv:23000}
+};
+
+// 根据 topX 切分 Top 节点与「更多」，并计算每步终止
+function buildSankey(){
+  const nodes=[], links=[];
+  const nameSet=new Set();
+  const addNode=(n)=>{ if(!nameSet.has(n)){ nameSet.add(n); nodes.push({name:n}); } };
+  const factor = cfg.metric==='pv'?1.6:1;
+  const stepCount = Math.min(cfg.steps, rawSteps.length-1);
+
+  // 为每步生成"展示节点列表"（带唯一后缀避免跨步重名），保留 topX + 更多 + 终止
+  const stepNodes=[]; // 每步: [{key, label, val}]
+  for(let s=0;s<=stepCount;s++){
+    const arr = rawSteps[s].map(x=>({label:x.name, val:Math.round(x.val*factor), other:!!x.other}));
+    arr.sort((a,b)=>b.val-a.val);
+    let shown, moreVal=0;
+    if(s===0){ shown=arr; }
+    else{
+      const others = arr.filter(x=>x.other);   // 「其他页面」等非核心页面，始终展示，不占 Top 名额
+      const normals = arr.filter(x=>!x.other);
+      shown = normals.slice(0, cfg.topX).concat(others);
+      moreVal = normals.slice(cfg.topX).reduce((a,x)=>a+x.val,0);
+    }
+    const list = shown.map(x=>({key:`S${s}·${x.label}`, label:x.label, val:x.val}));
+    if(moreVal>0) list.push({key:`S${s}·更多`, label:'更多分组', val:moreVal, kind:'more'});
+    stepNodes.push(list);
+  }
+
+  // 注册节点
+  stepNodes.forEach(list=>list.forEach(n=>addNode(n.key)));
+  // 每步追加终止节点（除最后一步）
+  for(let s=0;s<stepCount;s++) addNode(`S${s}·终止`);
+
+  // 生成相邻步连线：上一步总流量按下一步节点占比分配，剩余记为终止
+  for(let s=0;s<stepCount;s++){
+    const cur = stepNodes[s];
+    const next = stepNodes[s+1];
+    const curTotal = cur.reduce((a,b)=>a+b.val,0);
+    const nextTotal = next.reduce((a,b)=>a+b.val,0);
+    const flowTotal = Math.min(curTotal, nextTotal); // 流向下一步的总量
+    const lossTotal = Math.max(curTotal-flowTotal, Math.round(curTotal*0.18)); // 终止量
+    // 把 flowTotal 按 cur 各节点比例切分，再按 next 占比落到 next 节点
+    cur.forEach(cn=>{
+      const cShare = cn.val/curTotal;
+      next.forEach(nn=>{
+        const v = Math.round(flowTotal*cShare*(nn.val/nextTotal));
+        if(v>0) links.push({source:cn.key, target:nn.key, value:v});
+      });
+      // 该节点的终止
+      const lv = Math.round(lossTotal*cShare);
+      if(lv>0) links.push({source:cn.key, target:`S${s}·终止`, value:lv, loss:true});
+    });
+  }
+  return {nodes, links, stepNodes, stepCount};
+}
+
+let sankeyChart;
+let nodeMeta = {};       // 节点名 -> {label, pv, loss, lossRate}
+let nodeOutSum = {};     // 节点名 -> 总流出量（连线转化率分母）
+let curNodeName = null;  // 当前浮层选中的节点 key
+let curLinks = [];       // 当前渲染的链路（供路径追踪）
+let pathHL = null;       // {nodeKeys:Set, linkKeys:Set} 高亮的主干路径，null=不高亮
+let multiHL = null;      // {nodes:Set, links:Set} 多选高亮模式，null=未启用
+let popOpen = false;     // 节点浮层是否打开（打开时屏蔽 hover 效果）
+// 当前时间范围天数（用于日均计算）
+function getDays(){
+  const s=document.getElementById('dateStart'), e=document.getElementById('dateEnd');
+  if(!s||!e||!s.value||!e.value) return 21;
+  const ms = new Date(e.value).getTime() - new Date(s.value).getTime();
+  return Math.max(1, Math.round(ms/86400000)+1);
+}
+function onDateChange(){ /* 留空：实际接入时按新日期重新拉数据；当前桑基图配色与日均会自动用新天数 */ if(sankeyChart) renderSankey(); }
+// 多选高亮开关
+function toggleMultiHL(btn){
+  if(multiHL){
+    multiHL = null;
+    btn.classList.remove('on');
+  } else {
+    multiHL = {nodes:new Set(), links:new Set()};
+    btn.classList.add('on');
+    // 进入多选模式时，清掉单路径高亮和节点浮层
+    pathHL = null; closeNodePop();
+  }
+  renderSankey();
+}
+// 多选模式下：toggle 节点本身。连线由"两端节点都在已选集合中"自动计算
+function toggleMultiNode(name){
+  if(!multiHL) return;
+  const ns = multiHL.nodes;
+  if(ns.has(name)) ns.delete(name); else ns.add(name);
+  // 重算连线集合：source 与 target 都已选中的连线视为高亮
+  const ls = new Set();
+  curLinks.forEach(l=>{
+    if(ns.has(l.source) && ns.has(l.target)) ls.add(l.source+'__'+l.target);
+  });
+  multiHL.links = ls;
+  renderSankey();
+}
+// 屏蔽/恢复 hover（emphasis 聚焦 + tooltip）
+function lockHover(lock){
+  if(!sankeyChart) return;
+  sankeyChart.dispatchAction({type:'hideTip'});
+  if(lock) sankeyChart.dispatchAction({type:'downplay', seriesIndex:0}); // 先清掉 hover 残留的高亮态
+  sankeyChart.setOption({ tooltip:{show:!lock},
+    series:[{type:'sankey', emphasis: lock?{disabled:true}:{disabled:false, focus:'adjacency'}}] });
+}
+// 颜色：按页面类型(label)分配，跨步保持一致，形成连贯彩带
+const sankeyPalette = ['#8ea9f3','#b39ddb','#f48fb1','#80cbc4','#ffcc80','#90caf9','#ce93d8','#80deea','#bcaaa4','#9fa8da','#f6a5c0','#a5d6a7'];
+let labelColorMap = {};
+function hexRgba(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
+function colorForLabel(label){
+  if(label==='更多分组') return '#7cc18a';
+  if(label==='终止') return '#9aa3af';
+  if(!(label in labelColorMap)) labelColorMap[label] = sankeyPalette[Object.keys(labelColorMap).length % sankeyPalette.length];
+  return labelColorMap[label];
+}
+function renderSankey(){
+  if(!sankeyChart){
+    sankeyChart = echarts.init(document.getElementById('sankey'));
+    sankeyChart.getZr().on('click', e=>{ if(!e.target){ closeNodePop(); if(pathHL){ pathHL=null; renderSankey(); } } }); // 点击空白处关闭浮层并取消高亮
+  }
+  const {nodes, links, stepNodes, stepCount} = buildSankey();
+  curLinks = links;
+  // 计算每个节点的流量(取进/出较大值)用于展示 PV
+  const inSum={}, outSum={}, nodeVal={}, lossByNode={};
+  links.forEach(l=>{ outSum[l.source]=(outSum[l.source]||0)+l.value; inSum[l.target]=(inSum[l.target]||0)+l.value;
+    if(l.loss) lossByNode[l.source]=(lossByNode[l.source]||0)+l.value; });
+  nodes.forEach(n=>{ nodeVal[n.name] = Math.max(inSum[n.name]||0, outSum[n.name]||0); });
+  // 记录每个节点的元信息，供点击浮层使用
+  nodeMeta = {};
+  nodes.forEach(n=>{
+    const pv = nodeVal[n.name]||0, loss = lossByNode[n.name]||0;
+    const label = n.name.split('·').pop();
+    const ps = (typeof pageStats!=='undefined') ? pageStats[label] : null;
+    nodeMeta[n.name] = { label, pv, loss, lossRate: pv>0 ? loss/pv : 0,
+      totalPv: ps?ps.pv:null, totalUv: ps?ps.uv:null };
+  });
+  nodeOutSum = outSum;   // 供连线 tooltip 计算转化率（连线量 / 源节点总流出）
+
+  labelColorMap = {}; // 每次渲染重置，保证配色稳定
+  // 是否变浅：单路径模式或多选模式（且已选节点）
+  const dimNode = k => (pathHL && !pathHL.nodeKeys.has(k)) || (multiHL && multiHL.nodes.size>0 && !multiHL.nodes.has(k));
+  const styledNodes = nodes.map(n=>{
+    const label = n.name.split('·').pop();
+    const c = colorForLabel(label);
+    const dim = dimNode(n.name);
+    return {
+      name:n.name, value: nodeVal[n.name]||0,
+      itemStyle:{ color: hexRgba(c, dim?0.06:0.18), borderColor:c, borderWidth:1.4, opacity: dim?0.3:1 },
+      label:{ color: dim?'#c2c8d0':'#3a4554' }
+    };
+  });
+  const grad=(c1,c2,a)=>({type:'linear',x:0,y:0,x2:1,y2:0,
+    colorStops:[{offset:0,color:hexRgba(c1,a)},{offset:1,color:hexRgba(c2,a)}]});
+  const styledLinks = links.map(l=>{
+    const dim = (pathHL && !pathHL.linkKeys.has(l.source+'__'+l.target))
+              || (multiHL && multiHL.links.size>0 && !multiHL.links.has(l.source+'__'+l.target));
+    const sc = colorForLabel(l.source.split('·').pop());
+    if(l.loss) return {...l, lineStyle:{ color:grad(sc,'#9aa3af', dim?0.05:0.42) }};
+    const tc = colorForLabel(l.target.split('·').pop());
+    return {...l, lineStyle:{ color:grad(sc,tc, dim?0.06:0.72) }};
+  });
+  // 节点宽度按步数自适应：步数少则更宽，文字居中放在方框里
+  const nodeW = Math.round(Math.max(78, Math.min(120, 880/(stepCount+1))));
+  // 步数多时按需加宽画布，超出容器则在外层横向滚动
+  (function(){ const el=document.getElementById('sankey'); const wrapW=el.parentElement?el.parentElement.clientWidth:el.clientWidth;
+    el.style.width = Math.max(wrapW, (stepCount+1)*150) + 'px';
+    let maxCol=0; stepNodes.forEach((list,s)=>{ const c=list.length+(s<stepCount?1:0); if(c>maxCol)maxCol=c; }); // 每列实际节点数（含终止）
+    el.style.height = Math.max(700, maxCol*74) + 'px';  // 高度按最密集列的节点数自适应，不受 Top 上限虚高
+    if(sankeyChart) sankeyChart.resize(); })();
+  sankeyChart.setOption({
+    tooltip:{trigger:'item',triggerOn:'mousemove',
+      formatter:p=>{
+        const D=getDays();
+        const avg = v=>Math.round((v||0)/D).toLocaleString();
+        if(p.dataType==='edge'){
+          // 连线转化率 = 该连线流量 / 源节点总流出
+          const srcOut = (nodeOutSum[p.data.source]||0);
+          const rate = srcOut>0 ? (p.data.value/srcOut) : 0;
+          return `${p.data.source.split('·').pop()} → ${p.data.target.split('·').pop()}<br/>`+
+                 `日均 PV：<b>${avg(p.data.value)}</b><br/>`+
+                 `转化率：${(rate*100).toFixed(1)}%`;
+        }
+        const m = nodeMeta[p.name] || {pv:p.value||0, loss:0, lossRate:0};
+        const totalLine = (m.totalPv!=null)
+          ? `日均页面总 PV：${avg(m.totalPv)}<br/>日均页面总 UV：${avg(m.totalUv)}<br/>`
+          : '';
+        return `<b>${p.name.split('·').pop()}</b><br/>`+
+               totalLine+
+               `当前节点日均 PV：${avg(m.pv)}<br/>`+
+               `当前节点日均终止 PV：${avg(m.loss)}<br/>`+
+               `终止率：${((m.lossRate||0)*100).toFixed(1)}%`;
+      }},
+    series:[{
+      type:'sankey', emphasis: pathHL?{disabled:true}:multiHL?{disabled:false, focus:'none'}:{disabled:false, focus:'adjacency'}, draggable:false,
+      // 固定像素而非百分比：画布宽会被拉到 (步数+1)*150≈3900px、高最大 ~1850px，
+      // 百分比会被放大成上百 px 的空白（首列离卡片左边太远、标题与图之间断层）
+      left:6, right:20, top:8, bottom:8,
+      nodeWidth:nodeW, nodeGap:11, nodeAlign:'left', layoutIterations:0,
+      data:styledNodes, links:styledLinks,
+      label:{ color:'#3a4554', fontSize:11, lineHeight:15, position:'inside',
+        formatter:p=>{ const nm=p.name.split('·').pop(); if(p.name.indexOf('S0·')===0 && nm!=='终止' && nm!=='更多分组') return nm; return `${nm}\n${Math.round((p.value||0)/getDays()).toLocaleString()}`; } },
+      lineStyle:{ curveness:.5 }
+    }]
+  });
+  sankeyChart.off('click');
+  sankeyChart.on('click', p=>{
+    if(p.dataType==='node'){
+      const label=p.name.split('·').pop();
+      if(label==='终止'||label==='更多分组') return;
+      // 多选高亮模式下，点击节点切换高亮，不弹浮层
+      if(multiHL){ toggleMultiNode(p.name); return; }
+      const ev = p.event && p.event.event;
+      openNodePop(p.name, ev?ev.clientX:window.innerWidth/2, ev?ev.clientY:200);
+    }
+  });
+}
+
+/* ---- 节点点击浮层 ---- */
+function openNodePop(nodeName, x, y){
+  curNodeName = nodeName;
+  const m = nodeMeta[nodeName] || {label:nodeName.split('·').pop(), pv:0, loss:0, lossRate:0};
+  const set=(id,val)=>{ const el=document.getElementById(id); if(el) el.innerText=val; };
+  const D=getDays();
+  const avg = v => v==null ? '-' : Math.round(v/D).toLocaleString();
+  set('npName', m.label);
+  set('npThumbName', m.label);
+  set('npTotalPv', avg(m.totalPv));
+  set('npTotalUv', avg(m.totalUv));
+  set('npPv', avg(m.pv||0));
+  set('npLoss', avg(m.loss||0));
+  set('npRate', ((m.lossRate||0)*100).toFixed(1) + '%');
+  set('npHlBtn', pathHL ? '取消全部高亮' : '高亮节点');
+  const pop = document.getElementById('nodePop');
+  pop.classList.add('show');
+  popOpen = true;
+  lockHover(true);
+  const w = 264, h = pop.offsetHeight || 320;
+  pop.style.left = Math.min(x+12, window.innerWidth - w - 12) + 'px';
+  pop.style.top  = Math.min(y+8, window.innerHeight - h - 12) + 'px';
+}
+function closeNodePop(){
+  document.getElementById('nodePop').classList.remove('show');
+  popOpen = false;
+  lockHover(!!pathHL); // 仍处于高亮态则保持锁定，否则恢复 hover
+}
+function onHlBtn(){ if(pathHL) clearHighlight(); else highlightNode(); }
+function clearHighlight(){ pathHL=null; renderSankey(); closeNodePop(); }
+function highlightNode(){
+  if(!curNodeName) return;
+  // 从当前节点出发，向前/向后各沿 PV 最大的连线追踪主干路径
+  const nodeKeys=new Set([curNodeName]), linkKeys=new Set();
+  let cur=curNodeName;
+  while(true){ // 向后
+    const outs=curLinks.filter(l=>l.source===cur && !l.loss);
+    if(!outs.length) break;
+    const best=outs.reduce((a,b)=>b.value>a.value?b:a);
+    linkKeys.add(best.source+'__'+best.target);
+    if(nodeKeys.has(best.target)) break;
+    nodeKeys.add(best.target); cur=best.target;
+  }
+  cur=curNodeName;
+  while(true){ // 向前
+    const ins=curLinks.filter(l=>l.target===cur && !l.loss);
+    if(!ins.length) break;
+    const best=ins.reduce((a,b)=>b.value>a.value?b:a);
+    linkKeys.add(best.source+'__'+best.target);
+    if(nodeKeys.has(best.source)) break;
+    nodeKeys.add(best.source); cur=best.source;
+  }
+  pathHL = {nodeKeys, linkKeys};
+  renderSankey();
+  closeNodePop();
+}
+
+/* ============ 页面清单（驱动起始/终止页面下拉） ============ */
+const pageList = ['平台首页','乘客首页','登录页','POI页','询价页','发单动画','等待接单页','确认同行页',
+  '风控预付页','支付页','顺风车履约-订单取消','顺风车履约-待车主接单','顺风车履约-待乘客确认',
+  '顺风车履约-待车主到达起点','顺风车履约-待乘客上车','顺风车履约-待司乘到达终点','顺风车履约-行程完成'];
+function renderPageSelects(){
+  ['startPageSel','endPageSel'].forEach(id=>{
+    const sel = document.getElementById(id);
+    if(!sel) return;
+    sel.innerHTML = '<option value="">不限</option>' + pageList.map(n=>`<option value="${n}">${n}</option>`).join('');
+  });
+}
+
+/* 页面详情下钻：本页仅实现路径分析，下钻跳回原 demo 的页面分析模块 */
+function drillNode(){
+  closeNodePop();
+  window.location.href = 'userpath_demo.html';
+}
+
+/* 重置筛选 */
+function resetFilters(){ location.reload(); }
+
+/* ============ 初始化 ============ */
+renderPageSelects();
+renderSankey();
+window.addEventListener('resize', ()=>{ if(sankeyChart) renderSankey(); });
+
+/* ===== 顶栏 tab 切换 =====
+   点击后先在当前页面把胶囊滑到目标位置，滑完再跳转。
+   这样导航发生时新旧两页顶栏状态一致，页面内容瞬切，不淡化不位移。 */
+(function(){
+  const tabs = document.querySelector('.nav-tabs');
+  const pill = document.querySelector('.nav-pill');
+  const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const SLIDE = 280;   // 与 .nav-pill 的 transition-duration 对齐
+
+  document.querySelectorAll('.nav-tab[href]').forEach(a=>{
+    a.addEventListener('click', e=>{
+      // 新标签页/中键打开不拦截
+      if(e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+      e.preventDefault();
+      // 胶囊滑向目标，文字色同步过渡
+      if(tabs && a.dataset.tab) tabs.dataset.active = a.dataset.tab;
+      document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active', t === a));
+      if(calm){ location.href = a.href; return; }
+      let jumped = false;
+      const go = ()=>{ if(jumped) return; jumped = true; location.href = a.href; };
+      if(pill) pill.addEventListener('transitionend', go, {once:true});
+      setTimeout(go, SLIDE + 60);        // transitionend 未触发时兜底
+    });
+  });
+
+  // 后退返回缓存页时复位胶囊与文字态
+  window.addEventListener('pageshow', ev=>{
+    if(!ev.persisted || !tabs) return;
+    const own = tabs.dataset.activeInit;
+    if(!own) return;
+    tabs.dataset.active = own;
+    document.querySelectorAll('.nav-tab').forEach(t=>t.classList.toggle('active', t.dataset.tab === own));
+  });
+})();
+</script>
+</body>
+</html>
