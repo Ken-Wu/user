@@ -16,6 +16,7 @@
     --text-primary:#17181a;
     --text-secondary:#5e6266;
     --bg-secondary:#f4f7fa;
+    --nav-chip:#f2f6fa;     /* 顶栏 tab 容器 / 配置按钮底色 */
     --surface:#fff;
     --radius-filters:12px;  /* 筛选卡 */
     --radius-result:16px;   /* 结果卡 */
@@ -52,12 +53,12 @@
   .nav-brand{display:flex;align-items:center;gap:8px;}
   .nav-logo{width:30px;height:30px;flex:none;display:block;object-fit:contain;}
   .nav-title{font-size:18px;font-weight:600;line-height:25px;letter-spacing:.2px;}
-  /* tabs：外层 230x40 容器，内层胶囊 112x36；容器半透明以免在玻璃顶栏上出现实色块 */
+  /* tabs：外层 234x44 容器，内层胶囊 112x36（padding 4 → 胶囊四周留白均匀） */
   .nav-tabs{position:absolute;left:50%;transform:translateX(-50%);
-            height:40px;padding:2px;background:rgba(244,247,250,.78);
+            height:44px;padding:4px;background:var(--nav-chip);
             border-radius:var(--radius-pill);display:flex;gap:2px;}
   /* 激活胶囊独立成层，切换时在两个 tab 之间滑动（跨页由 View Transitions 做 morph） */
-  .nav-pill{position:absolute;top:2px;left:2px;width:112px;height:36px;z-index:0;
+  .nav-pill{position:absolute;top:4px;left:4px;width:112px;height:36px;z-index:0;
             border-radius:var(--radius-pill);background:var(--brand);
             transition:transform .28s cubic-bezier(.45,.05,.15,1);}
   .nav-tabs[data-active="path"] .nav-pill{transform:translateX(0);}
@@ -71,9 +72,14 @@
   .nav-tab.active,.nav-tab.active:hover{color:#fff;}
   .nav-cfg{margin-left:auto;height:30px;padding:0 12px;border:none;border-radius:var(--radius-pill);
            display:flex;align-items:center;gap:3px;color:var(--text-secondary);font-size:16px;cursor:pointer;
-           background:rgba(244,247,250,.78);text-decoration:none;}
+           background:var(--nav-chip);text-decoration:none;
+           transition:color .18s ease,background .18s ease;}
   .nav-cfg:hover{color:var(--brand);}
-  .nav-cfg img{width:16px;height:16px;display:block;}
+  /* 图标用 mask 上色而非 <img src=settings.png>：位图无法染色，
+     改用 svg 做 mask 后颜色跟随 currentColor，hover 时图标与文字一起变蓝 */
+  .nav-cfg-ico{width:16px;height:16px;flex:none;display:block;background-color:currentColor;
+               -webkit-mask:url("ui-demo/%E5%88%87%E5%9B%BE/settings.svg") no-repeat center/16px 16px;
+               mask:url("ui-demo/%E5%88%87%E5%9B%BE/settings.svg") no-repeat center/16px 16px;}
 
   /* ===== 主体 ===== */
   .page{padding:20px;}
@@ -207,7 +213,7 @@
     <a class="nav-tab" href="pageanalysis_demo_v2.html" data-tab="page">页面分析</a>
   </div>
   <a class="nav-cfg" href="config_demo_v2.html" title="核心页面配置 / 模块配置">
-    <img src="ui-demo/切图/settings.png" alt="">
+    <i class="nav-cfg-ico" aria-hidden="true"></i>
     <span>配置</span>
   </a>
 </div>
