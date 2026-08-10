@@ -205,6 +205,11 @@
   /* 未生效：设计稿仅给出文案，色值按同族灰阶推断 */
   .status-off{color:var(--text-tertiary);}
 
+  /* 参数条件 / 模块清单：多项逐行列出，比整段自动折行更好读 */
+  .p-line{white-space:nowrap;}
+  .p-line + .p-line{margin-top:2px;}
+  .p-or{color:var(--warn-text);font-size:11px;margin-right:2px;}
+
   /* 操作链接（366:11324） */
   .acts{display:flex;flex-wrap:nowrap;gap:12px;font-size:13px;white-space:nowrap;}
   .acts a{color:var(--link);text-decoration:none;cursor:pointer;}
@@ -350,6 +355,19 @@
        flex:none;width:16px;text-align:center;user-select:none;}
   .f-x:hover{opacity:.7;}
   .f-note{font-size:11px;color:var(--fg-2);margin-top:2px;}
+  /* 多选 + 模糊匹配（子模块的「模块配置」）：已选项以 tag 呈现，尾部输入框继续搜索 */
+  .ms{min-height:34px;border:1px solid #d7dce5;border-radius:6px;background:#fff;
+      padding:4px 6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center;cursor:text;}
+  .ms:focus-within{border-color:var(--brand);}
+  .ms-tag{display:inline-flex;align-items:center;gap:4px;max-width:100%;
+          height:22px;padding:0 6px;border-radius:4px;
+          background:#f0faff;color:var(--brand-text);font-size:12px;}
+  .ms-tag b{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ms-tag i{font-style:normal;cursor:pointer;opacity:.65;font-size:13px;line-height:1;}
+  .ms-tag i:hover{opacity:1;}
+  .ms-in{flex:1;min-width:130px;border:none;outline:none;background:none;
+         font-family:inherit;font-size:13px;color:var(--fg-1);padding:3px 2px;}
+  .ms-in::placeholder{color:#aab3c0;}
   /* 页面分析开关行 */
   .f-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;
         border-top:1px dashed #eef1f5;padding-top:14px;}
@@ -574,9 +592,11 @@
     <div class="tb-scroll">
       <table class="tb">
         <thead><tr>
+          <th class="w-num">类型</th>
           <th class="w-id-long">模块/页面ID</th>
           <th class="w-name-long">名称</th>
-          <th class="w-param">参数名/模块ID</th>
+          <th class="w-num">配置方式</th>
+          <th class="w-param">配置内容</th>
           <th class="w-time">更新时间</th>
           <th class="w-by">更新人</th>
           <th class="w-st">状态</th>
@@ -759,17 +779,38 @@
     </div>
     <div class="dlg-bd">
       <div>
-        <label class="f-lb">模块/页面ID</label>
+        <label class="f-lb g6"><span class="req">*</span> 类型</label>
+        <div class="f-radios">
+          <label class="f-radio"><input type="radio" name="scfgKind" value="module">模块</label>
+          <label class="f-radio"><input type="radio" name="scfgKind" value="page">页面</label>
+        </div>
+      </div>
+      <div>
+        <label class="f-lb"><span class="req">*</span> <span id="scfg-id-lb">模块</span></label>
         <select class="f-in" id="scfg-id"></select>
       </div>
       <div>
-        <label class="f-lb">名称</label>
-        <input class="f-in" id="scfg-name" type="text" readonly placeholder="选择ID后自动带出">
+        <label class="f-lb"><span class="req">*</span> <span id="scfg-name-lb">模块名称</span></label>
+        <input class="f-in" id="scfg-name" type="text" placeholder="选择后自动带出，可修改">
       </div>
       <div>
-        <label class="f-lb">参数名/模块ID</label>
+        <label class="f-lb g6"><span class="req">*</span> 配置方式</label>
+        <div class="f-radios">
+          <label class="f-radio"><input type="radio" name="scfgMode" value="param">参数配置</label>
+          <label class="f-radio"><input type="radio" name="scfgMode" value="module">模块配置</label>
+        </div>
+      </div>
+      <!-- 配置方式 = 参数配置：与「新增页面」的参数配置一致（参数名 + 符号 + 参数值，多条 or） -->
+      <div id="scfg-param-wrap">
+        <label class="f-lb">参数配置</label>
         <div id="scfg-params"></div>
-        <a class="f-link" id="scfg-add-param">+ 添加参数名/模块ID</a>
+        <a class="f-link" id="scfg-add-param">+ 添加参数</a>
+      </div>
+      <!-- 配置方式 = 模块配置：多选，输入可模糊匹配 -->
+      <div id="scfg-mod-wrap" hidden>
+        <label class="f-lb"><span class="req">*</span> 模块</label>
+        <div class="ms" id="scfg-mods"></div>
+        <div class="f-note">输入模块ID或名称模糊搜索，可选择多个</div>
       </div>
     </div>
     <div class="dlg-ft">
@@ -838,8 +879,11 @@ let moduleConfig = {
     {id:'usergrowth_fold_sku_icon',                    name:'品类折叠图标（收起/展开）',     denom:'self',   upTime:'2026-06-05 14:30', upBy:'王恳'},
     {id:'usergrowth_create_journey_lift_price_detail', name:'价格详情气泡',                  denom:'self',   upTime:'2026-06-05 14:30', upBy:'王恳'},
     {id:'usergrowth_create_journey_lift_sku_list',     name:'电梯询价页_品类卡片',           denom:'self',   upTime:'2026-06-05 14:30', upBy:'王恳',
-      subs:[{param:'sku_code'},{param:'spm=inquiry.sku.select'}]},
-    {id:'usergrowth_create_journey_lift_module_list',  name:'电梯询价页_模块展示',           denom:'page',   upTime:'2026-06-05 14:30', upBy:'王恳'},
+      /* 子模块 · 参数配置：按参数区分模块内的元素 */
+      subs:[{param:'spm=inquiry.sku.select'}]},
+    {id:'usergrowth_create_journey_lift_module_list',  name:'电梯询价页_模块展示',           denom:'page',   upTime:'2026-06-05 14:30', upBy:'王恳',
+      /* 子模块 · 模块配置：由多个模块聚合而成 */
+      subs:[{mods:['usergrowth_create_journey_lift_highway_tips','usergrowth_create_journey_lift_remark']}]},
     {id:'usergrowth_create_journey_lift_services',     name:'电梯询价页_顺风车增值服务模块', denom:'page',   upTime:'2026-06-05 14:30', upBy:'王恳'},
     {id:'usergrowth_create_journey_lift_map',          name:'地图',                          denom:'page',   upTime:'2026-06-05 14:30', upBy:'王恳'},
     {id:'usergrowth_create_journey_lift_remark',       name:'备注入口',                      denom:'page',   upTime:'2026-06-05 14:30', upBy:'王恳'},
@@ -865,14 +909,20 @@ Object.keys(moduleConfig).forEach(k=>{
   });
 });
 
-/* 子模块：页面名 -> [{modId,name,params[],upTime,upBy,status}]
-   从 moduleConfig 里已有的 subs 迁移初始化 */
+/* 子模块：页面名 -> [{kind,refId,name,mode,params[],mods[],upTime,upBy,status}]
+     kind  module | page      子模块归属的类型
+     mode  param  | module    配置方式：参数配置（name/op/val 多条 or）或模块配置（多选模块ID）
+   从 moduleConfig 里已有的 subs 迁移初始化，旧的 'a=b' 字符串由 toParamObj 解析成三段式 */
 let subModuleConfig = {};
 Object.keys(moduleConfig).forEach(pn=>{
   (moduleConfig[pn]||[]).forEach(m=>{
     (m.subs||[]).forEach(s=>{
+      const isMod = !!(s.mods && s.mods.length);
       (subModuleConfig[pn] = subModuleConfig[pn] || []).push({
-        modId:m.id, name:m.name, params:[s.param||s.sid||''].filter(Boolean),
+        kind:(m.idType||'module'), refId:m.id, name:m.name,
+        mode:  isMod ? 'module' : 'param',
+        params:isMod ? [] : [toParamObj(s.param||s.sid||'')],
+        mods:  isMod ? s.mods.slice() : [],
         status:'active', upTime:m.upTime||nowStr(), upBy:m.upBy||'王恳'
       });
     });
@@ -966,6 +1016,14 @@ function toParamObj(v){
     if(i > 0) return {name:str.slice(0,i).trim(), op:op, val:str.slice(i+op.length).trim()};
   }
   return {name:str, op:'=', val:''};
+}
+/* 表格单元格：多条 or 关系逐行呈现，避免整段文案在任意位置折断 */
+function paramsCellHTML(list){
+  const arr = (list||[]).map(toParamObj).filter(p=>p.name);
+  if(!arr.length) return '<span class="cell-muted">--</span>';
+  return arr.map((p,i) =>
+    '<div class="p-line">' + (i ? '<span class="p-or">or</span>' : '') +
+    esc(p.name + ' ' + p.op + ' ' + p.val) + '</div>').join('');
 }
 function tipi(text){
   return text ? ' <span class="tipi" data-tip="' + esc(text) + '">!</span>' : '';
@@ -1418,7 +1476,10 @@ function saveNew(){
 /* ================= 子模块配置 ================= */
 let subPageIdx = -1;
 let subEditIdx = null;
-let subParams  = [];
+let subKind    = 'module';   /* 类型：module 模块 / page 页面 */
+let subMode    = 'param';    /* 配置方式：param 参数配置 / module 模块配置 */
+let subParams  = [];         /* [{name,op,val}] */
+let subMods    = [];         /* 模块配置方式下已选的模块ID */
 
 function openSubs(i){
   const p = pageConfig[i]; if(!p) return;
@@ -1434,17 +1495,27 @@ function renderSubs(){
   const mods = (p && moduleConfig[p.name])    || [];
   const el   = $('#tb-subs');
   if(!mods.length){
-    el.innerHTML = '<tr><td colspan="7" class="tb-empty warn">该页面暂无模块，请先在「核心页面配置 → 模块配置」中添加</td></tr>';
+    el.innerHTML = '<tr><td colspan="9" class="tb-empty warn">该页面暂无模块，请先在「核心页面配置 → 模块配置」中添加</td></tr>';
     return;
   }
   el.innerHTML = list.length ? list.map((s,i) => {
-    const m   = mods.find(x=>x.id === s.modId);
-    const tag = m ? ((m.idType||'module') === 'page' ? '页面' : '模块') : '';
+    const isPage  = (s.kind||'module') === 'page';
+    const isParam = (s.mode||'param')  === 'param';
+    /* 配置内容：参数条件按 or 逐行列出；模块配置列出所选模块名 */
+    const content = isParam
+      ? paramsCellHTML(s.params)
+      : ((s.mods||[]).length
+          ? (s.mods||[]).map(id => {
+              const m = mods.find(x=>x.id === id);
+              return '<div class="p-line">' + esc(m ? m.name : id) + '</div>';
+            }).join('')
+          : '<span class="cell-muted">--</span>');
     return '<tr>' +
-      '<td class="cell-id">' + esc(s.modId||'--') +
-        (tag ? ' <span class="cell-sub">（' + tag + '）</span>' : '') + '</td>' +
+      '<td class="nowrap">' + (isPage ? '页面' : '模块') + '</td>' +
+      '<td class="cell-id">' + esc(s.refId || '--') + '</td>' +
       '<td class="cell-name">' + esc(s.name||'--') + '</td>' +
-      '<td class="cell-id">' + ((s.params && s.params.length) ? esc(s.params.join('、')) : '<span class="cell-muted">--</span>') + '</td>' +
+      '<td class="nowrap">' + (isParam ? '参数配置' : '模块配置') + '</td>' +
+      '<td>' + content + '</td>' +
       '<td class="nowrap">' + esc(s.upTime||'--') + '</td>' +
       '<td>' + esc(s.upBy||'--') + '</td>' +
       '<td>' + statusHTML(s.status) + '</td>' +
@@ -1453,7 +1524,7 @@ function renderSubs(){
         '<a class="del" data-delsub="' + i + '">删除</a>' +
       '</div></td>' +
     '</tr>';
-  }).join('') : '<tr><td colspan="7" class="tb-empty">暂无子模块，点击右上角「+ 新增子模块」添加</td></tr>';
+  }).join('') : '<tr><td colspan="9" class="tb-empty">暂无子模块，点击右上角「+ 新增子模块」添加</td></tr>';
 }
 function openSubModal(i){
   const p = pageConfig[subPageIdx];
@@ -1461,49 +1532,136 @@ function openSubModal(i){
   const mods = moduleConfig[p.name] || [];
   if(!mods.length){ toast('该页面暂无模块，请先在「模块配置」中添加', true); return; }
   subEditIdx = (typeof i === 'number') ? i : null;
-  const s = subEditIdx != null ? (subModuleConfig[p.name]||[])[subEditIdx] : {modId:'', name:'', params:[]};
+  const s = subEditIdx != null ? (subModuleConfig[p.name]||[])[subEditIdx]
+                               : {kind:'module', refId:'', name:'', mode:'param', params:[], mods:[]};
   $('#scfg-title').textContent = subEditIdx != null ? '编辑子模块' : '新增子模块';
-  /* 填充本页面下可选的 模块/页面ID */
-  const sel = $('#scfg-id');
-  sel.innerHTML = '<option value="">请选择</option>' + mods.map(m => {
-    const tag = (m.idType||'module') === 'page' ? '页面' : '模块';
-    return '<option value="' + esc(m.id) + '">' + esc(m.id) + '（' + tag + '）</option>';
-  }).join('');
-  sel.value = s.modId || '';
+
+  subKind = s.kind || 'module';
+  $$('input[name="scfgKind"]').forEach(r=>{ r.checked = (r.value === subKind); });
+  renderSubRefOptions(s.refId || '');
   $('#scfg-name').value = s.name || '';
-  subParams = (s.params || []).slice();
-  if(!subParams.length) subParams = [''];
+
+  subMode = s.mode || 'param';
+  $$('input[name="scfgMode"]').forEach(r=>{ r.checked = (r.value === subMode); });
+
+  subParams = (s.params || []).map(toParamObj);
+  if(!subParams.length) subParams = [{name:'', op:'=', val:''}];
   renderSubParams();
+
+  subMods = (s.mods || []).slice();
+  renderSubMods();
+
+  onSubModeChange(subMode);
   openModal('modal-sub');
 }
-function renderSubParams(){
-  $('#scfg-params').innerHTML = subParams.map((v,i) =>
-    '<div class="f-row">' +
-      '<input class="f-in" value="' + esc(v) + '" placeholder="参数名或模块ID，如 category / spm" data-sp="' + i + '">' +
-      '<span class="f-x" data-delsp="' + i + '" title="删除">×</span>' +
-    '</div>').join('');
+/* 归属候选按「类型」过滤：模块类型只列 idType=module，页面类型只列 idType=page */
+function renderSubRefOptions(cur){
+  const p = pageConfig[subPageIdx]; if(!p) return;
+  const word = subKind === 'page' ? '页面' : '模块';
+  $('#scfg-id-lb').textContent   = word;
+  $('#scfg-name-lb').textContent = word + '名称';
+  const list = (moduleConfig[p.name]||[]).filter(m => (m.idType||'module') === subKind);
+  const sel  = $('#scfg-id');
+  if(!list.length){
+    sel.innerHTML = '<option value="">该页面暂无「' + word + '」类型的配置</option>';
+    return;
+  }
+  sel.innerHTML = '<option value="">请选择</option>' + list.map(m =>
+    '<option value="' + esc(m.id) + '">' + esc(m.name) + '（' + esc(m.id) + '）</option>').join('');
+  sel.value = list.some(m => m.id === cur) ? cur : '';
 }
-/* 选择本页面下的 ID 后自动带出名称 */
+function onSubKindChange(v){
+  subKind = v;
+  renderSubRefOptions('');
+  $('#scfg-name').value = '';
+  /* 归属变了，模块配置里可能已选到自己，重算一次 */
+  renderSubMods();
+}
+function onSubModeChange(v){
+  subMode = v;
+  $('#scfg-param-wrap').hidden = (v !== 'param');
+  $('#scfg-mod-wrap').hidden   = (v !== 'module');
+  cbClose();
+}
+/* 参数配置：与「新增页面」的参数配置完全一致（参数名 + 符号 + 参数值，多条 or） */
+function renderSubParams(){
+  const ops = p => PARAM_OPS.map(o=>'<option value="'+o+'"'+(o===p.op?' selected':'')+'>'+o+'</option>').join('');
+  const last = subParams.length - 1;
+  $('#scfg-params').innerHTML = subParams.map((v,i) => {
+    const p = toParamObj(v);
+    return '<div class="f-row' + (i>0?' or':'') + '" style="margin-bottom:' + (i<last?'15':'8') + 'px">' +
+      '<input class="f-in" style="flex:1.4;padding:7px 10px" value="' + esc(p.name) + '" placeholder="参数名，如 sku_code" data-spp="' + i + '" data-k="name">' +
+      '<select class="f-in" style="flex:none;width:78px;padding:7px 6px" data-spp="' + i + '" data-k="op">' + ops(p) + '</select>' +
+      '<input class="f-in" style="padding:7px 10px" value="' + esc(p.val) + '" placeholder="参数值" data-spp="' + i + '" data-k="val">' +
+      '<span class="f-x" data-delspp="' + i + '" title="删除">×</span>' +
+    '</div>';
+  }).join('') + (subParams.length > 1
+    ? '<div class="f-note">多条参数之间为 or 关系（满足任一即可）</div>' : '');
+}
+/* 模块配置：已选项以 tag 呈现，尾部输入框支持模糊搜索继续添加 */
+function renderSubMods(){
+  const p = pageConfig[subPageIdx] || {};
+  const all = moduleConfig[p.name] || [];
+  $('#scfg-mods').innerHTML =
+    subMods.map(id => {
+      const m = all.find(x => x.id === id);
+      return '<span class="ms-tag"><b>' + esc(m ? m.name : id) + '</b>' +
+             '<i data-msdel="' + esc(id) + '" title="移除">×</i></span>';
+    }).join('') +
+    '<input class="ms-in" id="scfg-mod-in" type="text" autocomplete="off" placeholder="' +
+      (subMods.length ? '继续搜索添加' : '输入模块ID或名称搜索') + '">';
+}
+/* 候选：本页面的模块，排除归属自身与已选项 */
+function subModCandidates(){
+  const p = pageConfig[subPageIdx] || {};
+  const refId = $('#scfg-id') ? $('#scfg-id').value : '';
+  return (moduleConfig[p.name]||[]).filter(m =>
+    m.id !== refId && subMods.indexOf(m.id) < 0);
+}
+/* 选择归属后自动带出名称（仍可手工修改） */
 function onSubIdChange(id){
   const p = pageConfig[subPageIdx]; if(!p) return;
   const m = (moduleConfig[p.name]||[]).find(x=>x.id === id);
   $('#scfg-name').value = m ? (m.name||'') : '';
+  renderSubMods();
 }
 function saveSub(){
   const p = pageConfig[subPageIdx]; if(!p) return;
-  const modId = $('#scfg-id').value;
-  if(!modId){ toast('请选择模块/页面ID', true); return; }
-  const m = (moduleConfig[p.name]||[]).find(x=>x.id === modId);
-  const name = m ? (m.name||'') : '';
-  const params = subParams.map(x=>(x||'').trim()).filter(Boolean);
-  if(new Set(params).size !== params.length){ toast('存在重复的录入项', true); return; }
-  const list = subModuleConfig[p.name] = subModuleConfig[p.name] || [];
-  /* 同一 ID + 完全相同的录入项视为重复 */
-  const key = j => j.modId + '|' + (j.params||[]).slice().sort().join(',');
-  if(list.some((x,idx)=> idx !== subEditIdx && key(x) === key({modId:modId, params:params}))){
-    toast('该模块/页面ID与录入项的组合已存在', true); return;
+  const kEl  = $$('input[name="scfgKind"]').find(r=>r.checked);
+  const kind = kEl ? kEl.value : 'module';
+  const word = kind === 'page' ? '页面' : '模块';
+  const refId = $('#scfg-id').value;
+  if(!refId){ toast('请选择' + word, true); return; }
+  const name = $('#scfg-name').value.trim();
+  if(!name){ toast('请填写' + word + '名称', true); return; }
+
+  const mEl  = $$('input[name="scfgMode"]').find(r=>r.checked);
+  const mode = mEl ? mEl.value : 'param';
+  let params = [], mods = [];
+  if(mode === 'param'){
+    /* 校验与「新增页面」的参数配置一致：半填要报错 */
+    const raw = subParams.map(toParamObj)
+      .map(x=>({name:(x.name||'').trim(), op:x.op||'=', val:(x.val||'').trim()}));
+    if(raw.find(x => (x.name && !x.val) || (!x.name && x.val))){
+      toast('已填写的参数需要补全参数名和参数值', true); return;
+    }
+    params = raw.filter(x=>x.name && x.val);
+    if(!params.length){ toast('请至少配置一条参数', true); return; }
+  } else {
+    mods = subMods.slice();
+    if(!mods.length){ toast('请至少选择一个模块', true); return; }
   }
-  const data = {modId:modId, name:name, params:params, upTime:nowStr(), upBy:'当前用户'};
+
+  const list = subModuleConfig[p.name] = subModuleConfig[p.name] || [];
+  /* 同一归属 + 相同配置内容视为重复 */
+  const key = j => [j.kind, j.refId, j.mode,
+                    (j.params||[]).map(x=>x.name+x.op+x.val).sort().join(','),
+                    (j.mods||[]).slice().sort().join(',')].join('|');
+  const cur = {kind:kind, refId:refId, mode:mode, params:params, mods:mods};
+  if(list.some((x,idx)=> idx !== subEditIdx && key(x) === key(cur))){
+    toast('相同的子模块配置已存在', true); return;
+  }
+  const data = Object.assign(cur, {name:name, upTime:nowStr(), upBy:'当前用户'});
   if(subEditIdx != null) Object.assign(list[subEditIdx], data);
   else { data.status = 'inactive'; list.push(data); }
   closeModal();
@@ -1808,12 +1966,27 @@ document.addEventListener('click', e => {
   if(hit('#btn-add-sub')){ openSubModal(null); return; }
   if((el = hit('[data-editsub]'))){ e.preventDefault(); openSubModal(+el.dataset.editsub); return; }
   if((el = hit('[data-delsub]'))){  e.preventDefault(); delSub(+el.dataset.delsub);        return; }
-  if(hit('#scfg-add-param')){ subParams.push(''); renderSubParams(); return; }
-  if((el = hit('[data-delsp]'))){
-    const i = +el.dataset.delsp;
-    if(subParams.length <= 1) subParams[0] = '';
+  if(hit('#scfg-add-param')){ subParams.push({name:'',op:'=',val:''}); renderSubParams(); return; }
+  if((el = hit('[data-delspp]'))){
+    const i = +el.dataset.delspp;
+    if(subParams.length <= 1) subParams[0] = {name:'',op:'=',val:''};
     else subParams.splice(i,1);
     renderSubParams();
+    return;
+  }
+  /* 模块配置：移除已选模块 */
+  if((el = hit('[data-msdel]'))){
+    e.preventDefault();
+    const id = el.dataset.msdel;
+    subMods = subMods.filter(x => x !== id);
+    cbClose();
+    renderSubMods();
+    return;
+  }
+  /* 点多选框空白处聚焦到输入框 */
+  if(hit('#scfg-mods') && !hit('.ms-in')){
+    const inp = $('#scfg-mod-in');
+    if(inp) inp.focus();
     return;
   }
   if(hit('#save-sub')){ saveSub(); return; }
@@ -1866,6 +2039,17 @@ document.addEventListener('focusin', e => {
            id => { if(draft[i]) draft[i].parentId = id; });
     return;
   }
+  /* 子模块「模块配置」的多选：选中即追加 tag，输入框清空并重新聚焦以便继续选 */
+  if(el.id === 'scfg-mod-in'){
+    const sp = pageConfig[subPageIdx]; if(!sp) return;
+    cbOpen(el, subModCandidates(), ()=> '', id => {
+      if(id && subMods.indexOf(id) < 0) subMods.push(id);
+      renderSubMods();
+      const nel = $('#scfg-mod-in');
+      if(nel) nel.focus();
+    });
+    return;
+  }
   if(cbCtx) cbClose();
 });
 
@@ -1876,7 +2060,7 @@ document.addEventListener('input', e => {
   if(cbCtx && el === cbCtx.input){ cbRender(el.value); return; }
   if(d.pid  != null) pcfgIds[+d.pid] = el.value;
   else if(d.pp != null){ pcfgParams[+d.pp] = toParamObj(pcfgParams[+d.pp]); pcfgParams[+d.pp][d.k] = el.value; }
-  else if(d.sp != null) subParams[+d.sp] = el.value;
+  else if(d.spp != null){ subParams[+d.spp] = toParamObj(subParams[+d.spp]); subParams[+d.spp][d.k] = el.value; }
   else if(d.di != null && (d.k === 'id' || d.k === 'name')) draft[+d.di][d.k] = el.value;
 });
 document.addEventListener('change', e => {
@@ -1890,7 +2074,10 @@ document.addEventListener('change', e => {
   }
   if(el.name === 'mcfgIdType'){ onModIdTypeChange(el.value); return; }
   if(el.name === 'mcfgDenom'){  onModDenomChange(el.value);  return; }
+  if(el.name === 'scfgKind'){ onSubKindChange(el.value); return; }
+  if(el.name === 'scfgMode'){ onSubModeChange(el.value); return; }
   if(el.id === 'scfg-id'){ onSubIdChange(el.value); return; }
+  if(d.spp != null && d.k === 'op'){ subParams[+d.spp] = toParamObj(subParams[+d.spp]); subParams[+d.spp].op = el.value; return; }
   if(d.pp != null && d.k === 'op'){ pcfgParams[+d.pp] = toParamObj(pcfgParams[+d.pp]); pcfgParams[+d.pp].op = el.value; return; }
   if(d.di != null && d.k === 'denom'){
     const i = +d.di, prev = draft[i].denom;
