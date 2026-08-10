@@ -444,12 +444,16 @@
          background:var(--danger);color:#fff;border-radius:50%;font-size:12px;cursor:pointer;}
   .hz-tmp{position:absolute;border:1.5px dashed var(--danger);background:rgba(255,77,79,.1);}
   tr.hm-sel{background:var(--tb-row-sel) !important;}
+  /* 区域列表的模块选择：输入即模糊匹配ID与名称，候选沿用通用 #cbPop 面板。
+     保留右侧箭头是为了让它看起来仍是「可选择」的控件，而不是纯文本输入 */
   .hm-cell-sel{width:100%;min-height:30px;border:1px solid var(--ctl-border);border-radius:5px;
                padding:4px 24px 4px 8px;font-family:inherit;font-size:12px;color:var(--fg-1);
-               background:#fff;cursor:pointer;outline:none;appearance:none;-webkit-appearance:none;
+               background:#fff;cursor:text;outline:none;appearance:none;-webkit-appearance:none;
                background-image:url("ui-demo/%E5%88%87%E5%9B%BE/chevron-down.svg");
                background-repeat:no-repeat;background-position:right 8px center;background-size:12px;}
   .hm-cell-sel:focus{border-color:var(--brand);}
+  .hm-cell-sel::placeholder{color:var(--text-tertiary);}
+  .hm-cell-sel:disabled{background-color:#f5f6f8;color:var(--text-tertiary);cursor:not-allowed;}
 
   /* ===== toast ===== */
   .toast{position:fixed;left:50%;top:84px;transform:translate(-50%,-8px);z-index:300;
@@ -1121,6 +1125,8 @@ function cbPosition(){
   pop.style.left = left + 'px';
 }
 function cbOpen(input, items, get, set){
+  /* 焦点从另一个搜索框直接移过来时先把它还原，避免上一个框残留无效的手输文本 */
+  if(cbCtx && cbCtx.input !== input) cbClose();
   cbCtx = {input:input, items:items, get:get, set:set};
   cbRender('');            /* 聚焦先列全部候选，开始输入才过滤 */
 }
@@ -1861,25 +1867,42 @@ function renderHmList(){
     el.innerHTML = '<tr><td colspan="3" class="tb-empty">暂无区域，请在左侧图上拖拽绘制</td></tr>';
     return;
   }
+  const empty = !mods.length;
   el.innerHTML = zs.map((z,i) => {
-    let opts = '<option value="">未选择模块</option>', matched = false;
-    mods.forEach(m => {
-      const on = m.id === z.modId;
-      if(on) matched = true;
-      opts += '<option value="' + esc(m.id) + '"' + (on?' selected':'') + '>' +
-              esc(m.name) + '（' + esc(m.id) + '）</option>';
-    });
-    if(z.modId && !matched){
-      opts += '<option value="' + esc(z.modId) + '" selected>' + esc(z.modName||z.modId) + '（未在清单）</option>';
-    }
-    const tip = mods.length ? ''
-      : '<div class="f-note" style="color:var(--warn-text)">该页面暂无模块，请先在「模块配置」中添加</div>';
+    /* 模块清单为空、或已选模块已从清单中移除，都要给出提示而不是静默显示 */
+    const tip = empty
+      ? '<div class="f-note" style="color:var(--warn-text)">该页面暂无模块，请先在「模块配置」中添加</div>'
+      : (z.modId && !mods.some(m => m.id === z.modId)
+          ? '<div class="f-note" style="color:var(--warn-text)">该模块已不在当前页面清单中，请重新选择</div>'
+          : '');
     return '<tr data-hmrow="' + i + '"' + (i===hmSel ? ' class="hm-sel"' : '') + '>' +
       '<td>' + (i+1) + '</td>' +
-      '<td><select class="hm-cell-sel" data-hmpick="' + i + '">' + opts + '</select>' + tip + '</td>' +
+      '<td><input class="hm-cell-sel" type="text" autocomplete="off"' +
+          ' data-hmcb="' + i + '"' + (empty ? ' disabled' : '') +
+          ' placeholder="' + (empty ? '暂无可选模块' : '输入模块ID或名称搜索') + '"' +
+          ' value="' + esc(hmModLabel(i)) + '">' + tip + '</td>' +
       '<td><div class="acts"><a class="del" data-hmdel="' + i + '">删除</a></div></td>' +
     '</tr>';
   }).join('');
+}
+/* 已选模块在输入框中的展示文案，与父模块选择保持一致：名称（ID） */
+function hmModLabel(i){
+  const p = hmPage(); if(!p) return '';
+  const z = hmZones()[i];
+  if(!z || !z.modId) return '';
+  const m = (moduleConfig[p.name] || []).find(x => x.id === z.modId);
+  return m ? (m.name + '（' + m.id + '）') : ((z.modName || z.modId) + '（未在清单）');
+}
+/* 聚焦输入框时同步选中该区域：只重画左侧图层 + 切行样式，
+   不能走 renderHmList()，否则输入框会被重建、焦点与候选面板一起丢掉 */
+function hmFocusRow(i){
+  if(hmSel === i) return;
+  hmSel = i;
+  renderHmZones();
+  const el = $('#tb-heat'); if(!el) return;
+  el.querySelectorAll('tr[data-hmrow]').forEach(tr => {
+    tr.classList.toggle('hm-sel', +tr.dataset.hmrow === i);
+  });
 }
 function hmPick(i, mid){
   const p = hmPage(); if(!p) return;
@@ -2060,8 +2083,9 @@ document.addEventListener('click', e => {
   if(hit('#btn-save-heat')){ saveHeat(); return; }
   if((el = hit('[data-hmdel]'))){ e.preventDefault(); e.stopPropagation(); hmDel(+el.dataset.hmdel); return; }
   if((el = hit('[data-hmrow]'))){
-    /* 点下拉本身不触发行选中：重渲染会把刚展开的选项面板关掉 */
-    if(t.closest('select')) return;
+    /* 点模块输入框本身不走这里：行选中由 focusin 的 hmFocusRow 处理，
+       若在此重渲染列表，输入框会被重建、候选面板随即关闭 */
+    if(t.closest('.hm-cell-sel')) return;
     hmSelect(+el.dataset.hmrow);
     return;
   }
@@ -2116,6 +2140,14 @@ document.addEventListener('focusin', e => {
     });
     return;
   }
+  /* 热力区域的模块选择：与父模块共用同一套可搜索下拉，输入即模糊匹配ID与名称 */
+  if(el.dataset.hmcb != null){
+    const hp = hmPage(); if(!hp) return;
+    const i = +el.dataset.hmcb;
+    hmFocusRow(i);
+    cbOpen(el, moduleConfig[hp.name] || [], ()=> hmModLabel(i), id => hmPick(i, id));
+    return;
+  }
   /* 子模块「模块配置」的多选：选中即追加 tag，输入框清空并重新聚焦以便继续选 */
   if(el.id === 'scfg-mod-in'){
     const sp = pageConfig[subPageIdx]; if(!sp) return;
@@ -2166,7 +2198,6 @@ document.addEventListener('change', e => {
     el.style.color = el.value ? 'var(--fg-1)' : 'var(--text-tertiary)';
     return;
   }
-  if(d.hmpick != null){ hmPick(+d.hmpick, el.value); return; }
   /* 效果图上传（只在热力图配置页，与原 demo 一致） */
   if(el.id === 'hm-file'){
     const f = el.files && el.files[0]; if(!f) return;
@@ -2189,9 +2220,17 @@ document.addEventListener('keydown', e => {
   if(!$('#view-pages').hidden) return;
   showView('pages');
 });
-/* capture 阶段：表格容器等内部元素滚动时也收起浮层（scroll 事件不冒泡）。
-   气泡与候选面板都是 fixed 定位，容器滚动后位置会失准，直接收起 */
-window.addEventListener('scroll', ()=>{ hideTip(); cbClose(); }, {passive:true, capture:true});
+/* capture 阶段：表格容器等内部元素滚动时也要处理浮层（scroll 事件不冒泡）。
+   气泡直接收起；候选面板改为跟随重定位——热力区域列表在可滚容器内，
+   聚焦输入框时浏览器可能自动滚动，若一律收起会导致面板刚开就被关掉。
+   只有输入框滚出视口才收起，因为面板是 fixed 定位不能停在原处 */
+window.addEventListener('scroll', ()=>{
+  hideTip();
+  if(!cbCtx) return;
+  const r = cbCtx.input.getBoundingClientRect();
+  if(r.bottom < 0 || r.top > (window.innerHeight || 800)) cbClose();
+  else cbPosition();
+}, {passive:true, capture:true});
 window.addEventListener('resize', ()=>{ hideTip(); cbClose(); });
 
 /* ================= 启动 =================
