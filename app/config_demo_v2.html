@@ -785,9 +785,10 @@
           <label class="f-radio"><input type="radio" name="scfgKind" value="page">页面</label>
         </div>
       </div>
+      <!-- 类型=模块：从本页面模块中模糊搜索选择；类型=页面：页面ID 完全自行录入 -->
       <div>
-        <label class="f-lb"><span class="req">*</span> <span id="scfg-id-lb">模块</span></label>
-        <select class="f-in" id="scfg-id"></select>
+        <label class="f-lb"><span class="req">*</span> <span id="scfg-id-lb">模块ID</span></label>
+        <input class="f-in" id="scfg-id" type="text" autocomplete="off" placeholder="输入模块ID或名称搜索">
       </div>
       <div>
         <label class="f-lb"><span class="req">*</span> <span id="scfg-name-lb">模块名称</span></label>
@@ -796,7 +797,8 @@
       <div>
         <label class="f-lb g6"><span class="req">*</span> 配置方式</label>
         <div class="f-radios">
-          <label class="f-radio"><input type="radio" name="scfgMode" value="param">参数配置</label>
+          <!-- 类型=页面时只支持模块配置，参数配置项隐藏 -->
+          <label class="f-radio" id="scfg-mode-param"><input type="radio" name="scfgMode" value="param">参数配置</label>
           <label class="f-radio"><input type="radio" name="scfgMode" value="module">模块配置</label>
         </div>
       </div>
@@ -806,11 +808,20 @@
         <div id="scfg-params"></div>
         <a class="f-link" id="scfg-add-param">+ 添加参数</a>
       </div>
-      <!-- 配置方式 = 模块配置：多选，输入可模糊匹配 -->
+      <!-- 配置方式 = 模块配置：
+           类型=模块 → 从本页面模块中多选（可模糊匹配）
+           类型=页面 → 页面ID 是自行录入的，其下模块不在本页面清单中，故手工录入 ID 与名称 -->
       <div id="scfg-mod-wrap" hidden>
         <label class="f-lb"><span class="req">*</span> 模块</label>
-        <div class="ms" id="scfg-mods"></div>
-        <div class="f-note">输入模块ID或名称模糊搜索，可选择多个</div>
+        <div id="scfg-mod-pick">
+          <div class="ms" id="scfg-mods"></div>
+          <div class="f-note">输入模块ID或名称模糊搜索，可选择多个</div>
+        </div>
+        <div id="scfg-mod-input" hidden>
+          <div id="scfg-mod-rows"></div>
+          <a class="f-link" id="scfg-add-mod">+ 添加模块</a>
+          <div class="f-note">手工录入该页面下的模块ID与模块名称，可添加多条</div>
+        </div>
       </div>
     </div>
     <div class="dlg-ft">
@@ -918,11 +929,16 @@ Object.keys(moduleConfig).forEach(pn=>{
   (moduleConfig[pn]||[]).forEach(m=>{
     (m.subs||[]).forEach(s=>{
       const isMod = !!(s.mods && s.mods.length);
+      /* mods 声明为 ID 数组，这里补上名称，统一成 [{id,name}] */
+      const mods = isMod ? s.mods.map(id => {
+        const t = (moduleConfig[pn]||[]).find(x => x.id === id);
+        return {id:id, name:t ? t.name : id};
+      }) : [];
       (subModuleConfig[pn] = subModuleConfig[pn] || []).push({
         kind:(m.idType||'module'), refId:m.id, name:m.name,
         mode:  isMod ? 'module' : 'param',
         params:isMod ? [] : [toParamObj(s.param||s.sid||'')],
-        mods:  isMod ? s.mods.slice() : [],
+        mods:  mods,
         status:'active', upTime:m.upTime||nowStr(), upBy:m.upBy||'王恳'
       });
     });
@@ -1478,6 +1494,7 @@ let subPageIdx = -1;
 let subEditIdx = null;
 let subKind    = 'module';   /* 类型：module 模块 / page 页面 */
 let subMode    = 'param';    /* 配置方式：param 参数配置 / module 模块配置 */
+let subRefId   = '';         /* 类型=模块时从候选中选出的模块ID */
 let subParams  = [];         /* [{name,op,val}] */
 let subMods    = [];         /* 模块配置方式下已选的模块ID */
 
@@ -1505,10 +1522,10 @@ function renderSubs(){
     const content = isParam
       ? paramsCellHTML(s.params)
       : ((s.mods||[]).length
-          ? (s.mods||[]).map(id => {
-              const m = mods.find(x=>x.id === id);
-              return '<div class="p-line">' + esc(m ? m.name : id) + '</div>';
-            }).join('')
+          ? (s.mods||[]).map(m =>
+              '<div class="p-line">' + esc(m.name || m.id) +
+              (m.name && m.id !== m.name ? ' <span class="cell-sub">' + esc(m.id) + '</span>' : '') +
+              '</div>').join('')
           : '<span class="cell-muted">--</span>');
     return '<tr>' +
       '<td class="nowrap">' + (isPage ? '页面' : '模块') + '</td>' +
@@ -1538,42 +1555,60 @@ function openSubModal(i){
 
   subKind = s.kind || 'module';
   $$('input[name="scfgKind"]').forEach(r=>{ r.checked = (r.value === subKind); });
-  renderSubRefOptions(s.refId || '');
-  $('#scfg-name').value = s.name || '';
-
   subMode = s.mode || 'param';
   $$('input[name="scfgMode"]').forEach(r=>{ r.checked = (r.value === subMode); });
+
+  subRefId = s.refId || '';
+  applySubKind();
+  /* 页面类型直接展示录入的 ID；模块类型展示「名称（ID）」 */
+  $('#scfg-id').value  = subKind === 'page' ? subRefId : subRefLabel(subRefId);
+  $('#scfg-name').value = s.name || '';
 
   subParams = (s.params || []).map(toParamObj);
   if(!subParams.length) subParams = [{name:'', op:'=', val:''}];
   renderSubParams();
 
-  subMods = (s.mods || []).slice();
+  /* 深拷贝：否则编辑时的输入会直接改到原数据，取消也已生效 */
+  subMods = (s.mods || []).map(x => ({id:x.id||'', name:x.name||''}));
   renderSubMods();
 
   onSubModeChange(subMode);
   openModal('modal-sub');
 }
-/* 归属候选按「类型」过滤：模块类型只列 idType=module，页面类型只列 idType=page */
-function renderSubRefOptions(cur){
-  const p = pageConfig[subPageIdx]; if(!p) return;
-  const word = subKind === 'page' ? '页面' : '模块';
-  $('#scfg-id-lb').textContent   = word;
-  $('#scfg-name-lb').textContent = word + '名称';
-  const list = (moduleConfig[p.name]||[]).filter(m => (m.idType||'module') === subKind);
-  const sel  = $('#scfg-id');
-  if(!list.length){
-    sel.innerHTML = '<option value="">该页面暂无「' + word + '」类型的配置</option>';
-    return;
+/* 类型=模块时可选的归属模块 */
+function subRefCandidates(){
+  const p = pageConfig[subPageIdx] || {};
+  return (moduleConfig[p.name]||[]).filter(m => (m.idType||'module') === 'module');
+}
+/* 已选归属模块的展示文案：名称（ID） */
+function subRefLabel(id){
+  if(!id) return '';
+  const m = subRefCandidates().find(x => x.id === id);
+  return m ? (m.name + '（' + m.id + '）') : id;
+}
+/* 按类型切换归属字段的录入方式与可用的配置方式 */
+function applySubKind(){
+  const isPage = subKind === 'page';
+  $('#scfg-id-lb').textContent   = isPage ? '页面ID'   : '模块ID';
+  $('#scfg-name-lb').textContent = isPage ? '页面名称' : '模块名称';
+  $('#scfg-id').placeholder      = isPage ? '请输入页面ID，如 inquiry' : '输入模块ID或名称搜索';
+  $('#scfg-name').placeholder    = isPage ? '请输入页面名称' : '选择后自动带出，可修改';
+  /* 页面类型只支持模块配置 */
+  $('#scfg-mode-param').hidden = isPage;
+  if(isPage && subMode !== 'module'){
+    subMode = 'module';
+    $$('input[name="scfgMode"]').forEach(r=>{ r.checked = (r.value === 'module'); });
   }
-  sel.innerHTML = '<option value="">请选择</option>' + list.map(m =>
-    '<option value="' + esc(m.id) + '">' + esc(m.name) + '（' + esc(m.id) + '）</option>').join('');
-  sel.value = list.some(m => m.id === cur) ? cur : '';
 }
 function onSubKindChange(v){
-  subKind = v;
-  renderSubRefOptions('');
+  subKind  = v;
+  subRefId = '';
+  subMods  = [];   /* 两种录入形态语义不同（选取 vs 手工录入），切换时清空 */
+  $('#scfg-id').value   = '';
   $('#scfg-name').value = '';
+  cbClose();
+  applySubKind();
+  onSubModeChange(subMode);
   /* 归属变了，模块配置里可能已选到自己，重算一次 */
   renderSubMods();
 }
@@ -1598,40 +1633,50 @@ function renderSubParams(){
   }).join('') + (subParams.length > 1
     ? '<div class="f-note">多条参数之间为 or 关系（满足任一即可）</div>' : '');
 }
-/* 模块配置：已选项以 tag 呈现，尾部输入框支持模糊搜索继续添加 */
+/* 模块配置有两种录入形态，按「类型」切换 */
 function renderSubMods(){
-  const p = pageConfig[subPageIdx] || {};
-  const all = moduleConfig[p.name] || [];
+  const isPage = subKind === 'page';
+  $('#scfg-mod-pick').hidden  = isPage;
+  $('#scfg-mod-input').hidden = !isPage;
+  if(isPage) renderSubModRows();
+  else       renderSubModTags();
+}
+/* 类型=模块：已选项以 tag 呈现，尾部输入框支持模糊搜索继续添加 */
+function renderSubModTags(){
   $('#scfg-mods').innerHTML =
-    subMods.map(id => {
-      const m = all.find(x => x.id === id);
-      return '<span class="ms-tag"><b>' + esc(m ? m.name : id) + '</b>' +
-             '<i data-msdel="' + esc(id) + '" title="移除">×</i></span>';
-    }).join('') +
+    subMods.map(m =>
+      '<span class="ms-tag"><b>' + esc(m.name || m.id) + '</b>' +
+      '<i data-msdel="' + esc(m.id) + '" title="移除">×</i></span>').join('') +
     '<input class="ms-in" id="scfg-mod-in" type="text" autocomplete="off" placeholder="' +
       (subMods.length ? '继续搜索添加' : '输入模块ID或名称搜索') + '">';
+}
+/* 类型=页面：手工录入模块ID + 模块名称，可多条 */
+function renderSubModRows(){
+  const rows = subMods.length ? subMods : [{id:'', name:''}];
+  if(!subMods.length) subMods = rows;
+  $('#scfg-mod-rows').innerHTML = rows.map((m,i) =>
+    '<div class="f-row">' +
+      '<input class="f-in" style="padding:7px 10px" value="' + esc(m.id) + '" placeholder="模块ID" data-smi="' + i + '" data-k="id">' +
+      '<input class="f-in" style="padding:7px 10px" value="' + esc(m.name) + '" placeholder="模块名称" data-smi="' + i + '" data-k="name">' +
+      '<span class="f-x" data-delsmi="' + i + '" title="删除">×</span>' +
+    '</div>').join('');
 }
 /* 候选：本页面的模块，排除归属自身与已选项 */
 function subModCandidates(){
   const p = pageConfig[subPageIdx] || {};
-  const refId = $('#scfg-id') ? $('#scfg-id').value : '';
+  const ref = subKind === 'page' ? '' : subRefId;
+  const picked = subMods.map(x => x.id);
   return (moduleConfig[p.name]||[]).filter(m =>
-    m.id !== refId && subMods.indexOf(m.id) < 0);
-}
-/* 选择归属后自动带出名称（仍可手工修改） */
-function onSubIdChange(id){
-  const p = pageConfig[subPageIdx]; if(!p) return;
-  const m = (moduleConfig[p.name]||[]).find(x=>x.id === id);
-  $('#scfg-name').value = m ? (m.name||'') : '';
-  renderSubMods();
+    m.id !== ref && picked.indexOf(m.id) < 0);
 }
 function saveSub(){
   const p = pageConfig[subPageIdx]; if(!p) return;
   const kEl  = $$('input[name="scfgKind"]').find(r=>r.checked);
   const kind = kEl ? kEl.value : 'module';
   const word = kind === 'page' ? '页面' : '模块';
-  const refId = $('#scfg-id').value;
-  if(!refId){ toast('请选择' + word, true); return; }
+  /* 页面类型自行录入 ID；模块类型取候选中选定的 ID */
+  const refId = kind === 'page' ? $('#scfg-id').value.trim() : subRefId;
+  if(!refId){ toast(kind === 'page' ? '请填写页面ID' : '请选择模块', true); return; }
   const name = $('#scfg-name').value.trim();
   if(!name){ toast('请填写' + word + '名称', true); return; }
 
@@ -1647,8 +1692,19 @@ function saveSub(){
     }
     params = raw.filter(x=>x.name && x.val);
     if(!params.length){ toast('请至少配置一条参数', true); return; }
+  } else if(kind === 'page'){
+    /* 页面类型：模块ID 与名称都手工录入，半填要报错 */
+    const raw = subMods.map(x=>({id:(x.id||'').trim(), name:(x.name||'').trim()}));
+    if(raw.find(x => (x.id && !x.name) || (!x.id && x.name))){
+      toast('已填写的模块需要补全模块ID和模块名称', true); return;
+    }
+    mods = raw.filter(x => x.id && x.name);
+    if(!mods.length){ toast('请至少录入一个模块', true); return; }
+    const ids = mods.map(x=>x.id);
+    const dup = ids.find((x,i)=> ids.indexOf(x) !== i);
+    if(dup){ toast('存在重复的模块ID：' + dup, true); return; }
   } else {
-    mods = subMods.slice();
+    mods = subMods.filter(x => x.id);
     if(!mods.length){ toast('请至少选择一个模块', true); return; }
   }
 
@@ -1656,7 +1712,7 @@ function saveSub(){
   /* 同一归属 + 相同配置内容视为重复 */
   const key = j => [j.kind, j.refId, j.mode,
                     (j.params||[]).map(x=>x.name+x.op+x.val).sort().join(','),
-                    (j.mods||[]).slice().sort().join(',')].join('|');
+                    (j.mods||[]).map(x=>x.id).sort().join(',')].join('|');
   const cur = {kind:kind, refId:refId, mode:mode, params:params, mods:mods};
   if(list.some((x,idx)=> idx !== subEditIdx && key(x) === key(cur))){
     toast('相同的子模块配置已存在', true); return;
@@ -1974,12 +2030,21 @@ document.addEventListener('click', e => {
     renderSubParams();
     return;
   }
-  /* 模块配置：移除已选模块 */
+  /* 模块配置（类型=模块）：移除已选模块 */
   if((el = hit('[data-msdel]'))){
     e.preventDefault();
     const id = el.dataset.msdel;
-    subMods = subMods.filter(x => x !== id);
+    subMods = subMods.filter(x => x.id !== id);
     cbClose();
+    renderSubMods();
+    return;
+  }
+  /* 模块配置（类型=页面）：手工录入行的增删 */
+  if(hit('#scfg-add-mod')){ subMods.push({id:'', name:''}); renderSubMods(); return; }
+  if((el = hit('[data-delsmi]'))){
+    const i = +el.dataset.delsmi;
+    if(subMods.length <= 1) subMods[0] = {id:'', name:''};
+    else subMods.splice(i,1);
     renderSubMods();
     return;
   }
@@ -2039,11 +2104,24 @@ document.addEventListener('focusin', e => {
            id => { if(draft[i]) draft[i].parentId = id; });
     return;
   }
+  /* 子模块归属：类型=模块时可模糊搜索选择；类型=页面时为自由录入，不弹候选 */
+  if(el.id === 'scfg-id'){
+    if(subKind !== 'module'){ if(cbCtx) cbClose(); return; }
+    const sp = pageConfig[subPageIdx]; if(!sp) return;
+    cbOpen(el, subRefCandidates(), ()=> subRefLabel(subRefId), id => {
+      subRefId = id;
+      const m = subRefCandidates().find(x => x.id === id);
+      $('#scfg-name').value = m ? (m.name||'') : '';
+      renderSubMods();       /* 归属变了，模块配置候选要排除它 */
+    });
+    return;
+  }
   /* 子模块「模块配置」的多选：选中即追加 tag，输入框清空并重新聚焦以便继续选 */
   if(el.id === 'scfg-mod-in'){
     const sp = pageConfig[subPageIdx]; if(!sp) return;
     cbOpen(el, subModCandidates(), ()=> '', id => {
-      if(id && subMods.indexOf(id) < 0) subMods.push(id);
+      const m = (moduleConfig[sp.name]||[]).find(x => x.id === id);
+      if(id && !subMods.some(x => x.id === id)) subMods.push({id:id, name:m ? m.name : id});
       renderSubMods();
       const nel = $('#scfg-mod-in');
       if(nel) nel.focus();
@@ -2061,6 +2139,7 @@ document.addEventListener('input', e => {
   if(d.pid  != null) pcfgIds[+d.pid] = el.value;
   else if(d.pp != null){ pcfgParams[+d.pp] = toParamObj(pcfgParams[+d.pp]); pcfgParams[+d.pp][d.k] = el.value; }
   else if(d.spp != null){ subParams[+d.spp] = toParamObj(subParams[+d.spp]); subParams[+d.spp][d.k] = el.value; }
+  else if(d.smi != null && subMods[+d.smi]) subMods[+d.smi][d.k] = el.value;
   else if(d.di != null && (d.k === 'id' || d.k === 'name')) draft[+d.di][d.k] = el.value;
 });
 document.addEventListener('change', e => {
@@ -2076,7 +2155,6 @@ document.addEventListener('change', e => {
   if(el.name === 'mcfgDenom'){  onModDenomChange(el.value);  return; }
   if(el.name === 'scfgKind'){ onSubKindChange(el.value); return; }
   if(el.name === 'scfgMode'){ onSubModeChange(el.value); return; }
-  if(el.id === 'scfg-id'){ onSubIdChange(el.value); return; }
   if(d.spp != null && d.k === 'op'){ subParams[+d.spp] = toParamObj(subParams[+d.spp]); subParams[+d.spp].op = el.value; return; }
   if(d.pp != null && d.k === 'op'){ pcfgParams[+d.pp] = toParamObj(pcfgParams[+d.pp]); pcfgParams[+d.pp].op = el.value; return; }
   if(d.di != null && d.k === 'denom'){
