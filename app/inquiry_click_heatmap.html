@@ -210,18 +210,20 @@ function drawHeat(){
     const w  = m.width/100 * cv.width, h  = m.height/100 * cv.height;
     /* 0.5 次幂压缩：线性映射时 0.1% 相对 66% 几乎不可见，压缩后仍能看出淡色 */
     const inten = Math.max(0.12, Math.pow(m.rate / MAX, 0.5));
-    /* 按区域宽高比做椭圆渐变；扁长条给一个最小短轴，否则模糊后几乎看不见 */
-    const rx = Math.max(w * 0.68, 13 * dpr);
-    const ry = Math.max(h * 0.68, 15 * dpr);
+    /* 按区域宽高比做椭圆渐变；扁长条给一个最小短轴，否则几乎看不见 */
+    const rx = Math.max(w * 0.54, 13 * dpr);
+    const ry = Math.max(h * 0.54, 15 * dpr);
     const r  = Math.max(rx, ry);
     bx.save();
     bx.translate(x0 + w/2, y0 + h/2);
     bx.scale(rx / r, ry / r);
     const g = bx.createRadialGradient(0,0,0, 0,0, r);
-    /* 0~0.45 保持满强度形成中心平台，使颜色由点击率决定而非区域大小 */
+    /* 中心平台只占 16%：平台越大，最浓的颜色块就越大——
+       品类卡片这类大区域会糊成一整片红，看不出热点位置。
+       起点仍是满强度，因此颜色依旧由点击率决定，与区域大小无关。 */
     g.addColorStop(0.00, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
-    g.addColorStop(0.45, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
-    g.addColorStop(0.74, 'rgba(0,0,0,' + (inten * 0.40).toFixed(3) + ')');
+    g.addColorStop(0.16, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
+    g.addColorStop(0.46, 'rgba(0,0,0,' + (inten * 0.55).toFixed(3) + ')');
     g.addColorStop(1.00, 'rgba(0,0,0,0)');
     bx.fillStyle = g;
     bx.fillRect(-r, -r, r*2, r*2);
