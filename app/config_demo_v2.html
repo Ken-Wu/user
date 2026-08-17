@@ -368,6 +368,15 @@
   .ms-in{flex:1;min-width:130px;border:none;outline:none;background:none;
          font-family:inherit;font-size:13px;color:var(--fg-1);padding:3px 2px;}
   .ms-in::placeholder{color:#aab3c0;}
+  /* 已选模块卡片：每个模块下可再挂多条参数表达式 */
+  .mcard{border:1px solid var(--ctl-border);border-radius:6px;background:#fbfcfd;
+         padding:8px 10px;margin-bottom:8px;}
+  .mcard-hd{display:flex;align-items:baseline;gap:8px;}
+  .mcard-hd b{font-size:13px;font-weight:500;color:var(--fg-1);flex:none;}
+  .mcard-id{flex:1;min-width:0;font-size:11px;color:var(--tb-cell-muted);word-break:break-all;}
+  .mcard-x{flex:none;font-style:normal;cursor:pointer;color:var(--danger);font-size:15px;line-height:1;}
+  .mcard-x:hover{opacity:.7;}
+  .mcard-bd{margin-top:8px;}
   /* 页面分析开关行 */
   .f-sw{display:flex;align-items:center;justify-content:space-between;gap:12px;
         border-top:1px dashed #eef1f5;padding-top:14px;}
@@ -819,8 +828,9 @@
       <div id="scfg-mod-wrap" hidden>
         <label class="f-lb"><span class="req">*</span> 模块</label>
         <div id="scfg-mod-pick">
+          <div id="scfg-mod-cards"></div>
           <div class="ms" id="scfg-mods"></div>
-          <div class="f-note">输入模块ID或名称模糊搜索，可选择多个</div>
+          <div class="f-note">输入模块ID或名称模糊搜索，可选择多个；每个模块下还可再配置参数表达式</div>
         </div>
         <div id="scfg-mod-input" hidden>
           <div id="scfg-mod-rows"></div>
@@ -935,9 +945,11 @@ Object.keys(moduleConfig).forEach(pn=>{
     (m.subs||[]).forEach(s=>{
       const isMod = !!(s.mods && s.mods.length);
       /* mods 声明为 ID 数组，这里补上名称，统一成 [{id,name}] */
-      const mods = isMod ? s.mods.map(id => {
-        const t = (moduleConfig[pn]||[]).find(x => x.id === id);
-        return {id:id, name:t ? t.name : id};
+      const mods = isMod ? s.mods.map(x => {
+        const id = typeof x === 'string' ? x : x.id;
+        const t  = (moduleConfig[pn]||[]).find(y => y.id === id);
+        return {id:id, name:t ? t.name : id,
+                params:(typeof x === 'string' ? [] : (x.params||[])).map(toParamObj)};
       }) : [];
       (subModuleConfig[pn] = subModuleConfig[pn] || []).push({
         kind:(m.idType||'module'), refId:m.id, name:m.name,
@@ -1027,24 +1039,31 @@ function statusHTML(st){
   const on = (st||'inactive') === 'active';
   return '<span class="status ' + (on?'status-on':'status-off') + '">' + (on?'已生效':'未生效') + '</span>';
 }
-/* 兼容旧数据：'source=elevator' 字符串 -> {name,op,val} */
+/* 参数条件：{label 中文显示名, name 参数, op 符号, val 参数值}
+   兼容旧数据：'source=elevator' 这类字符串会被解析成三段，label 留空 */
 function toParamObj(v){
-  if(v && typeof v === 'object') return {name:v.name||'', op:v.op||'=', val:v.val||''};
+  if(v && typeof v === 'object'){
+    return {label:v.label||'', name:v.name||'', op:v.op||'=', val:v.val||''};
+  }
   const str = (v==null?'':String(v)).trim();
-  if(!str) return {name:'', op:'=', val:''};
+  if(!str) return {label:'', name:'', op:'=', val:''};
   for(const op of ['>=','<=','!=','=','>','<']){
     const i = str.indexOf(op);
-    if(i > 0) return {name:str.slice(0,i).trim(), op:op, val:str.slice(i+op.length).trim()};
+    if(i > 0) return {label:'', name:str.slice(0,i).trim(), op:op, val:str.slice(i+op.length).trim()};
   }
-  return {name:str, op:'=', val:''};
+  return {label:'', name:str, op:'=', val:''};
 }
-/* 表格单元格：多条 or 关系逐行呈现，避免整段文案在任意位置折断 */
+/* 表格单元格：多条 or 关系逐行呈现，避免整段文案在任意位置折断。
+   有中文显示名时以中文名为主，表达式降为小字附注 */
 function paramsCellHTML(list){
   const arr = (list||[]).map(toParamObj).filter(p=>p.name);
   if(!arr.length) return '<span class="cell-muted">--</span>';
-  return arr.map((p,i) =>
-    '<div class="p-line">' + (i ? '<span class="p-or">or</span>' : '') +
-    esc(p.name + ' ' + p.op + ' ' + p.val) + '</div>').join('');
+  return arr.map((p,i) => {
+    const expr = p.name + ' ' + p.op + ' ' + p.val;
+    return '<div class="p-line">' + (i ? '<span class="p-or">or</span>' : '') +
+      (p.label ? esc(p.label) + ' <span class="cell-sub">' + esc(expr) + '</span>' : esc(expr)) +
+      '</div>';
+  }).join('');
 }
 function tipi(text){
   return text ? ' <span class="tipi" data-tip="' + esc(text) + '">!</span>' : '';
@@ -1248,9 +1267,10 @@ function renderPcfgParams(){
   $('#pcfg-params').innerHTML = pcfgParams.map((v,i) => {
     const p = toParamObj(v);
     return '<div class="f-row' + (i>0?' or':'') + '" style="margin-bottom:' + (i<last?'15':'8') + 'px">' +
-      '<input class="f-in" style="flex:1.4;padding:7px 10px" value="' + esc(p.name) + '" placeholder="参数名，如 pass_journey_status" data-pp="' + i + '" data-k="name">' +
-      '<select class="f-in" style="flex:none;width:78px;padding:7px 6px" data-pp="' + i + '" data-k="op">' + ops(p) + '</select>' +
-      '<input class="f-in" style="padding:7px 10px" value="' + esc(p.val) + '" placeholder="参数值，如 10" data-pp="' + i + '" data-k="val">' +
+      '<input class="f-in" style="flex:1;padding:7px 8px" value="' + esc(p.label) + '" placeholder="中文名" data-pp="' + i + '" data-k="label">' +
+      '<input class="f-in" style="flex:1.5;padding:7px 8px" value="' + esc(p.name) + '" placeholder="参数" data-pp="' + i + '" data-k="name">' +
+      '<select class="f-in" style="flex:none;width:70px;padding:7px 4px" data-pp="' + i + '" data-k="op">' + ops(p) + '</select>' +
+      '<input class="f-in" style="flex:1;padding:7px 8px" value="' + esc(p.val) + '" placeholder="参数值" data-pp="' + i + '" data-k="val">' +
       '<span class="f-x" data-delpp="' + i + '" title="删除">×</span>' +
     '</div>';
   }).join('') + (pcfgParams.length > 1
@@ -1529,10 +1549,14 @@ function renderSubs(){
     const content = isParam
       ? paramsCellHTML(s.params)
       : ((s.mods||[]).length
-          ? (s.mods||[]).map(m =>
-              '<div class="p-line">' + esc(m.name || m.id) +
-              (m.name && m.id !== m.name ? ' <span class="cell-sub">' + esc(m.id) + '</span>' : '') +
-              '</div>').join('')
+          ? (s.mods||[]).map(m => {
+              const ps = (m.params||[]).map(toParamObj).filter(x=>x.name)
+                .map(x => (x.label ? x.label + ' ' : '') + x.name + ' ' + x.op + ' ' + x.val);
+              return '<div class="p-line">' + esc(m.name || m.id) +
+                (m.name && m.id !== m.name ? ' <span class="cell-sub">' + esc(m.id) + '</span>' : '') +
+                (ps.length ? ' <span class="cell-sub">· ' + esc(ps.join(' or ')) + '</span>' : '') +
+                '</div>';
+            }).join('')
           : '<span class="cell-muted">--</span>');
     return '<tr>' +
       '<td class="nowrap">' + (isPage ? '页面' : '模块') + '</td>' +
@@ -1575,8 +1599,11 @@ function openSubModal(i){
   if(!subParams.length) subParams = [{name:'', op:'=', val:''}];
   renderSubParams();
 
-  /* 深拷贝：否则编辑时的输入会直接改到原数据，取消也已生效 */
-  subMods = (s.mods || []).map(x => ({id:x.id||'', name:x.name||''}));
+  /* 深拷贝（含每个模块自己的参数）：否则编辑时的输入会直接改到原数据，取消也已生效 */
+  subMods = (s.mods || []).map(x => ({
+    id:x.id||'', name:x.name||'',
+    params:(x.params||[]).map(toParamObj)
+  }));
   renderSubMods();
 
   onSubModeChange(subMode);
@@ -1632,9 +1659,10 @@ function renderSubParams(){
   $('#scfg-params').innerHTML = subParams.map((v,i) => {
     const p = toParamObj(v);
     return '<div class="f-row' + (i>0?' or':'') + '" style="margin-bottom:' + (i<last?'15':'8') + 'px">' +
-      '<input class="f-in" style="flex:1.4;padding:7px 10px" value="' + esc(p.name) + '" placeholder="参数名，如 sku_code" data-spp="' + i + '" data-k="name">' +
-      '<select class="f-in" style="flex:none;width:78px;padding:7px 6px" data-spp="' + i + '" data-k="op">' + ops(p) + '</select>' +
-      '<input class="f-in" style="padding:7px 10px" value="' + esc(p.val) + '" placeholder="参数值" data-spp="' + i + '" data-k="val">' +
+      '<input class="f-in" style="flex:1;padding:7px 8px" value="' + esc(p.label) + '" placeholder="中文名" data-spp="' + i + '" data-k="label">' +
+      '<input class="f-in" style="flex:1.5;padding:7px 8px" value="' + esc(p.name) + '" placeholder="参数" data-spp="' + i + '" data-k="name">' +
+      '<select class="f-in" style="flex:none;width:70px;padding:7px 4px" data-spp="' + i + '" data-k="op">' + ops(p) + '</select>' +
+      '<input class="f-in" style="flex:1;padding:7px 8px" value="' + esc(p.val) + '" placeholder="参数值" data-spp="' + i + '" data-k="val">' +
       '<span class="f-x" data-delspp="' + i + '" title="删除">×</span>' +
     '</div>';
   }).join('') + (subParams.length > 1
@@ -1648,14 +1676,38 @@ function renderSubMods(){
   if(isPage) renderSubModRows();
   else       renderSubModTags();
 }
-/* 类型=模块：已选项以 tag 呈现，尾部输入框支持模糊搜索继续添加 */
+/* 类型=模块：已选模块逐个成卡片，卡片内可再配置多条参数表达式；
+   尾部输入框支持模糊搜索继续添加 */
 function renderSubModTags(){
+  $('#scfg-mod-cards').innerHTML = subMods.map((m,mi) => {
+    const ps   = m.params || [];
+    const last = ps.length - 1;
+    const rows = ps.map((v,pi) => {
+      const p = toParamObj(v);
+      const ops = PARAM_OPS.map(o=>'<option value="'+o+'"'+(o===p.op?' selected':'')+'>'+o+'</option>').join('');
+      return '<div class="f-row' + (pi>0?' or':'') + '" style="margin-bottom:' + (pi<last?'15':'8') + 'px">' +
+        '<input class="f-in" style="flex:1;padding:6px 8px" value="' + esc(p.label) + '" placeholder="中文名" data-mi="' + mi + '" data-pi="' + pi + '" data-k="label">' +
+        '<input class="f-in" style="flex:1.5;padding:6px 8px" value="' + esc(p.name) + '" placeholder="参数" data-mi="' + mi + '" data-pi="' + pi + '" data-k="name">' +
+        '<select class="f-in" style="flex:none;width:70px;padding:6px 4px" data-mi="' + mi + '" data-pi="' + pi + '" data-k="op">' + ops + '</select>' +
+        '<input class="f-in" style="flex:1;padding:6px 8px" value="' + esc(p.val) + '" placeholder="参数值" data-mi="' + mi + '" data-pi="' + pi + '" data-k="val">' +
+        '<span class="f-x" data-delmp="' + mi + '-' + pi + '" title="删除">×</span>' +
+      '</div>';
+    }).join('');
+    return '<div class="mcard">' +
+      '<div class="mcard-hd">' +
+        '<b>' + esc(m.name || m.id) + '</b>' +
+        '<span class="mcard-id">' + esc(m.id) + '</span>' +
+        '<i class="mcard-x" data-msdel="' + esc(m.id) + '" title="移除该模块">×</i>' +
+      '</div>' +
+      (rows ? '<div class="mcard-bd">' + rows +
+        (ps.length > 1 ? '<div class="f-note">多条参数之间为 or 关系（满足任一即可）</div>' : '') +
+      '</div>' : '') +
+      '<a class="f-link" data-addmp="' + mi + '" style="display:inline-block;margin-top:' + (rows?'2':'8') + 'px">+ 添加参数</a>' +
+    '</div>';
+  }).join('');
   $('#scfg-mods').innerHTML =
-    subMods.map(m =>
-      '<span class="ms-tag"><b>' + esc(m.name || m.id) + '</b>' +
-      '<i data-msdel="' + esc(m.id) + '" title="移除">×</i></span>').join('') +
     '<input class="ms-in" id="scfg-mod-in" type="text" autocomplete="off" placeholder="' +
-      (subMods.length ? '继续搜索添加' : '输入模块ID或名称搜索') + '">';
+      (subMods.length ? '继续搜索添加模块' : '输入模块ID或名称搜索') + '">';
 }
 /* 类型=页面：手工录入模块ID + 模块名称，可多条 */
 function renderSubModRows(){
@@ -1718,7 +1770,18 @@ function saveSub(){
     const dup = ids.find((x,i)=> ids.indexOf(x) !== i);
     if(dup){ toast('存在重复的模块ID：' + dup, true); return; }
   } else {
-    mods = subMods.filter(x => x.id);
+    /* 每个模块可带自己的参数表达式，校验规则与参数配置一致：半填要报错 */
+    for(const m of subMods){
+      if(!m.id) continue;
+      const raw = (m.params||[]).map(toParamObj)
+        .map(x=>({label:(x.label||'').trim(), name:(x.name||'').trim(), op:x.op||'=', val:(x.val||'').trim()}));
+      if(raw.find(x => (x.name && !x.val) || (!x.name && x.val))){
+        toast('「' + (m.name||m.id) + '」已填写的参数需要补全参数和参数值', true); return;
+      }
+      m.params = raw.filter(x => x.name && x.val);
+    }
+    mods = subMods.filter(x => x.id)
+      .map(x => ({id:x.id, name:x.name, params:(x.params||[]).slice()}));
     if(!mods.length){ toast('请至少选择一个模块', true); return; }
   }
 
@@ -1726,7 +1789,9 @@ function saveSub(){
   /* 同一归属 + 相同配置内容视为重复 */
   const key = j => [j.kind, j.refId, j.mode,
                     (j.params||[]).map(x=>x.name+x.op+x.val).sort().join(','),
-                    (j.mods||[]).map(x=>x.id).sort().join(',')].join('|');
+                    (j.mods||[]).map(x => x.id + ':' +
+                      (x.params||[]).map(y=>y.name+y.op+y.val).sort().join('&')
+                    ).sort().join(',')].join('|');
   const cur = {kind:kind, refId:refId, mode:mode, params:params, mods:mods};
   if(list.some((x,idx)=> idx !== subEditIdx && key(x) === key(cur))){
     toast('相同的子模块配置已存在', true); return;
@@ -2070,6 +2135,27 @@ document.addEventListener('click', e => {
     renderSubMods();
     return;
   }
+  /* 模块配置（类型=模块）：给某个已选模块增删参数表达式 */
+  if((el = hit('[data-addmp]'))){
+    e.preventDefault();
+    const mi = +el.dataset.addmp;
+    if(subMods[mi]){
+      subMods[mi].params = subMods[mi].params || [];
+      subMods[mi].params.push({label:'', name:'', op:'=', val:''});
+      cbClose();
+      renderSubMods();
+    }
+    return;
+  }
+  if((el = hit('[data-delmp]'))){
+    e.preventDefault();
+    const seg = el.dataset.delmp.split('-');
+    const mi = +seg[0], pi = +seg[1];
+    if(subMods[mi] && subMods[mi].params) subMods[mi].params.splice(pi,1);
+    cbClose();
+    renderSubMods();
+    return;
+  }
   /* 模块配置（类型=页面）：手工录入行的增删 */
   if(hit('#scfg-add-mod')){ subMods.push({id:'', name:''}); renderSubMods(); return; }
   if((el = hit('[data-delsmi]'))){
@@ -2159,7 +2245,7 @@ document.addEventListener('focusin', e => {
     const sp = pageConfig[subPageIdx]; if(!sp) return;
     cbOpen(el, subModCandidates(), ()=> '', id => {
       const m = (moduleConfig[sp.name]||[]).find(x => x.id === id);
-      if(id && !subMods.some(x => x.id === id)) subMods.push({id:id, name:m ? m.name : id});
+      if(id && !subMods.some(x => x.id === id)) subMods.push({id:id, name:m ? m.name : id, params:[]});
       renderSubMods();
       const nel = $('#scfg-mod-in');
       if(nel) nel.focus();
@@ -2178,6 +2264,12 @@ document.addEventListener('input', e => {
   else if(d.pp != null){ pcfgParams[+d.pp] = toParamObj(pcfgParams[+d.pp]); pcfgParams[+d.pp][d.k] = el.value; }
   else if(d.spp != null){ subParams[+d.spp] = toParamObj(subParams[+d.spp]); subParams[+d.spp][d.k] = el.value; }
   else if(d.smi != null && subMods[+d.smi]) subMods[+d.smi][d.k] = el.value;
+  /* 模块卡片内的参数表达式 */
+  else if(d.mi != null && d.pi != null && subMods[+d.mi] && subMods[+d.mi].params){
+    const ps = subMods[+d.mi].params;
+    ps[+d.pi] = toParamObj(ps[+d.pi]);
+    ps[+d.pi][d.k] = el.value;
+  }
   else if(d.di != null && (d.k === 'id' || d.k === 'name')) draft[+d.di][d.k] = el.value;
 });
 document.addEventListener('change', e => {
@@ -2194,6 +2286,12 @@ document.addEventListener('change', e => {
   if(el.name === 'scfgKind'){ onSubKindChange(el.value); return; }
   if(el.name === 'scfgMode'){ onSubModeChange(el.value); return; }
   if(d.spp != null && d.k === 'op'){ subParams[+d.spp] = toParamObj(subParams[+d.spp]); subParams[+d.spp].op = el.value; return; }
+  if(d.mi != null && d.pi != null && d.k === 'op' && subMods[+d.mi] && subMods[+d.mi].params){
+    const ps = subMods[+d.mi].params;
+    ps[+d.pi] = toParamObj(ps[+d.pi]);
+    ps[+d.pi].op = el.value;
+    return;
+  }
   if(d.pp != null && d.k === 'op'){ pcfgParams[+d.pp] = toParamObj(pcfgParams[+d.pp]); pcfgParams[+d.pp].op = el.value; return; }
   if(d.di != null && d.k === 'denom'){
     const i = +d.di, prev = draft[i].denom;
