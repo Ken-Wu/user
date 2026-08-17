@@ -789,14 +789,15 @@
           <label class="f-radio"><input type="radio" name="scfgKind" value="page">页面</label>
         </div>
       </div>
-      <!-- 类型=模块：从本页面模块中模糊搜索选择；类型=页面：页面ID 完全自行录入 -->
+      <!-- 类型=模块：一个「模块ID名称」输入框模糊搜索选择，名称随所选模块带出，无需单独字段
+           类型=页面：页面ID 完全自行录入，名称也需手工填写 -->
       <div>
-        <label class="f-lb"><span class="req">*</span> <span id="scfg-id-lb">模块ID</span></label>
+        <label class="f-lb"><span class="req">*</span> <span id="scfg-id-lb">模块ID名称</span></label>
         <input class="f-in" id="scfg-id" type="text" autocomplete="off" placeholder="输入模块ID或名称搜索">
       </div>
-      <div>
-        <label class="f-lb"><span class="req">*</span> <span id="scfg-name-lb">模块名称</span></label>
-        <input class="f-in" id="scfg-name" type="text" placeholder="选择后自动带出，可修改">
+      <div id="scfg-name-row" hidden>
+        <label class="f-lb"><span class="req">*</span> 页面名称</label>
+        <input class="f-in" id="scfg-name" type="text" placeholder="请输入页面名称">
       </div>
       <div>
         <label class="f-lb g6"><span class="req">*</span> 配置方式</label>
@@ -1567,8 +1568,8 @@ function openSubModal(i){
   subRefId = s.refId || '';
   applySubKind();
   /* 页面类型直接展示录入的 ID；模块类型展示「名称（ID）」 */
-  $('#scfg-id').value  = subKind === 'page' ? subRefId : subRefLabel(subRefId);
-  $('#scfg-name').value = s.name || '';
+  $('#scfg-id').value   = subKind === 'page' ? subRefId : subRefLabel(subRefId);
+  $('#scfg-name').value = subKind === 'page' ? (s.name || '') : '';
 
   subParams = (s.params || []).map(toParamObj);
   if(!subParams.length) subParams = [{name:'', op:'=', val:''}];
@@ -1595,10 +1596,10 @@ function subRefLabel(id){
 /* 按类型切换归属字段的录入方式与可用的配置方式 */
 function applySubKind(){
   const isPage = subKind === 'page';
-  $('#scfg-id-lb').textContent   = isPage ? '页面ID'   : '模块ID';
-  $('#scfg-name-lb').textContent = isPage ? '页面名称' : '模块名称';
-  $('#scfg-id').placeholder      = isPage ? '请输入页面ID，如 inquiry' : '输入模块ID或名称搜索';
-  $('#scfg-name').placeholder    = isPage ? '请输入页面名称' : '选择后自动带出，可修改';
+  $('#scfg-id-lb').textContent = isPage ? '页面ID' : '模块ID名称';
+  $('#scfg-id').placeholder    = isPage ? '请输入页面ID，如 inquiry' : '输入模块ID或名称搜索';
+  /* 类型=模块时名称随所选模块自动带出，不再单独设字段 */
+  $('#scfg-name-row').hidden = !isPage;
   /* 页面类型只支持模块配置 */
   $('#scfg-mode-param').hidden = isPage;
   if(isPage && subMode !== 'module'){
@@ -1683,8 +1684,15 @@ function saveSub(){
   /* 页面类型自行录入 ID；模块类型取候选中选定的 ID */
   const refId = kind === 'page' ? $('#scfg-id').value.trim() : subRefId;
   if(!refId){ toast(kind === 'page' ? '请填写页面ID' : '请选择模块', true); return; }
-  const name = $('#scfg-name').value.trim();
-  if(!name){ toast('请填写' + word + '名称', true); return; }
+  /* 页面类型的名称手工录入；模块类型的名称取自所选模块 */
+  let name;
+  if(kind === 'page'){
+    name = $('#scfg-name').value.trim();
+    if(!name){ toast('请填写页面名称', true); return; }
+  } else {
+    const m = subRefCandidates().find(x => x.id === refId);
+    name = m ? (m.name || refId) : refId;
+  }
 
   const mEl  = $$('input[name="scfgMode"]').find(r=>r.checked);
   const mode = mEl ? mEl.value : 'param';
@@ -2133,9 +2141,7 @@ document.addEventListener('focusin', e => {
     if(subKind !== 'module'){ if(cbCtx) cbClose(); return; }
     const sp = pageConfig[subPageIdx]; if(!sp) return;
     cbOpen(el, subRefCandidates(), ()=> subRefLabel(subRefId), id => {
-      subRefId = id;
-      const m = subRefCandidates().find(x => x.id === id);
-      $('#scfg-name').value = m ? (m.name||'') : '';
+      subRefId = id;         /* 名称随所选模块，保存时再取，无需单独字段 */
       renderSubMods();       /* 归属变了，模块配置候选要排除它 */
     });
     return;
