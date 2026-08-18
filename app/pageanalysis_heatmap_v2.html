@@ -915,6 +915,18 @@ function bindZoneClicks(){
       if(z && ph.contains(z)) hoverRow(z.dataset.mod, false);
     });
   });
+
+  /* 点区块以外的地方取消高亮。以下几处点了不该清：
+     - .zone 与表格行本身就是选中入口，清了会和随后的选中打架
+     - .hm-ic 是热力/气泡两个显示开关，与选中哪个模块是正交的
+     - 明细弹窗由表格里的「查看」连带打开，点弹窗内部不该把来源模块的高亮抹掉
+     只清 .sel，不动「起始模块」下拉和桑基图：那个下拉本来就能独立选，
+     用它切换时也不会给区块加高亮，两者没有绑定关系。 */
+  document.addEventListener('click', e=>{
+    if(e.target.closest('.zone[data-mod], #modTable tr[data-name], .hm-ic, #catMask, #stratMask')) return;
+    document.querySelectorAll('#modTable tr.sel, .phone .zone.sel')
+            .forEach(el => el.classList.remove('sel'));
+  });
 }
 // 高亮/取消高亮对应表格行
 function hoverRow(name,on){
