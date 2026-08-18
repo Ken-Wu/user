@@ -303,9 +303,12 @@
                   transition:opacity .2s ease;z-index:2;}
   /* 区块只负责交互与标签，热度由 canvas 表达，因此自身不再着色 */
   .phone .zone{position:absolute;box-sizing:border-box;border-radius:4px;background:transparent;font-size:11px;z-index:3;}
+  /* 标签左对齐到模块左上角，贴在模块上沿外侧；
+     互相压住的那几个由 fitHots() 在渲染后错开 */
   .phone .zone .hot{position:absolute;left:0;top:0;transform:translateY(-55%);background:#fff;color:#1f2d3d;
         padding:1px 6px;border-radius:9px;font-size:9px;font-weight:600;white-space:nowrap;
         box-shadow:0 1px 3px rgba(0,0,0,.18);z-index:4;}
+  /* 贴右边的模块改为靠右对齐，否则标签会向右探出机身 */
   .phone .zone .hot.hot-l{left:auto;right:0;}
   .phone .zone.sel{outline:2px solid var(--brand);outline-offset:1px;box-shadow:0 0 0 4px rgba(0,178,255,.28);z-index:5;}
   .phone .zone.sel .hot{background:var(--brand);color:#fff;}
@@ -1108,6 +1111,60 @@ function buildHeat(){
   });
 }
 
+/* 标签基线位置由 CSS 给（左对齐模块左上角，hot-l 靠右）。
+   模块上下相邻时基线会互相压住，这里按「上→下、左→右」依次落位：
+   原位放不下就竖向错开一格，优先往下压进模块内部（归属仍清楚），再考虑往上。
+   同时把探出机身的横向拉回来。*/
+function fitHots(){
+  const GAP = 3;   // 标签之间的最小间隙
+  const PAD = 3;   // 与机身边缘的最小留白
+
+  document.querySelectorAll('.phone').forEach(ph => {
+    const box = ph.getBoundingClientRect();
+
+    // 复位后取基线；跳过被「隐藏气泡」关掉的标签，避免测到 0 尺寸
+    const hots = [...ph.querySelectorAll('.zone .hot')];
+    hots.forEach(h => h.style.transform = '');
+    const base = hots.filter(h => h.offsetParent).map(h => {
+      const r = h.getBoundingClientRect();
+      return {el:h, x:r.left, y:r.top, w:r.width, h:r.height};
+    });
+    if(!base.length) return;
+
+    const placed = [];
+    const hits = r => placed.some(p =>
+      r.x < p.x + p.w + GAP && r.x + r.w + GAP > p.x &&
+      r.y < p.y + p.h + GAP && r.y + r.h + GAP > p.y);
+
+    // 横向回收：标签整体拉进机身内
+    const clampX = b => {
+      if(b.x < box.left + PAD)             return (box.left  + PAD) - b.x;
+      if(b.x + b.w > box.right - PAD)      return (box.right - PAD) - (b.x + b.w);
+      return 0;
+    };
+
+    base.slice()
+        .sort((a, b) => a.y - b.y || a.x - b.x)
+        .forEach(b => {
+          const dx   = clampX(b);
+          const step = b.h + GAP;
+          let put = null;
+          for(const dy of [0, step, -step, step*2, -step*2, step*3]){
+            const r = {x:b.x + dx, y:b.y + dy, w:b.w, h:b.h};
+            if(r.y < box.top + PAD || r.y + r.h > box.bottom - PAD) continue;
+            if(!hits(r)){ put = {dx, dy, r}; break; }
+          }
+          // 候选位置都被占：退回原位，宁可重叠也不让标签跑到无关的地方
+          if(!put) put = {dx, dy:0, r:{x:b.x + dx, y:b.y, w:b.w, h:b.h}};
+
+          placed.push(put.r);
+          if(put.dx || put.dy)
+            b.el.style.transform =
+              `translate(${put.dx.toFixed(1)}px, calc(-55% + ${put.dy.toFixed(1)}px))`;
+        });
+  });
+}
+
 // 隐藏/显示 热力层（含压暗底图的遮罩）
 let heatOn = true;
 function toggleHeat(btn){
@@ -1314,9 +1371,10 @@ window.addEventListener('resize', ()=>{ if(modSankeyChart) modSankeyChart.resize
 (function(){
   const shot = document.querySelector('.phone .ph-shot');
   if(!shot) return;
-  if(shot.complete) buildHeat();
-  else shot.addEventListener('load', buildHeat);
-  window.addEventListener('resize', buildHeat);
+  const draw = () => { buildHeat(); fitHots(); };
+  if(shot.complete) draw();
+  else shot.addEventListener('load', draw);
+  window.addEventListener('resize', draw);
 })();
 </script>
 </body>
