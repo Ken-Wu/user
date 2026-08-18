@@ -288,7 +288,9 @@
   .phone-wrap{display:flex;justify-content:center;align-items:center;margin-top:12px;}
 
   /* ===== 手机热力图（截图 + 深色遮罩 + canvas 热力层 + 交互区块） ===== */
-  .phone{width:300px;height:650px;margin:0 auto;border:8px solid #1f2d3d;border-radius:32px;overflow:hidden;
+  /* 不写死高度：截图 750x1624 在 284px 内容宽下实际只有 615px 高，
+     固定 650px 会在机身底部留一条空白。让高度由截图撑开 */
+  .phone{width:300px;margin:0 auto;border:8px solid #1f2d3d;border-radius:32px;overflow:hidden;
          background:#fff;font-size:11px;position:relative;}
   .phone .ph-shot{display:block;width:100%;height:auto;}
   .phone .shot-wrap{position:relative;width:100%;font-size:0;}
@@ -1070,16 +1072,19 @@ function buildHeat(){
       const x0 = z.left/100 * cv.width,  y0 = z.top/100 * cv.height;
       const w  = z.width/100 * cv.width, h  = z.height/100 * cv.height;
       const inten = Math.max(0.12, Math.pow(z.rate / max, 0.5));
-      const rx = Math.max(w * 0.54, 13 * dpr);
-      const ry = Math.max(h * 0.54, 15 * dpr);
+      /* 半径放大一档让渐变往区块外扩散；离心率钳到 0.55 使红核保持圆形，
+         否则扁长区块（高速费条 98%x4.6%）的核心会被压成一条细线 */
+      const rx = Math.max(w * 0.66, 15 * dpr);
+      const ry = Math.max(h * 0.66, 17 * dpr);
       const r  = Math.max(rx, ry);
       bx.save();
       bx.translate(x0 + w/2, y0 + h/2);
-      bx.scale(rx / r, ry / r);
+      bx.scale(Math.max(rx / r, 0.55), Math.max(ry / r, 0.55));
       const g = bx.createRadialGradient(0,0,0, 0,0, r);
       g.addColorStop(0.00, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
-      g.addColorStop(0.16, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
-      g.addColorStop(0.46, 'rgba(0,0,0,' + (inten * 0.55).toFixed(3) + ')');
+      g.addColorStop(0.15, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
+      g.addColorStop(0.40, 'rgba(0,0,0,' + (inten * 0.64).toFixed(3) + ')');
+      g.addColorStop(0.66, 'rgba(0,0,0,' + (inten * 0.36).toFixed(3) + ')');
       g.addColorStop(1.00, 'rgba(0,0,0,0)');
       bx.fillStyle = g;
       bx.fillRect(-r, -r, r*2, r*2);

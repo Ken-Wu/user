@@ -210,20 +210,26 @@ function drawHeat(){
     const w  = m.width/100 * cv.width, h  = m.height/100 * cv.height;
     /* 0.5 次幂压缩：线性映射时 0.1% 相对 66% 几乎不可见，压缩后仍能看出淡色 */
     const inten = Math.max(0.12, Math.pow(m.rate / MAX, 0.5));
-    /* 按区域宽高比做椭圆渐变；扁长条给一个最小短轴，否则几乎看不见 */
-    const rx = Math.max(w * 0.54, 13 * dpr);
-    const ry = Math.max(h * 0.54, 15 * dpr);
+    /* 半径按区域放大一档，让渐变往模块外扩散 */
+    const rx = Math.max(w * 0.66, 15 * dpr);
+    const ry = Math.max(h * 0.66, 17 * dpr);
     const r  = Math.max(rx, ry);
+    /* 限制离心率下限：扁长条若按真实宽高比压缩，红核会被压成一条细线。
+       钳到 0.55 后核心接近圆形，代价是纵向会溢出模块，正是要的向外扩散效果 */
+    const sx = Math.max(rx / r, 0.55);
+    const sy = Math.max(ry / r, 0.55);
     bx.save();
     bx.translate(x0 + w/2, y0 + h/2);
-    bx.scale(rx / r, ry / r);
+    bx.scale(sx, sy);
     const g = bx.createRadialGradient(0,0,0, 0,0, r);
-    /* 中心平台只占 16%：平台越大，最浓的颜色块就越大——
+    /* 中心平台只占 15%：平台越大，最浓的颜色块就越大——
        品类卡片这类大区域会糊成一整片红，看不出热点位置。
+       中段放缓，让红核外的黄绿过渡带更宽。
        起点仍是满强度，因此颜色依旧由点击率决定，与区域大小无关。 */
     g.addColorStop(0.00, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
-    g.addColorStop(0.16, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
-    g.addColorStop(0.46, 'rgba(0,0,0,' + (inten * 0.55).toFixed(3) + ')');
+    g.addColorStop(0.15, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
+    g.addColorStop(0.40, 'rgba(0,0,0,' + (inten * 0.64).toFixed(3) + ')');
+    g.addColorStop(0.66, 'rgba(0,0,0,' + (inten * 0.36).toFixed(3) + ')');
     g.addColorStop(1.00, 'rgba(0,0,0,0)');
     bx.fillStyle = g;
     bx.fillRect(-r, -r, r*2, r*2);
