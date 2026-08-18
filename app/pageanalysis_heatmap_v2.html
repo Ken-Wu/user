@@ -1178,7 +1178,7 @@ function buildHeat(){
       let ang = rnd() * 6.2832, px = 0, py = 0;
       for(let i = 1; i < K; i++){
         ang += uni() * 0.7;                                /* 每节转 ±40°，不走成直线也不绕回来 */
-        const step = 1.1 + rnd() * 0.3;
+        const step = 1.05 + rnd() * 0.25;                  /* 收到 1.05~1.30，核之间靠得更紧 */
         px += Math.cos(ang) * step; py += Math.sin(ang) * step;
         chain.push({x: px, y: py});
       }
@@ -1222,12 +1222,16 @@ function buildHeat(){
             const dx = (x + 0.5 - p.x) / p.kx;
             const q  = dx * dx + dy2;
             if(q >= 1) continue;
-            /* 取最大值而不是累加。累加会在两核之间叠出比主核平台更高的假峰值
-               （间距 1.1R 时中点算得 1.046 > 1.0），归一化基准被它占掉，
-               主核平台反而掉出红色区间——红核只剩 1px 且质心偏到两核之间。
-               取 max 后峰值恒在主核，核之间自然形成鞍部，多核感也更清楚。 */
+            /* 累加平方，取用时再开方（soft-max）。三种混合方式的差别：
+               直接累加——两核之间叠出比主核平台更高的假峰值（间距 1.1R 时中点
+                 算得 1.046 > 1.0），归一化基准被它占掉，主核平台反而掉出红色区间，
+                 红核只剩 1px 且质心偏到两核之间；
+               取最大值——峰值正确，但中点只等于各自衰减后的较大值（约 0.39），
+                 中间塌出低谷，几个核看着就成了互不相干的独立斑点；
+               平方和开方——中点填到约 0.84，明显相连；而邻核在主核中心的贡献是 0
+                 （间距大于邻核半径），峰值仍恒在主核，最坏情况也只到 0.84 < 1.0。 */
             const v = HEAT_KERNEL[(q * 256) | 0] * p.wgt;
-            if(v > den[row + x]) den[row + x] = v;
+            den[row + x] += v * v;
           }
         }
       });
@@ -1241,7 +1245,9 @@ function buildHeat(){
         for(let x = xa; x <= xb; x++){
           const u = den[src + x];
           if(u <= 0) continue;
-          const a = HEAT_GAMMA[(u / peak * 256) | 0] * inten;
+          /* den 里存的是平方和，要开方才是 soft-max 值。
+             sqrt(u)/sqrt(peak) = sqrt(u/peak)，所以直接对比值开方即可。 */
+          const a = HEAT_GAMMA[(Math.sqrt(u / peak) * 256) | 0] * inten;
           if(a > acc[dst + x]) acc[dst + x] = a;
         }
       }
