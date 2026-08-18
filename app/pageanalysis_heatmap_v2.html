@@ -1023,18 +1023,30 @@ window.closeStratDetail = closeStratDetail;
    热力层：读取各 .zone 的位置与标签里的点击率生成
    数据只存在于 DOM（zone 的 style 与 .hot 文案），避免再维护一份副本
    ============================================================ */
-/* 色带：透明 → 淡蓝 → 青绿 → 绿 → 黄 → 红 */
+/* 色带：透明 → 淡蓝 → 青 → 青绿 → 绿 → 黄绿 → 黄 → 橙 → 橙红 → 红
+   节点从 6 个加到 11 个，作用是把黄→橙→橙红→红这段色相路径显式定下来，
+   原先靠黄(.74)到红(1.0)两端线性插值，中途偏色不好控。
+   别指望加节点能改善过渡：实测色带自身的斜率突变峰值 8→9，几乎没变。
+   过渡自然与否主要由红核大小和衰减曲线决定，见 buildHeat 里的 stops。
+   红色压到 0.91 之后才出现，这一项才真正让中心红核收小。
+   低端 alpha 不宜再压低：上色时还会再乘一次位置系数（见 buildHeat 末尾），
+   点击率极低的区块本就很淡，低端一压就彻底看不见了。 */
 function heatPalette(){
   const c = document.createElement('canvas');
   c.width = 1; c.height = 256;
   const x = c.getContext('2d');
   const g = x.createLinearGradient(0,0,0,256);
-  g.addColorStop(0.00,'rgba(0,120,255,0)');
-  g.addColorStop(0.12,'rgba(0,180,255,.55)');
-  g.addColorStop(0.32,'rgba(0,224,196,.72)');
-  g.addColorStop(0.52,'rgba(124,232,79,.80)');
-  g.addColorStop(0.74,'rgba(255,220,0,.86)');
-  g.addColorStop(1.00,'rgba(255,40,20,.92)');
+  g.addColorStop(0.00,'rgba(0,110,255,0)');
+  g.addColorStop(0.05,'rgba(0,150,255,.20)');
+  g.addColorStop(0.12,'rgba(0,188,255,.50)');
+  g.addColorStop(0.21,'rgba(0,212,224,.62)');
+  g.addColorStop(0.32,'rgba(0,226,172,.72)');
+  g.addColorStop(0.44,'rgba(74,231,116,.78)');
+  g.addColorStop(0.57,'rgba(158,234,66,.82)');
+  g.addColorStop(0.70,'rgba(226,225,26,.86)');
+  g.addColorStop(0.81,'rgba(255,188,10,.89)');
+  g.addColorStop(0.91,'rgba(255,122,14,.91)');
+  g.addColorStop(1.00,'rgba(255,44,22,.93)');
   x.fillStyle = g;
   x.fillRect(0,0,1,256);
   return x.getImageData(0,0,1,256).data;
@@ -1067,7 +1079,7 @@ function buildHeat(){
 
     /* 1) 灰度层：每个区块一次椭圆径向渐变。
        不在区块内铺高斯点——点间 alpha 累加会饱和，低点击率区块会和最高的一样红。
-       中心平台只占 16%，否则大区块（品类列表）会糊成一整片红。 */
+       中心平台只占 8%，否则大区块（品类列表）会糊成一整片红。 */
     const buf = document.createElement('canvas');
     buf.width = cv.width; buf.height = cv.height;
     const bx = buf.getContext('2d');
@@ -1084,10 +1096,15 @@ function buildHeat(){
       bx.translate(x0 + w/2, y0 + h/2);
       bx.scale(Math.max(rx / r, 0.55), Math.max(ry / r, 0.55));
       const g = bx.createRadialGradient(0,0,0, 0,0, r);
+      /* 满强度平台收到 8%（原 15%），中心红核因此更小；
+         衰减切成 7 段贴近高斯曲线，段数少了会在节点处看出转折。
+         起点仍是满强度，颜色依旧由点击率决定，与区块大小无关。 */
       g.addColorStop(0.00, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
-      g.addColorStop(0.15, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
-      g.addColorStop(0.40, 'rgba(0,0,0,' + (inten * 0.64).toFixed(3) + ')');
-      g.addColorStop(0.66, 'rgba(0,0,0,' + (inten * 0.36).toFixed(3) + ')');
+      g.addColorStop(0.08, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
+      g.addColorStop(0.22, 'rgba(0,0,0,' + (inten * 0.80).toFixed(3) + ')');
+      g.addColorStop(0.38, 'rgba(0,0,0,' + (inten * 0.58).toFixed(3) + ')');
+      g.addColorStop(0.56, 'rgba(0,0,0,' + (inten * 0.34).toFixed(3) + ')');
+      g.addColorStop(0.78, 'rgba(0,0,0,' + (inten * 0.13).toFixed(3) + ')');
       g.addColorStop(1.00, 'rgba(0,0,0,0)');
       bx.fillStyle = g;
       bx.fillRect(-r, -r, r*2, r*2);
