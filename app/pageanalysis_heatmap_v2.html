@@ -302,7 +302,9 @@
   .phone .heat-cv{position:absolute;left:0;top:0;width:100%;pointer-events:none;
                   transition:opacity .2s ease;z-index:2;}
   /* 区块只负责交互与标签，热度由 canvas 表达，因此自身不再着色 */
-  .phone .zone{position:absolute;box-sizing:border-box;border-radius:4px;background:transparent;font-size:11px;z-index:3;}
+  /* 1px 白色半透明描边勾出模块划分范围；box-sizing 已是 border-box，不占额外尺寸 */
+  .phone .zone{position:absolute;box-sizing:border-box;border-radius:4px;background:transparent;
+        border:1px solid rgba(255,255,255,.5);font-size:11px;z-index:3;}
   /* 标签左对齐到模块左上角，贴在模块上沿外侧；
      互相压住的那几个由 fitHots() 在渲染后错开 */
   .phone .zone .hot{position:absolute;left:0;top:0;transform:translateY(-55%);background:#fff;color:#1f2d3d;
@@ -310,6 +312,10 @@
         box-shadow:0 1px 3px rgba(0,0,0,.18);z-index:4;}
   /* 贴右边的模块改为靠右对齐，否则标签会向右探出机身 */
   .phone .zone .hot.hot-l{left:auto;right:0;}
+  /* 关掉热力层时描边一起收起。只改 border-color，不动 .zone 的 opacity——
+     标签 .hot 是 .zone 的子元素，透明化会把它一起带走，而标签有自己的开关。
+     选中/hover 用的是 outline，不受影响，隐藏热力时仍看得到选中框。 */
+  .phone.no-edge .zone{border-color:transparent;}
   .phone .zone.sel{outline:2px solid var(--brand);outline-offset:1px;box-shadow:0 0 0 4px rgba(0,178,255,.28);z-index:5;}
   .phone .zone.sel .hot{background:var(--brand);color:#fff;}
   .phone .zone.hover{outline:2px solid #ff3b30;outline-offset:1px;box-shadow:0 0 0 4px rgba(255,59,48,.25);z-index:6;}
@@ -1058,11 +1064,46 @@ function heatPalette(){
   g.addColorStop(0.70,'rgba(226,225,26,.86)');
   g.addColorStop(0.81,'rgba(255,188,10,.89)');
   g.addColorStop(0.91,'rgba(255,122,14,.91)');
-  g.addColorStop(1.00,'rgba(255,44,22,.93)');
+  g.addColorStop(1.00,'rgba(201,40,22,.93)');   /* #C92816 */
   x.fillStyle = g;
   x.fillRect(0,0,1,256);
   return x.getImageData(0,0,1,256).data;
 }
+
+/* 单点核：中心一小块满强度平台，往外按 (1-q)² 衰减。q 是归一化后的平方距离。
+   平台必不可少——纯 (1-q)² 的中心是个尖点，归一化后只有极小一圈能进红色区间，
+   实测发单按钮的红核只剩 1px。单椭圆版本的衰减曲线开头就有 8% 满强度平台，
+   红核尺寸正是那个平台撑出来的。平台半径 ∝ √P，实测 P=0.03 时红核 41px，
+   按 (33/41)² 折到 0.02，红核落回单椭圆版本的 33px 上下。
+   用平方距离查表省掉每像素一次 sqrt；有限支撑，不必为高斯长尾多算像素。 */
+const HEAT_KERNEL = (() => {
+  const lut = new Float32Array(257);
+  const P = 0.02;
+  for(let i = 0; i <= 256; i++){
+    const q = i / 256;
+    if(q <= P){ lut[i] = 1; continue; }
+    const u = (1 - q) / (1 - P);
+    lut[i] = u * u;
+  }
+  return lut;
+})();
+
+/* 确定性伪随机：同一区块每次渲染撒点位置一致，不会刷新一下形状就变 */
+function heatRand(seed){
+  let s = (seed * 9301 + 49297) % 233280;
+  return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
+}
+
+/* 高端压缩：归一化后的密度过一遍 γ。
+   多个核在中心重叠，不压的话一大片都贴着峰值，红核会比单椭圆版本还大。
+   实测：γ=1.9 红核只剩 15px、1.4 是 17px，都比单椭圆版本的 33px 小得多。
+   多核相邻时叠加峰值落在两核之间，主核中心的归一化值本就掉了一截，
+   再叠一道 γ 就压过头，所以只留 1.1 收一下高端。 */
+const HEAT_GAMMA = (() => {
+  const lut = new Float32Array(257);
+  for(let i = 0; i <= 256; i++) lut[i] = Math.pow(i / 256, 1.1);
+  return lut;
+})();
 
 function buildHeat(){
   document.querySelectorAll('.phone').forEach(ph => {
@@ -1089,54 +1130,139 @@ function buildHeat(){
     cv.width = W * dpr; cv.height = H * dpr;
     cv.style.height = H + 'px';
 
-    /* 1) 灰度层：每个区块一次椭圆径向渐变。
-       不在区块内铺高斯点——点间 alpha 累加会饱和，低点击率区块会和最高的一样红。
-       中心平台只占 8%，否则大区块（品类列表）会糊成一整片红。 */
-    const buf = document.createElement('canvas');
-    buf.width = cv.width; buf.height = cv.height;
-    const bx = buf.getContext('2d');
-    zones.forEach(z => {
-      const x0 = z.left/100 * cv.width,  y0 = z.top/100 * cv.height;
-      const w  = z.width/100 * cv.width, h  = z.height/100 * cv.height;
+    /* 1) 热度层：每个区块撒一组点，累加成密度场，再按峰值归一化。
+       这才是热力图该有的形态——多个热核彼此融合成团块，边缘没有明确轮廓线。
+       之前不敢铺点是怕 alpha 累加饱和（1.2% 会和 66% 一样红），
+       归一化解决了这件事：峰值恒等于 inten，只由点击率决定，与点数、区块大小无关。
+       注意撒点位置是伪随机的，所以形态像热力图，但形状本身不携带数据——
+       要让形状有依据，得埋点上报点击坐标。 */
+    const CW = cv.width, CH = cv.height;
+    const acc = new Float32Array(CW * CH);   /* 每像素热度 0~1，区块重叠处取最大值 */
+
+    zones.forEach((z, zi) => {
+      const x0 = z.left/100 * CW,  y0 = z.top/100 * CH;
+      const w  = z.width/100 * CW, h  = z.height/100 * CH;
       const inten = Math.max(0.12, Math.pow(z.rate / max, 0.5));
-      /* 半径放大一档让渐变往区块外扩散；离心率钳到 0.55 使红核保持圆形，
-         否则扁长区块（高速费条 98%x4.6%）的核心会被压成一条细线 */
+      const cx = x0 + w/2, cy = y0 + h/2;
+
+      /* 外缘沿用单椭圆版本的算法，覆盖范围才不会变：
+         半径放大一档让热度往区块外扩散；离心率钳到 0.55，否则扁长区块
+         （高速费条 98%x4.6%）会薄成一条线，钳住后能往短边外侧扩散开。 */
       const rx = Math.max(w * 0.66, 15 * dpr);
       const ry = Math.max(h * 0.66, 17 * dpr);
       const r  = Math.max(rx, ry);
-      bx.save();
-      bx.translate(x0 + w/2, y0 + h/2);
-      bx.scale(Math.max(rx / r, 0.55), Math.max(ry / r, 0.55));
-      const g = bx.createRadialGradient(0,0,0, 0,0, r);
-      /* 满强度平台收到 8%（原 15%），中心红核因此更小；
-         衰减切成 7 段贴近高斯曲线，段数少了会在节点处看出转折。
-         起点仍是满强度，颜色依旧由点击率决定，与区块大小无关。 */
-      g.addColorStop(0.00, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
-      g.addColorStop(0.08, 'rgba(0,0,0,' + inten.toFixed(3) + ')');
-      g.addColorStop(0.22, 'rgba(0,0,0,' + (inten * 0.80).toFixed(3) + ')');
-      g.addColorStop(0.38, 'rgba(0,0,0,' + (inten * 0.58).toFixed(3) + ')');
-      g.addColorStop(0.56, 'rgba(0,0,0,' + (inten * 0.34).toFixed(3) + ')');
-      g.addColorStop(0.78, 'rgba(0,0,0,' + (inten * 0.13).toFixed(3) + ')');
-      g.addColorStop(1.00, 'rgba(0,0,0,0)');
-      bx.fillStyle = g;
-      bx.fillRect(-r, -r, r*2, r*2);
-      bx.restore();
+      const sx = Math.max(rx / r, 0.55), sy = Math.max(ry / r, 0.55);
+      /* 把原先那一个大椭圆拆成「撒点范围 + 单点核」两截，两者之和仍是原外缘。
+         核也得是椭圆：用圆核的话，扁长区块只能按短边取半径，热区会缩成细带。 */
+      /* 每个区块 2~4 个核，串成一条链。
+         间距是这里唯一要紧的参数，单位取核半径 R：
+           < 1.0R  两核完全融合，又变回一个椭圆；
+           > 2.0R  散成互不相干的独立斑点，不像一片热区；
+           1.1~1.4R 相连但留出腰身，轮廓才有起伏。
+         随机撒点做不到这件事——中心极限定理会把一堆点叠成平滑钟形，
+         越撒越规则，所以间距必须显式控制。 */
+      const rnd = heatRand(zi + 1);
+      const uni = () => rnd() * 2 - 1;                     /* [-1,1] 均匀 */
+      /* 核数上限看短轴，不能看长轴 r：扁长区块（高速费条）长轴很大，
+         按长轴算会分到 4 个核，每个核被短轴压扁后红核只剩几个像素。
+         除数取 9 而不是 14——取 14 时几乎所有区块都落到 2 核，核数就没有变化了。 */
+      const maxK = Math.max(2, Math.min(4, Math.round(Math.min(rx, ry) / (9 * dpr))));
+      const K = 2 + Math.floor(rnd() * (maxK - 1));        /* 2 ~ maxK */
+
+      /* 核半径随核数缩小，使整条链的跨度仍等于原来单椭圆的直径，覆盖范围不变：
+         跨度 ≈ (K-1)*step*R + 2R，取 step≈1.25 反解 R */
+      const R = 2 * r / ((K - 1) * 1.25 + 2);
+
+      /* 先在「以 R 为单位」的相对坐标里连出链条 */
+      const chain = [{x: 0, y: 0}];
+      let ang = rnd() * 6.2832, px = 0, py = 0;
+      for(let i = 1; i < K; i++){
+        ang += uni() * 0.7;                                /* 每节转 ±40°，不走成直线也不绕回来 */
+        const step = 1.1 + rnd() * 0.3;
+        px += Math.cos(ang) * step; py += Math.sin(ang) * step;
+        chain.push({x: px, y: py});
+      }
+      /* 主核取链的中段，并且拿它（而不是链的重心）对齐区块中心。
+         主核是归一化后唯一进红色区间的那个，放在端点的话红核会跑到区块角上，
+         看图的人会以为热点在那个角。 */
+      const mainI = K >> 1;
+      const ox = chain[mainI].x, oy = chain[mainI].y;
+
+      const pts = [];
+      let xa = CW, xb = 0, ya = CH, yb = 0;
+      chain.forEach((c, i) => {
+        /* 主核要明显更大，不能只是权重更高：红核半径按核函数反解约等于 0.2×核半径，
+           而 R 随核数变小（K=4 时只有 28.7px），主核不放大的话红核只剩几个像素。
+           其余核抖动一下大小，整齐了轮廓会显得规整。 */
+        const jit = i === mainI ? 1.35 : 0.75 + 0.2 * rnd();
+        const p = {
+          x: cx + (c.x - ox) * R * sx, y: cy + (c.y - oy) * R * sy,
+          kx: R * sx * jit, ky: R * sy * jit,
+          /* 其余核依次淡一些，避免几个同强度的核并列、看着像重复图案 */
+          wgt: i === mainI ? 1 : 0.72 + 0.2 * rnd()
+        };
+        pts.push(p);
+        xa = Math.min(xa, Math.floor(p.x - p.kx)); xb = Math.max(xb, Math.ceil(p.x + p.kx));
+        ya = Math.min(ya, Math.floor(p.y - p.ky)); yb = Math.max(yb, Math.ceil(p.y + p.ky));
+      });
+      xa = Math.max(0, xa); xb = Math.min(CW - 1, xb);
+      ya = Math.max(0, ya); yb = Math.min(CH - 1, yb);
+      const bw = xb - xa + 1, bh = yb - ya + 1;
+      if(bw <= 0 || bh <= 0) return;
+
+      const den = new Float32Array(bw * bh);   /* 区块自己的密度缓冲 */
+      pts.forEach(p => {
+        const px0 = Math.max(xa, Math.floor(p.x - p.kx)), px1 = Math.min(xb, Math.ceil(p.x + p.kx));
+        const py0 = Math.max(ya, Math.floor(p.y - p.ky)), py1 = Math.min(yb, Math.ceil(p.y + p.ky));
+        for(let y = py0; y <= py1; y++){
+          const dy  = (y + 0.5 - p.y) / p.ky, dy2 = dy * dy;
+          if(dy2 >= 1) continue;
+          const row = (y - ya) * bw - xa;
+          for(let x = px0; x <= px1; x++){
+            const dx = (x + 0.5 - p.x) / p.kx;
+            const q  = dx * dx + dy2;
+            if(q >= 1) continue;
+            /* 取最大值而不是累加。累加会在两核之间叠出比主核平台更高的假峰值
+               （间距 1.1R 时中点算得 1.046 > 1.0），归一化基准被它占掉，
+               主核平台反而掉出红色区间——红核只剩 1px 且质心偏到两核之间。
+               取 max 后峰值恒在主核，核之间自然形成鞍部，多核感也更清楚。 */
+            const v = HEAT_KERNEL[(q * 256) | 0] * p.wgt;
+            if(v > den[row + x]) den[row + x] = v;
+          }
+        }
+      });
+
+      let peak = 0;
+      for(let i = 0; i < den.length; i++) if(den[i] > peak) peak = den[i];
+      if(peak <= 0) return;
+
+      for(let y = ya; y <= yb; y++){
+        const src = (y - ya) * bw - xa, dst = y * CW;
+        for(let x = xa; x <= xb; x++){
+          const u = den[src + x];
+          if(u <= 0) continue;
+          const a = HEAT_GAMMA[(u / peak * 256) | 0] * inten;
+          if(a > acc[dst + x]) acc[dst + x] = a;
+        }
+      }
     });
 
-    /* 2) 按 alpha 查色带上色 */
+    /* 2) 查色带上色。重叠处取最大值而不是累加：两个中等热度的区块相邻时，
+       累加会让交界处比真正的高热区块更红，凭空造出一个假热点。 */
     const pal = heatPalette();
-    const dat = bx.getImageData(0, 0, buf.width, buf.height);
+    const ctx = cv.getContext('2d');
+    const dat = ctx.createImageData(CW, CH);
     const d = dat.data;
-    for(let i = 0; i < d.length; i += 4){
-      const a = d[i+3];
-      if(!a) continue;
-      const p = a * 4;
-      d[i]   = pal[p];
-      d[i+1] = pal[p+1];
-      d[i+2] = pal[p+2];
-      d[i+3] = pal[p+3] * (a / 255);
+    for(let i = 0, p = 0; i < acc.length; i++, p += 4){
+      const a = acc[i];
+      if(a <= 0) continue;
+      const q = (a >= 1 ? 255 : (a * 255) | 0) * 4;
+      d[p]   = pal[q];
+      d[p+1] = pal[q+1];
+      d[p+2] = pal[q+2];
+      d[p+3] = pal[q+3] * a;
     }
-    cv.getContext('2d').putImageData(dat, 0, 0);
+    ctx.putImageData(dat, 0, 0);
   });
 }
 
@@ -1201,6 +1327,7 @@ function toggleHeat(btn){
   document.querySelectorAll('.phone .heat-cv, .phone .shot-mask').forEach(el=>{
     el.style.opacity = heatOn ? '' : '0';
   });
+  document.querySelectorAll('.phone').forEach(ph => ph.classList.toggle('no-edge', !heatOn));
   btn.classList.toggle('off', !heatOn);
   btn.style.opacity = heatOn ? '' : '.4';
 }
