@@ -29,10 +29,11 @@
     --tb-cell-fg:rgba(0,0,0,.65);  /* 单元格主文字 */
     --tb-cell-sub:rgba(0,0,0,.45); /* 单元格副文字 */
     --tb-row-hover:#fafbfc;        /* 行 hover 底色（同表头） */
-    --tb-row-active:#f5f8fb;       /* 345:12314 选中行底（设计稿值） */
-    --tb-row-radius:4px;           /* 选中行圆角：待设计稿校正，暂沿用表头的 4px */
+    --tb-row-active:#F0FCFF;       /* 选中行底色 */
+    --tb-row-radius:8px;           /* 选中行圆角 */
     --bar-track:#e4ebf1;           /* 进度条轨道 */
     --bar-sub:#aabecf;             /* 进度条副色（PV） */
+    --text-disabled:#a8adb3;       /* 关闭态文字/图标 */
     --font-num:Arial,"Helvetica Neue",Helvetica,sans-serif;
   }
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -236,7 +237,7 @@
      用 inset box-shadow 画边而非 border：border 在 border-collapse:collapse 下会与
      相邻行合并并改变行高列宽。box-shadow 与 background 都会被 border-radius 裁剪，
      所以圆角能同时作用在底色和描边上。
-     --tb-row-radius 为待校正值：设计稿表头圆角是 4px，这里沿用同一档。 */
+     描边取 --brand(#00B2FF)，底色 #F0FCFF，圆角 8px。 */
   #modTable tr.sel td{background:var(--tb-row-active);
       box-shadow:inset 0 1px 0 0 var(--brand),inset 0 -1px 0 0 var(--brand);}
   #modTable tr.sel td:first-child{
@@ -249,6 +250,12 @@
       border-bottom-right-radius:var(--tb-row-radius);
       box-shadow:inset 0 1px 0 0 var(--brand),inset 0 -1px 0 0 var(--brand),
                  inset -1px 0 0 0 var(--brand);}
+  /* 选中行上下的灰分割线让位给蓝框，否则蓝边紧贴着一条灰线，看着像双线。
+     自己那条是 border-bottom；上沿那条属于前一行，用 :has 选中「下一个兄弟是 .sel」的行。 */
+  #modTable tr.sel td{border-bottom-color:transparent;}
+  /* 单独成条：选择器列表里只要有一项无效，整条规则会被丢弃，
+     所以 :has 不能和上面那条写在一起 */
+  #modTable tr:has(+ tr.sel) td{border-bottom-color:transparent;}
   .flow-col tbody tr:hover td{background:var(--tb-row-hover);}
   /* 操作列「查看」：#00b2ff、PingFang SC Medium、无下划线（345:12342） */
   #modTable a{color:var(--brand);text-decoration:none;font-weight:500;}
@@ -274,16 +281,19 @@
     .mod-card{height:auto !important;}   /* 窄屏堆叠时取消同步高度 */
   }
 
-  /* 热力图工具按钮（Figma 右上两个 30x30 圆形） */
-  .hm-tools{margin-left:auto;display:flex;gap:16px;}
-  /* 30x30 圆底 #F4F7FA、描边 #17181A，与切图一致；svg 撑满按钮，图形由 viewBox 居中 */
-  .hm-ic{width:30px;height:30px;border-radius:50%;background:var(--bg-secondary);color:var(--text-primary);
-         display:flex;align-items:center;justify-content:center;cursor:pointer;transition:color .15s,opacity .15s;}
+  /* 热力图工具按钮：胶囊 + 图标 + 文案，底色沿用顶栏 tab 的 --nav-chip */
+  .hm-tools{margin-left:auto;display:flex;gap:12px;}
+  .hm-ic{height:34px;padding:0 14px;border-radius:var(--radius-pill);
+         background:var(--nav-chip);color:var(--text-primary);
+         display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+         font-size:14px;line-height:1;white-space:nowrap;
+         transition:color .15s,background .15s;}
   .hm-ic:hover{color:var(--brand);}
-  /* 关闭态只用颜色区分；覆盖 toggleHeat/toggleData 内联设置的 opacity:.4，
-     否则灰色与半透明叠加后按钮几乎看不见 */
-  .hm-ic.off{color:var(--text-secondary);opacity:1 !important;}
-  .hm-ic svg{width:30px;height:30px;display:block;}
+  /* 关闭态：图标与文案一起置灰，表示该图层当前是隐藏的 */
+  .hm-ic.off{color:var(--text-disabled);}
+  /* 原 svg 的图形只占 30x30 viewBox 中间约四成，直接缩到 18px 图形会小得看不清，
+     所以把 viewBox 裁到图形四周（7 7 16 16）再显示 18px */
+  .hm-ic svg{width:18px;height:18px;display:block;flex:none;}
   /* 图片 750x1624，300 宽等比 = 650 高（不拉伸）。卡片改为自然高度，无需再抢占剩余空间 */
   .phone-wrap{display:flex;justify-content:center;align-items:center;margin-top:12px;}
 
@@ -296,7 +306,7 @@
   .phone .shot-wrap{position:relative;width:100%;font-size:0;}
   /* 深色遮罩：压暗底图，热力色才能拉开对比 */
   .phone .shot-mask{position:absolute;left:0;top:0;width:100%;height:100%;
-                    background:#120D4A;opacity:.2;pointer-events:none;
+                    background:#120D4A;opacity:.1;pointer-events:none;
                     transition:opacity .2s ease;z-index:1;}
   /* 热力层：由各区块的点击率生成，见 buildHeat() */
   .phone .heat-cv{position:absolute;left:0;top:0;width:100%;pointer-events:none;
@@ -319,7 +329,10 @@
   .phone .zone.sel{outline:2px solid var(--brand);outline-offset:1px;box-shadow:0 0 0 4px rgba(0,178,255,.28);z-index:5;}
   .phone .zone.sel .hot{background:var(--brand);color:#fff;}
   .phone .zone.hover{outline:2px solid #ff3b30;outline-offset:1px;box-shadow:0 0 0 4px rgba(255,59,48,.25);z-index:6;}
-  .phone [data-mod]{cursor:pointer;transition:box-shadow .2s,outline .2s;}
+  /* outline 不能加 transition：未选中时 .zone 没有 outline，浏览器拿 outline-color
+     的初始值（继承来的深色文字色）去插值，那 0.2s 里会先闪一下黑再变蓝。
+     box-shadow 的过渡保留，它从 none 起步不会经过黑色。 */
+  .phone [data-mod]{cursor:pointer;transition:box-shadow .2s;}
 
   /* ===== 模块数据 / 页面行为数据 tab =====
      设计稿垂直节奏：卡片 padding-top 21 → tab 22 + 下划线区 12 → 间隙 19 → 表格 824 → 底 8 = 906 */
@@ -495,10 +508,12 @@
           <!-- 图形取自切图 Group 2130969471.svg（层叠）与 Group 2130969472.svg（眼睛）；
                圆形底交给 CSS 以便表达 hover / 关闭态，stroke 改 currentColor -->
           <span class="hm-ic" id="btnHeat" title="隐藏/显示热力色块" onclick="toggleHeat(this)">
-            <svg viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M21 16.3346L15 20.3346L9 16.3346M21 13.668L15 17.668L9 13.668L15 9.66797L21 13.668Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg viewBox="7 7 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M21 16.3346L15 20.3346L9 16.3346M21 13.668L15 17.668L9 13.668L15 9.66797L21 13.668Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>隐藏热力图</span>
           </span>
           <span class="hm-ic" id="btnData" title="隐藏/显示点击数据" onclick="toggleData(this)">
-            <svg viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M9.3912 16.1859C10.5775 17.3652 12.6464 18.9999 15.0001 18.9999C17.3539 18.9999 19.4224 17.3652 20.6086 16.1859C20.9215 15.8748 21.0785 15.7188 21.1781 15.4134C21.2492 15.1955 21.2492 14.8045 21.1781 14.5866C21.0785 14.2812 20.9215 14.1251 20.6086 13.8141C19.4224 12.6347 17.3539 11 15.0001 11C12.6464 11 10.5775 12.6347 9.3912 13.8141C9.07809 14.1253 8.92152 14.2811 8.82186 14.5866C8.75078 14.8045 8.75078 15.1955 8.82186 15.4134C8.92152 15.7189 9.07809 15.8746 9.3912 16.1859Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.6667 15C13.6667 15.7364 14.2636 16.3333 15 16.3333C15.7364 16.3333 16.3333 15.7364 16.3333 15C16.3333 14.2636 15.7364 13.6667 15 13.6667C14.2636 13.6667 13.6667 14.2636 13.6667 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg viewBox="7 7 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M9.3912 16.1859C10.5775 17.3652 12.6464 18.9999 15.0001 18.9999C17.3539 18.9999 19.4224 17.3652 20.6086 16.1859C20.9215 15.8748 21.0785 15.7188 21.1781 15.4134C21.2492 15.1955 21.2492 14.8045 21.1781 14.5866C21.0785 14.2812 20.9215 14.1251 20.6086 13.8141C19.4224 12.6347 17.3539 11 15.0001 11C12.6464 11 10.5775 12.6347 9.3912 13.8141C9.07809 14.1253 8.92152 14.2811 8.82186 14.5866C8.75078 14.8045 8.75078 15.1955 8.82186 15.4134C8.92152 15.7189 9.07809 15.8746 9.3912 16.1859Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.6667 15C13.6667 15.7364 14.2636 16.3333 15 16.3333C15.7364 16.3333 16.3333 15.7364 16.3333 15C16.3333 14.2636 15.7364 13.6667 15 13.6667C14.2636 13.6667 13.6667 14.2636 13.6667 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span>隐藏数据</span>
           </span>
         </div>
       </div>
@@ -625,7 +640,10 @@ const modules = [
   {name:'优惠banner', expo:20100, ctr:0.225, action:'查看', eventId:'usergrowth_create_journey_lift_promo_banner'},
   {name:'高速费',     expo:19400, ctr:0.123, action:'查看', eventId:'usergrowth_create_journey_lift_highway_fee'},
   {name:'电梯-组',   expo:18600, ctr:0.423, action:'点击和反选', eventId:'usergrowth_create_journey_lift_elevator_group'},
-  {name:'品类列表-组',   expo:18200, ctr:0.586, action:'点击和反选', eventId:'usergrowth_create_journey_lift_category_list'},
+  /* ctrUv 是指定值，用来覆盖由 ctr(PV) 和 repeat 推算的 UV 点击率。
+     这里要的 80.2% 反推不出合理参数：调 ctr 会超过 100%，调 repeat 会小于 1
+     （等于点击去重后反而变多），所以直接给定。 */
+  {name:'品类列表-组',   expo:18200, ctr:0.586, ctrUv:0.802, action:'点击和反选', eventId:'usergrowth_create_journey_lift_category_list'},
   {name:'券包',       expo:14800, ctr:0.423, action:'查看', eventId:'usergrowth_create_journey_lift_coupon_pack'},
   {name:'时间人数弹窗', expo:13600, ctr:0.423, action:'查看', eventId:'usergrowth_create_journey_lift_time_people'},
   {name:'代叫',       expo:13100, ctr:0.114, action:'查看', eventId:'usergrowth_create_journey_lift_call_for_other'},
@@ -633,6 +651,20 @@ const modules = [
   {name:'发单按钮',   expo:17900, ctr:0.543, action:'查看', eventId:'usergrowth_create_journey_lift_create_order'}
 ];
 function modClick(m){ return Math.round(m.expo*m.ctr); }
+/* UV 口径统一在这里算，表格和热力图标签共用，避免两处各算一套对不上。
+   曝光去重率 0.78，点击重复次数按模块查表。 */
+const MOD_REPEAT = {'品类列表':2.4,'品类列表-组':2.4,'商品列表':2.1,'电梯':1.8,'电梯-组':1.8,
+                    '时间人数弹窗':1.4,'地图':1.5,'返回':1.2};
+function modExpoUv(m){ return Math.round(m.expo*0.78); }
+function modCtrUv(m){
+  if(m.ctrUv != null) return m.ctrUv;
+  const eu = modExpoUv(m);
+  return eu>0 ? modClickUv(m)/eu : 0;
+}
+function modClickUv(m){
+  if(m.ctrUv != null) return Math.round(modExpoUv(m)*m.ctrUv);
+  return Math.max(1, Math.round(modClick(m)/(MOD_REPEAT[m.name] || 1.15)));
+}
 // 上游来源 / 下游去向（模拟数据）
 // 上下游流量明细（占比由 PV/UV 动态计算，展示 Top5 + 其他）
 const pageSources = [
@@ -718,14 +750,12 @@ function setModSort(key){
 }
 function renderModTable(){
   const canView = ['电梯-组','品类列表-组'];
-  const repeat = {'品类列表':2.4,'品类列表-组':2.4,'商品列表':2.1,'电梯':1.8,'电梯-组':1.8,'时间人数弹窗':1.4,'地图':1.5,'返回':1.2};
-  // 计算各模块行数据
+  // 计算各模块行数据（UV 口径走 modExpoUv/modClickUv/modCtrUv，与热力图标签同源）
   const rows = modules.map(m=>{
-    const expoPv = m.expo, expoUv = Math.round(m.expo*0.78);
+    const expoPv = m.expo, expoUv = modExpoUv(m);
     const clickPv = modClick(m);
-    const rep = repeat[m.name] || 1.15;
-    const clickUv = Math.max(1, Math.round(clickPv/rep));
-    const ctrUv = expoUv>0 ? clickUv/expoUv : 0;
+    const clickUv = modClickUv(m);
+    const ctrUv = modCtrUv(m);
     const ctrPv = expoPv>0 ? clickPv/expoPv : 0;
     return {m, expoPv, expoUv, clickPv, clickUv, ctrPv, ctrUv};
   });
@@ -790,7 +820,10 @@ function scrollWithin(el, box){
   if(e.top >= b.top && e.bottom <= b.bottom) return;     // 已完全可见
   box.scrollTop += (e.top < b.top) ? (e.top - b.top) : (e.bottom - b.bottom);
 }
-function selectModule(name){
+/* syncSankey：是否把「模块操作步骤」的起始模块也切过去。
+   热力图上点区块时传 false——那边只要高亮和表格定位，不该动桑基图；
+   表格行和「查看」链接仍走默认的联动。 */
+function selectModule(name, syncSankey = true){
   document.querySelectorAll('#modTable tr').forEach(tr=>tr.classList.toggle('sel', tr.dataset.name===name));
   document.querySelectorAll('.phone .zone').forEach(z=>z.classList.toggle('sel', z.dataset.mod===name));
   // 只在表格容器内部滚动。原先的 scrollIntoView 在容器不可滚时会冒泡到
@@ -798,7 +831,7 @@ function selectModule(name){
   scrollWithin(document.querySelector(`#modTable tr[data-name="${name}"]`),
                document.querySelector('#mdPane0 .md-scroll'));
   // 热力图手机图整幅可见，无需滚动（滚它只会带动整页）
-  showModSankey(name);
+  if(syncSankey) showModSankey(name);
 }
 // ===== 模块操作步骤桑基图（样式同路径分析，点击模块后以其为起始节点展开） =====
 let modSankeyChart, modLabelColorMap={};
@@ -909,7 +942,7 @@ function bindZoneClicks(){
   document.querySelectorAll('.phone').forEach(ph=>{
     ph.addEventListener('click', e=>{
       const z = e.target.closest('.zone[data-mod]');
-      if(z && ph.contains(z)) selectModule(z.dataset.mod);
+      if(z && ph.contains(z)) selectModule(z.dataset.mod, false);   /* 不联动桑基图 */
     });
     // hover 区块 -> 对应表格行进入 hover 态
     ph.addEventListener('mouseover', e=>{
@@ -1054,16 +1087,19 @@ function heatPalette(){
   c.width = 1; c.height = 256;
   const x = c.getContext('2d');
   const g = x.createLinearGradient(0,0,0,256);
-  g.addColorStop(0.00,'rgba(0,110,255,0)');
-  g.addColorStop(0.05,'rgba(0,150,255,.20)');
-  g.addColorStop(0.12,'rgba(0,188,255,.50)');
-  g.addColorStop(0.21,'rgba(0,212,224,.62)');
-  g.addColorStop(0.32,'rgba(0,226,172,.72)');
-  g.addColorStop(0.44,'rgba(74,231,116,.78)');
-  g.addColorStop(0.57,'rgba(158,234,66,.82)');
-  g.addColorStop(0.70,'rgba(226,225,26,.86)');
-  g.addColorStop(0.81,'rgba(255,188,10,.89)');
-  g.addColorStop(0.91,'rgba(255,122,14,.91)');
+  /* 蓝的三段（深蓝/蓝/青蓝）压在 0~0.15 之内，原先占到 0.24、蓝边铺得太宽。
+     缩的是它们在色带上占的区间，而不是整个热区尺度——后面的色相跟着前移，
+     绿往外顶上来补位，所以只有蓝边变窄，热区总范围不变。 */
+  g.addColorStop(0.00,'rgba(0,80,255,0)');
+  g.addColorStop(0.04,'rgba(0,110,255,.42)');   /* 深蓝，最外围 */
+  g.addColorStop(0.09,'rgba(0,155,255,.60)');   /* 蓝 */
+  g.addColorStop(0.15,'rgba(0,198,240,.70)');   /* 青蓝 */
+  g.addColorStop(0.26,'rgba(0,220,180,.76)');   /* 青绿 */
+  g.addColorStop(0.40,'rgba(74,231,116,.80)');
+  g.addColorStop(0.54,'rgba(158,234,66,.83)');
+  g.addColorStop(0.68,'rgba(226,225,26,.86)');
+  g.addColorStop(0.80,'rgba(255,188,10,.89)');
+  g.addColorStop(0.90,'rgba(255,122,14,.91)');
   g.addColorStop(1.00,'rgba(201,40,22,.93)');   /* #C92816 */
   x.fillStyle = g;
   x.fillRect(0,0,1,256);
@@ -1073,8 +1109,10 @@ function heatPalette(){
 /* 单点核：中心一小块满强度平台，往外按 (1-q)² 衰减。q 是归一化后的平方距离。
    平台必不可少——纯 (1-q)² 的中心是个尖点，归一化后只有极小一圈能进红色区间，
    实测发单按钮的红核只剩 1px。单椭圆版本的衰减曲线开头就有 8% 满强度平台，
-   红核尺寸正是那个平台撑出来的。平台半径 ∝ √P，实测 P=0.03 时红核 41px，
-   按 (33/41)² 折到 0.02，红核落回单椭圆版本的 33px 上下。
+   红核尺寸正是那个平台撑出来的。平台半径 ∝ √P。
+   核数升到 5~9 后 R 缩到原来的三分之二，加上 soft-max 的峰值会被核重叠抬高
+   （邻核半径 0.8~1.1R 必然盖住首核那块 0.3R 的平台，peak 被推到 1.3 上下，
+   首核平台的相对值因此掉出红色区间），两头夹击下 P 要提到 0.14 红核才够 30px。
    用平方距离查表省掉每像素一次 sqrt；有限支撑，不必为高斯长尾多算像素。 */
 const HEAT_KERNEL = (() => {
   const lut = new Float32Array(257);
@@ -1099,11 +1137,38 @@ function heatRand(seed){
    实测：γ=1.9 红核只剩 15px、1.4 是 17px，都比单椭圆版本的 33px 小得多。
    多核相邻时叠加峰值落在两核之间，主核中心的归一化值本就掉了一截，
    再叠一道 γ 就压过头，所以只留 1.1 收一下高端。 */
-const HEAT_GAMMA = (() => {
+/* 上色时的第二道衰减：让热区边缘淡出，不留硬边。
+   原先直接乘热度值本身（相当于指数 1.0），低端衰减太狠——位置 0.14 处
+   最多只能得到 1.0×0.14 的不透明度，色带里的蓝色再怎么调都是近乎透明，
+   于是画面上只看得到绿到红。改成 0.55 次幂后位置 0.14 能拿到 0.325，
+   蓝色才在最外围显出来。 */
+const HEAT_FADE = (() => {
   const lut = new Float32Array(257);
-  for(let i = 0; i <= 256; i++) lut[i] = Math.pow(i / 256, 1.1);
+  for(let i = 0; i <= 256; i++) lut[i] = Math.pow(i / 256, 0.55);
   return lut;
 })();
+
+/* γ 决定热区看起来铺多远。
+   γ>1 会把低密度区压暗：点云边缘本就点稀、密度低，再压一道就直接不可见，
+   所以热区半径从 0.66 提到 0.85 后画面几乎没变——真正卡住可见范围的是这里。
+   取 0.8（<1）反过来提亮中低密度区，热区自然往外铺开，边缘的青蓝带也宽出来。 */
+const HEAT_GAMMA = (() => {
+  const lut = new Float32Array(257);
+  for(let i = 0; i <= 256; i++) lut[i] = Math.pow(i / 256, 0.8);
+  return lut;
+})();
+
+/* 用 modules 的 UV 点击率刷新区块标签。
+   HTML 里 zone 标签原先硬编码的是 PV 值（品类列表-组 58.6%），与表格的 UV 列对不上；
+   改成在这里按 modCtrUv 统一生成，热力图的热度也就跟着走 UV 口径了。 */
+function syncZoneLabels(){
+  document.querySelectorAll('.phone .zone[data-mod]').forEach(z => {
+    const m = modules.find(x => x.name === z.dataset.mod);
+    const hot = z.querySelector('.hot');
+    if(!m || !hot) return;
+    hot.textContent = z.dataset.mod + ' ' + (modCtrUv(m) * 100).toFixed(1) + '%';
+  });
+}
 
 function buildHeat(){
   document.querySelectorAll('.phone').forEach(ph => {
@@ -1148,8 +1213,10 @@ function buildHeat(){
       /* 外缘沿用单椭圆版本的算法，覆盖范围才不会变：
          半径放大一档让热度往区块外扩散；离心率钳到 0.55，否则扁长区块
          （高速费条 98%x4.6%）会薄成一条线，钳住后能往短边外侧扩散开。 */
-      const rx = Math.max(w * 0.66, 15 * dpr);
-      const ry = Math.max(h * 0.66, 17 * dpr);
+      /* 系数从 0.66 提到 0.85，热区整体往区块外多扩一圈。
+         只动这个尺度，不碰 单点半径/点云半径 = 0.6 那个比值，核的形状就不变。 */
+      const rx = Math.max(w * 0.85, 18 * dpr);
+      const ry = Math.max(h * 0.85, 20 * dpr);
       const r  = Math.max(rx, ry);
       const sx = Math.max(rx / r, 0.55), sy = Math.max(ry / r, 0.55);
       /* 把原先那一个大椭圆拆成「撒点范围 + 单点核」两截，两者之和仍是原外缘。
@@ -1166,42 +1233,36 @@ function buildHeat(){
       /* 核数上限看短轴，不能看长轴 r：扁长区块（高速费条）长轴很大，
          按长轴算会分到 4 个核，每个核被短轴压扁后红核只剩几个像素。
          除数取 9 而不是 14——取 14 时几乎所有区块都落到 2 核，核数就没有变化了。 */
-      const maxK = Math.max(2, Math.min(4, Math.round(Math.min(rx, ry) / (9 * dpr))));
-      const K = 2 + Math.floor(rnd() * (maxK - 1));        /* 2 ~ maxK */
-
-      /* 核半径随核数缩小，使整条链的跨度仍等于原来单椭圆的直径，覆盖范围不变：
-         跨度 ≈ (K-1)*step*R + 2R，取 step≈1.25 反解 R */
-      const R = 2 * r / ((K - 1) * 1.25 + 2);
-
-      /* 先在「以 R 为单位」的相对坐标里连出链条 */
-      const chain = [{x: 0, y: 0}];
-      let ang = rnd() * 6.2832, px = 0, py = 0;
-      for(let i = 1; i < K; i++){
-        ang += uni() * 0.7;                                /* 每节转 ±40°，不走成直线也不绕回来 */
-        const step = 1.05 + rnd() * 0.25;                  /* 收到 1.05~1.30，核之间靠得更紧 */
-        px += Math.cos(ang) * step; py += Math.sin(ang) * step;
-        chain.push({x: px, y: py});
-      }
-      /* 主核取链的中段，并且拿它（而不是链的重心）对齐区块中心。
-         主核是归一化后唯一进红色区间的那个，放在端点的话红核会跑到区块角上，
-         看图的人会以为热点在那个角。 */
-      const mainI = K >> 1;
-      const ox = chain[mainI].x, oy = chain[mainI].y;
+      /* 撒几十个小点，累加成密度场——这就是标准热力图的算法。
+         之前拿 3~9 个大核拼形状，怎么调都不对：核少一定能看出构造（链式成长条、
+         环绕成花瓣、放大首核成「中心核+卫星」），而核大则峰值平坦，
+         红核要么是一条窄带要么连成一大片椭圆。
+         点多而小，峰值由点的局部聚集形成，红核自然又小又散，
+         轮廓也由点云边界决定，才是参考图那种有机形状。 */
+      /* 点云半径 R + 单点半径 0.6R = 1.6R，双侧 3.2R，令其等于原直径 */
+      const R = 2 * r / 3.2;
+      /* 点少或点小时峰值会是个尖刺，红核只剩十来个像素（实测 pr=0.35R 时 12px、
+         0.45R 时 16px）。峰值区的宽度取决于 单点半径/点云半径 这个比值，
+         所以单点要够大；点数则要够多，否则大点会退化成前面那种「几个大核」。 */
+      const N = 50 + Math.floor(rnd() * 40);              /* 50~90 个点 */
+      const pr = R * 0.6;
 
       const pts = [];
+      for(let i = 0; i < N; i++){
+        const a    = rnd() * 6.2832;
+        /* 指数决定点往哪聚：0.5 次幂是圆盘面积均匀，中心不突出，峰值会随机
+           落在边缘某处（实测红核质心偏出 33px）；取 0.9 让点适度向中心堆，
+           峰值才落在区块中心附近。1.0 以上就堆成一个规整的圆了。 */
+        const dist = Math.pow(rnd(), 0.8);
+        const jit  = 0.8 + rnd() * 0.4;
+        pts.push({
+          x: cx + Math.cos(a) * dist * R * sx,
+          y: cy + Math.sin(a) * dist * R * sy,
+          kx: pr * sx * jit, ky: pr * sy * jit, wgt: 1
+        });
+      }
       let xa = CW, xb = 0, ya = CH, yb = 0;
-      chain.forEach((c, i) => {
-        /* 主核要明显更大，不能只是权重更高：红核半径按核函数反解约等于 0.2×核半径，
-           而 R 随核数变小（K=4 时只有 28.7px），主核不放大的话红核只剩几个像素。
-           其余核抖动一下大小，整齐了轮廓会显得规整。 */
-        const jit = i === mainI ? 1.35 : 0.75 + 0.2 * rnd();
-        const p = {
-          x: cx + (c.x - ox) * R * sx, y: cy + (c.y - oy) * R * sy,
-          kx: R * sx * jit, ky: R * sy * jit,
-          /* 其余核依次淡一些，避免几个同强度的核并列、看着像重复图案 */
-          wgt: i === mainI ? 1 : 0.72 + 0.2 * rnd()
-        };
-        pts.push(p);
+      pts.forEach(p => {
         xa = Math.min(xa, Math.floor(p.x - p.kx)); xb = Math.max(xb, Math.ceil(p.x + p.kx));
         ya = Math.min(ya, Math.floor(p.y - p.ky)); yb = Math.max(yb, Math.ceil(p.y + p.ky));
       });
@@ -1222,20 +1283,18 @@ function buildHeat(){
             const dx = (x + 0.5 - p.x) / p.kx;
             const q  = dx * dx + dy2;
             if(q >= 1) continue;
-            /* 累加平方，取用时再开方（soft-max）。三种混合方式的差别：
-               直接累加——两核之间叠出比主核平台更高的假峰值（间距 1.1R 时中点
-                 算得 1.046 > 1.0），归一化基准被它占掉，主核平台反而掉出红色区间，
-                 红核只剩 1px 且质心偏到两核之间；
-               取最大值——峰值正确，但中点只等于各自衰减后的较大值（约 0.39），
-                 中间塌出低谷，几个核看着就成了互不相干的独立斑点；
-               平方和开方——中点填到约 0.84，明显相连；而邻核在主核中心的贡献是 0
-                 （间距大于邻核半径），峰值仍恒在主核，最坏情况也只到 0.84 < 1.0。 */
-            const v = HEAT_KERNEL[(q * 256) | 0] * p.wgt;
-            den[row + x] += v * v;
+            /* 直接累加。点足够多、单点足够小时，累加才是对的：
+               密度 = 单位面积内的点数，峰值自然落在点最密处。
+               当初改用 max 和 soft-max，是因为那时只有 3~9 个大核，
+               累加会在两核之间叠出比核心更高的假峰值；现在点密度本身就是信号，
+               饱和问题由后面按峰值归一化解决。 */
+            den[row + x] += HEAT_KERNEL[(q * 256) | 0] * p.wgt;
           }
         }
       });
 
+      /* 按实测峰值归一化：峰值只代表「这个区块最密的地方」，映射到 inten，
+         于是颜色仍由点击率决定，与点数、区块大小无关。 */
       let peak = 0;
       for(let i = 0; i < den.length; i++) if(den[i] > peak) peak = den[i];
       if(peak <= 0) return;
@@ -1245,9 +1304,7 @@ function buildHeat(){
         for(let x = xa; x <= xb; x++){
           const u = den[src + x];
           if(u <= 0) continue;
-          /* den 里存的是平方和，要开方才是 soft-max 值。
-             sqrt(u)/sqrt(peak) = sqrt(u/peak)，所以直接对比值开方即可。 */
-          const a = HEAT_GAMMA[(Math.sqrt(u / peak) * 256) | 0] * inten;
+          const a = HEAT_GAMMA[(u / peak * 256) | 0] * inten;
           if(a > acc[dst + x]) acc[dst + x] = a;
         }
       }
@@ -1266,7 +1323,9 @@ function buildHeat(){
       d[p]   = pal[q];
       d[p+1] = pal[q+1];
       d[p+2] = pal[q+2];
-      d[p+3] = pal[q+3] * a;
+      /* 不给 alpha 托底：托底会把最外圈那条等值线显式画出来，热区外沿变成
+         一道清晰边界，而不是慢慢化开。 */
+      d[p+3] = pal[q+3] * HEAT_FADE[(a >= 1 ? 256 : (a * 256) | 0)];
     }
     ctx.putImageData(dat, 0, 0);
   });
@@ -1328,14 +1387,25 @@ function fitHots(){
 
 // 隐藏/显示 热力层（含压暗底图的遮罩）
 let heatOn = true;
+
+/* 压暗底图的遮罩由两个开关共同决定：热力色块和数据气泡只要还留着一个，
+   遮罩就得在（气泡是白底，底图不压暗会糊在一起）；两个都关掉才让底图回原色。 */
+function syncShotMask(){
+  const keep = heatOn || dataOn;
+  document.querySelectorAll('.phone .shot-mask').forEach(el=>{
+    el.style.opacity = keep ? '' : '0';
+  });
+}
+
 function toggleHeat(btn){
   heatOn = !heatOn;
-  document.querySelectorAll('.phone .heat-cv, .phone .shot-mask').forEach(el=>{
+  document.querySelectorAll('.phone .heat-cv').forEach(el=>{
     el.style.opacity = heatOn ? '' : '0';
   });
   document.querySelectorAll('.phone').forEach(ph => ph.classList.toggle('no-edge', !heatOn));
+  syncShotMask();
+  /* 关闭态只切 class，置灰交给 .hm-ic.off；再叠内联 opacity 会灰得看不清 */
   btn.classList.toggle('off', !heatOn);
-  btn.style.opacity = heatOn ? '' : '.4';
 }
 // 隐藏/显示 点击数据气泡
 let dataOn = true;
@@ -1344,8 +1414,8 @@ function toggleData(btn){
   document.querySelectorAll('.phone .zone .hot').forEach(h=>{
     h.style.display = dataOn ? '' : 'none';
   });
+  syncShotMask();
   btn.classList.toggle('off', !dataOn);
-  btn.style.opacity = dataOn ? '' : '.4';
 }
 
 /* ============ 覆盖：模块数据 Tab 切换 ============ */
@@ -1533,7 +1603,8 @@ window.addEventListener('resize', ()=>{ if(modSankeyChart) modSankeyChart.resize
 (function(){
   const shot = document.querySelector('.phone .ph-shot');
   if(!shot) return;
-  const draw = () => { buildHeat(); fitHots(); };
+  /* 先把标签刷成 UV 口径再画热力图：buildHeat 的热度就是从标签文案里读的百分比 */
+  const draw = () => { syncZoneLabels(); buildHeat(); fitHots(); };
   if(shot.complete) draw();
   else shot.addEventListener('load', draw);
   window.addEventListener('resize', draw);
