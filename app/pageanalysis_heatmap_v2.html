@@ -340,7 +340,9 @@
   .md-tabs{display:flex;gap:40px;border-bottom:1px solid var(--tb-line);flex:none;}
   .md-tab{padding:0 0 9px;cursor:pointer;font-size:16px;font-weight:600;line-height:22px;
           color:var(--text-secondary);border-bottom:3px solid transparent;margin-bottom:-1px;}
-  .md-tab.on{color:var(--text-primary);border-bottom-color:var(--brand);}
+  /* 选中态不用品牌蓝：文字加深 + 同色下划线。
+     （若要改回 Ant Design 那种「选中文字与下划线都用主色」，把两处都换成 var(--brand)） */
+  .md-tab.on{color:var(--text-primary);border-bottom-color:var(--text-primary);}
   .md-pane{flex:1;min-height:0;display:flex;flex-direction:column;padding-top:19px;}
   .md-scroll{overflow:auto;width:100%;flex:1;min-height:0;}
 
