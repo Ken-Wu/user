@@ -233,6 +233,10 @@
         <label class="flt-label">终止页面</label>
         <div class="flt-ctl"><select class="sel" id="endPageSel"></select></div>
       </div>
+      <div class="flt">
+        <label class="flt-label">会话类型</label>
+        <div class="flt-ctl"><select class="sel"><option value="time">时间间隔（40分钟）</option><option value="order">订单</option></select></div>
+      </div>
       <div class="flt wide">
         <label class="flt-label">时间范围</label>
         <div class="flt-ctl">
@@ -530,12 +534,46 @@ function lockHover(lock){
     series:[{type:'sankey', emphasis: lock?{disabled:true}:{disabled:false, focus:'adjacency'}}] });
 }
 // 颜色：按页面类型(label)分配，跨步保持一致，形成连贯彩带
-const sankeyPalette = ['#8ea9f3','#b39ddb','#f48fb1','#80cbc4','#ffcc80','#90caf9','#ce93d8','#80deea','#bcaaa4','#9fa8da','#f6a5c0','#a5d6a7'];
+// 页面色板：对齐 userpath_demo.html(v1) 的柔和粉彩明度 —— 基准取 Material Design 200 级
+// v1 的 12 色（#B39DDB #F48FB1 #80CBC4 #FFCC80 #90CAF9 #CE93D8 #80DEEA #BCAAA4 #9FA8DA #A5D6A7 等）
+// 全部落在 200 级；v2 有 17 个页面，按色相环补齐到 17 个色 + 3 个备用色 = 20 色
+// 例外：Material 200 级的感知明度并不齐平，黄/黄绿/琥珀/浅绿的相对亮度达 0.68–0.89，
+// 其余色在 0.39–0.63，这四个在白底上几乎没对比（描边、填充都看不清），
+// 因此单独按同色相压到 ~0.60，与主群对齐；橙 200(0.66) 含红成分不发白，保留
+// 分配：先锁语义色（订单取消=Red、行程完成=Green），其余按「同列相邻不撞色」局部搜索
+const PAGE_COLOR_MAP = {
+  '平台首页':'#F0C860',   // 琥珀（200 级 #FFE082 相对亮度 0.76 太淡，压到 0.61）
+  '乘客首页':'#BCAAA4',   // Brown 200
+  '登录页':'#C3D46A',     // 黄绿（200 级 #E6EE9C 相对亮度 0.80 太淡，压到 0.60）
+  'POI页':'#B39DDB',      // Deep Purple 200
+  '询价页':'#80DEEA',     // Cyan 200
+  '发单动画':'#F48FB1',   // Pink 200
+  '等待接单页':'#80CBC4', // Teal 200
+  '确认同行页':'#FFCC80', // Orange 200
+  '风控预付页':'#CE93D8', // Purple 200
+  '支付页':'#90CAF9',     // Blue 200
+  '顺风车履约-待车主接单':'#B4D68E',     // 浅绿（200 级 #C5E1A5 相对亮度 0.68 偏淡，压到 0.60）
+  '顺风车履约-待乘客确认':'#9FA8DA',     // Indigo 200
+  '顺风车履约-待车主到达起点':'#DECF5C', // 黄（200 级 #FFF59D 相对亮度 0.89 最淡，压到 0.61）
+  '顺风车履约-待乘客上车':'#FFAB91',     // Deep Orange 200
+  '顺风车履约-待司乘到达终点':'#81D4FA', // Light Blue 200
+  '顺风车履约-行程完成':'#A5D6A7',       // Green 200，语义固定：完成 = 绿
+  '顺风车履约-订单取消':'#EF9A9A'        // Red 200，语义固定：异常 = 红
+};
+// 三档语义中性色：其他=浅蓝灰 / 更多=冷灰绿 / 终止=极浅蓝灰
+// key 用节点名 split('·') 后的实际值：'更多' 而非 '更多分组'，否则匹配不到会落到备用色
+const NEUTRAL_COLOR = {
+  '其他页面':'#D7DDE6',
+  '更多':'#DDE6E5', '更多分组':'#DDE6E5',
+  '终止':'#DFE3E9'
+};
+// 未登记页面的备用色（补足 20 色），沿用 v1 独有的两个 + 一个淡陶土色，与上表不撞色
+const sankeyPalette = ['#8EA9F3','#F6A5C0','#E6B8AF'];
 let labelColorMap = {};
 function hexRgba(hex,a){ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
 function colorForLabel(label){
-  if(label==='更多分组') return '#7cc18a';
-  if(label==='终止') return '#9aa3af';
+  if(NEUTRAL_COLOR[label]) return NEUTRAL_COLOR[label];   // 其他页面 / 更多分组 / 终止
+  if(PAGE_COLOR_MAP[label]) return PAGE_COLOR_MAP[label]; // 已登记页面走固定色
   if(!(label in labelColorMap)) labelColorMap[label] = sankeyPalette[Object.keys(labelColorMap).length % sankeyPalette.length];
   return labelColorMap[label];
 }
@@ -569,6 +607,8 @@ function renderSankey(){
     const label = n.name.split('·').pop();
     const c = colorForLabel(label);
     const dim = dimNode(n.name);
+    // 全部节点统一浅底描边：填充 0.18 + 同色纯色描边，中性节点不做加深处理
+    // 三个中性节点因此会很淡、几乎沉入背景，这是刻意的：它们不是分析重点
     return {
       name:n.name, value: nodeVal[n.name]||0,
       itemStyle:{ color: hexRgba(c, dim?0.06:0.18), borderColor:c, borderWidth:1.4, opacity: dim?0.3:1 },
@@ -581,7 +621,8 @@ function renderSankey(){
     const dim = (pathHL && !pathHL.linkKeys.has(l.source+'__'+l.target))
               || (multiHL && multiHL.links.size>0 && !multiHL.links.has(l.source+'__'+l.target));
     const sc = colorForLabel(l.source.split('·').pop());
-    if(l.loss) return {...l, lineStyle:{ color:grad(sc,'#9aa3af', dim?0.05:0.42) }};
+    // 流向终止的连线：渐变终点用「终止」原色，透明度压到 0.42，读起来就是「走到这儿断了」
+    if(l.loss) return {...l, lineStyle:{ color:grad(sc,NEUTRAL_COLOR['终止'], dim?0.05:0.42) }};
     const tc = colorForLabel(l.target.split('·').pop());
     return {...l, lineStyle:{ color:grad(sc,tc, dim?0.06:0.72) }};
   });

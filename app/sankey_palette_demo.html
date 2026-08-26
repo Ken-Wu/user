@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>桑基图配色方案 · 19 业务色 + 3 中性灰</title>
+<script src="echarts.min.js"></script>
+<script>if(!window.echarts){document.write('<scr'+'ipt src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"><\/scr'+'ipt>');}</script>
+<style>
+  /* ===== Design tokens：沿用 userpath_demo_v2 的设计变量 ===== */
+  :root{
+    --brand:#00b2ff;
+    --brand-hover:#00a1e6;
+    --brand-soft:#e6f7ff;
+    --border:#e6e8eb;
+    --text-primary:#17181a;
+    --text-secondary:#5e6266;
+    --bg-secondary:#f4f7fa;
+    --nav-chip:#f2f6fa;
+    --surface:#fff;
+    --radius-result:16px;
+    --radius-ctl:6px;
+    --radius-pill:100px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:var(--bg-secondary); color:var(--text-primary);
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,Arial,sans-serif;
+    font-size:14px; -webkit-font-smoothing:antialiased;
+    padding:24px 25px 60px;
+  }
+  .wrap{max-width:1400px;margin:0 auto;}
+
+  /* ===== 页头 ===== */
+  .page-head{display:flex;align-items:baseline;gap:12px;margin-bottom:6px;}
+  .page-title{font-size:20px;font-weight:600;letter-spacing:.2px;}
+  .page-sub{font-size:13px;color:var(--text-secondary);}
+  .page-note{font-size:12px;color:#9aa3af;margin-bottom:18px;}
+
+  /* ===== 卡片 ===== */
+  .card{background:var(--surface);border-radius:var(--radius-result);
+        box-shadow:0 2px 12px rgba(17,61,112,.06);padding:20px 22px;margin-bottom:18px;}
+  .card-head{display:flex;align-items:center;justify-content:space-between;
+             gap:12px;margin-bottom:4px;flex-wrap:wrap;}
+  .card-title{font-size:15px;font-weight:600;}
+  .card-desc{font-size:12px;color:var(--text-secondary);line-height:1.7;margin-bottom:14px;}
+
+  /* ===== 色卡网格 ===== */
+  .swatch-group-label{font-size:12px;font-weight:600;color:var(--text-secondary);
+                      margin:14px 0 10px;display:flex;align-items:center;gap:8px;}
+  .swatch-group-label::after{content:'';flex:1;height:1px;background:var(--border);}
+  .swatches{display:grid;grid-template-columns:repeat(auto-fill,minmax(148px,1fr));gap:10px;}
+  .sw{border:1px solid var(--border);border-radius:10px;overflow:hidden;cursor:pointer;
+      transition:transform .12s ease,box-shadow .12s ease;background:var(--surface);}
+  .sw:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(17,61,112,.12);}
+  .sw:focus-visible{outline:2px solid var(--brand);outline-offset:2px;}
+  .sw-chip{height:52px;display:flex;align-items:center;justify-content:space-between;
+           padding:0 10px;font-size:11px;font-weight:600;}
+  .sw-idx{opacity:.75;}
+  .sw-meta{padding:8px 10px 9px;}
+  .sw-name{font-size:12px;font-weight:500;line-height:1.4;}
+  .sw-hex{font-size:11px;color:var(--text-secondary);font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+          margin-top:2px;letter-spacing:.3px;}
+  .sw-page{font-size:11px;color:#9aa3af;margin-top:3px;line-height:1.35;}
+
+  /* ===== 控件 ===== */
+  .ctrls{display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+  .ctrl{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-secondary);}
+  .seg{display:flex;padding:3px;background:var(--nav-chip);border-radius:var(--radius-pill);gap:2px;}
+  .seg button{border:none;background:transparent;cursor:pointer;font-family:inherit;
+              font-size:12px;color:var(--text-secondary);padding:6px 14px;
+              border-radius:var(--radius-pill);transition:all .15s ease;}
+  .seg button.on{background:var(--surface);color:var(--text-primary);font-weight:600;
+                 box-shadow:0 1px 4px rgba(17,61,112,.12);}
+  input[type=range]{width:120px;accent-color:var(--brand);}
+  .switch{display:flex;align-items:center;gap:7px;cursor:pointer;user-select:none;}
+  .switch input{accent-color:var(--brand);width:15px;height:15px;cursor:pointer;}
+  .btn{border:1px solid var(--border);background:var(--surface);color:var(--text-secondary);
+       font-family:inherit;font-size:12px;padding:7px 14px;border-radius:var(--radius-ctl);
+       cursor:pointer;transition:all .15s ease;}
+  .btn:hover{border-color:var(--brand);color:var(--brand-hover);}
+  .val{font-variant-numeric:tabular-nums;color:var(--text-primary);min-width:30px;}
+
+  /* ===== 图表 ===== */
+  .chart-scroll{overflow-x:auto;margin-top:8px;}
+  #sankey{width:100%;height:760px;}
+
+  /* ===== 图例 ===== */
+  .legend{display:flex;gap:20px;flex-wrap:wrap;margin-top:14px;padding-top:14px;
+          border-top:1px solid var(--border);}
+  .lg{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-secondary);}
+  .lg-box{width:26px;height:14px;border-radius:3px;flex:none;}
+
+  /* ===== 说明表 ===== */
+  table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px;}
+  th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--border);vertical-align:top;}
+  th{color:var(--text-secondary);font-weight:600;background:var(--nav-chip);}
+  td code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:11px;
+          background:var(--nav-chip);padding:1px 5px;border-radius:3px;}
+
+  /* 复制成功提示 */
+  .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);
+         background:rgba(23,24,26,.92);color:#fff;font-size:12px;padding:9px 18px;
+         border-radius:var(--radius-pill);opacity:0;pointer-events:none;
+         transition:opacity .2s ease,transform .2s ease;z-index:200;}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="page-head">
+    <div class="page-title">桑基图配色方案</div>
+    <div class="page-sub">20 个 Material 200 级页面色 + 3 个语义中性色</div>
+  </div>
+  <div class="page-note">独立预览文件，不影响 userpath_demo_v2.html。桑基图数据为示例量级，用于验证配色在真实密度下的可读性。</div>
+
+  <!-- ============ 色板 ============ -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">色板总览</div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn" onclick="copyJS()">复制 JS 色板</button>
+        <button class="btn" onclick="copyJSON()">复制 JSON 映射</button>
+      </div>
+    </div>
+    <div class="card-desc">点击任意色卡复制色值。业务色以 Material Design 200 级为基准，与 userpath_demo.html 的柔和粉彩明度一致；黄 / 黄绿 / 琥珀 / 浅绿四色的 200 级过淡（相对亮度 0.68–0.89），已按同色相压到 ~0.60 与主群齐平。三档中性色明度接近、饱和度极低（浅蓝灰 / 冷灰绿 / 极浅蓝灰），整体沉入背景不与业务色抢注意力。</div>
+
+    <div class="swatch-group-label">业务页面色 · 20</div>
+    <div class="swatches" id="swBiz"></div>
+
+    <div class="swatch-group-label">语义中性灰 · 3</div>
+    <div class="swatches" id="swNeutral"></div>
+  </div>
+
+  <!-- ============ 桑基图 ============ -->
+  <div class="card">
+    <div class="card-head">
+      <div class="card-title">配色实测 · 用户路径桑基图</div>
+      <div class="ctrls">
+        <div class="ctrl">
+          <span>节点风格</span>
+          <div class="seg" id="segStyle">
+            <button data-v="solid">实心</button>
+            <button class="on" data-v="outline">浅底描边</button>
+          </div>
+        </div>
+        <div class="ctrl">
+          <span>连线透明度</span>
+          <input type="range" id="rgOpacity" min="10" max="60" value="32">
+          <span class="val" id="vOpacity">.32</span>
+        </div>
+        <label class="switch"><input type="checkbox" id="cbShape"><span>中性节点形态强化</span></label>
+      </div>
+    </div>
+    <div class="card-desc">
+      连线取两端节点色做渐变，一眼能读出「从哪来、去哪」。流向终止的连线额外降透明度，视觉上表现为「这条路走到这儿断了」。
+      流量过小、色块高度不足 16px 的节点会隐藏文字标签，避免串到相邻节点上，hover 可看明细。
+    </div>
+    <div class="chart-scroll"><div id="sankey"></div></div>
+    <div class="legend">
+      <div class="lg"><span class="lg-box" style="background:linear-gradient(90deg,#90CAF9,#A5D6A7)"></span>正常流转（渐变）</div>
+      <div class="lg"><span class="lg-box" style="background:linear-gradient(90deg,rgba(240,200,96,.5),rgba(223,227,233,.35))"></span>流向终止（淡化）</div>
+      <div class="lg"><span class="lg-box" style="background:#D7DDE6"></span>其他</div>
+      <div class="lg"><span class="lg-box" style="background:#DDE6E5;border:1px dashed #A8BEBB"></span>更多（虚线，可下钻）</div>
+      <div class="lg"><span class="lg-box" style="background:#DFE3E9"></span>终止</div>
+    </div>
+  </div>
+
+  <!-- ============ 使用规则 ============ -->
+  <div class="card">
+    <div class="card-title" style="margin-bottom:12px;">使用规则</div>
+    <table>
+      <thead><tr><th style="width:132px;">项</th><th>规则</th></tr></thead>
+      <tbody>
+        <tr><td>页面色稳定性</td><td>同一 pageId 在热力图、桑基图、页面清单里必须同色。已登记页面走 <code>PAGE_COLOR_MAP</code>，未登记页面按 pageId 做 hash 取模，保证多次渲染不变色。</td></tr>
+        <tr><td>连线颜色</td><td><code>lineStyle.color:'gradient'</code>，透明度 0.28–0.36。超过 0.4 时多条流带交叉处会出现脏色块。</td></tr>
+        <tr><td>中性色保留</td><td>三个中性色只给「其他 / 更多 / 终止」，不参与业务色轮转。业务页面再多也从 20 色里取，避免与语义节点混淆。</td></tr>
+        <tr><td>色相语义</td><td>三档明度接近（都是低饱和浅色）：其他=浅蓝灰、更多=冷灰绿、终止=极浅蓝灰。整体沉入背景，不与业务色抢注意力。</td></tr>
+        <tr><td>非颜色区分</td><td>三个中性色明度相近，颜色不承担主要区分职责：「更多」加虚线描边和 <code>›</code> 后缀，「终止」入边透明度降到正常值的 55%，靠形态与位置传递结构语义。</td></tr>
+        <tr><td>块内文字</td><td>按节点色相对亮度自动选深色 <code>#17181a</code> 或白色，保证对比度不低于 4.5:1，不用手工维护文字色表。</td></tr>
+        <tr><td>薄节点标签</td><td>按 <code>value / 最大列总量 × 可用高度</code> 估算色块高度，低于 16px 隐藏标签、16–26px 降到 10px 字号。硬放会串行重叠。</td></tr>
+        <tr><td>感知明度齐平</td><td>不要直接照搬 Material 同一级色。200 级里黄系相对亮度高达 0.89，蓝紫系只有 0.39，同级并不等于同明度。黄 / 黄绿 / 琥珀 / 浅绿已按同色相压到 ~0.60，保证白底上描边和填充都能看清。</td></tr>
+        <tr><td>相近色回避</td><td>全色板明度拉平后，紫系（紫 / 深紫 / 蓝紫）、暖黄系（黄 / 琥珀 / 橙）、绿系（绿 / 浅绿 / 黄绿）三组内部色差较小，排布时避免让同组色在相邻层级直接相接。</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ==================================================================
+   1. 色板定义
+   ================================================================== */
+// 对齐 userpath_demo.html(v1) 的柔和粉彩明度：基准 Material Design 200 级
+// v1 的 12 色全部落在 200 级，这里按色相环补齐到 17 个色（排除 Blue Grey，留给中性）
+// 再加 3 个备用色（v1 独有的蓝紫 / 玫粉 + 淡陶土）凑满 20 色
+// 例外：200 级的感知明度不齐平，黄 #FFF59D(0.89) / 黄绿 #E6EE9C(0.80) /
+// 琥珀 #FFE082(0.76) / 浅绿 #C5E1A5(0.68) 远高于主群(0.39–0.63)，白底上看不清，
+// 已按同色相压到 ~0.60；橙 200(0.66) 含红成分不发白，保留
+const PAGE_COLORS = [
+  '#EF9A9A','#F48FB1','#CE93D8','#B39DDB','#9FA8DA',
+  '#90CAF9','#81D4FA','#80DEEA','#80CBC4','#A5D6A7',
+  '#B4D68E','#C3D46A','#DECF5C','#F0C860','#FFCC80',
+  '#FFAB91','#BCAAA4','#8EA9F3','#F6A5C0','#E6B8AF'
+];
+
+// 语义节点专用，不参与业务色轮转
+// 三档明度接近：其他=浅蓝灰 / 更多=冷灰绿 / 终止=极浅蓝灰
+const NEUTRAL_COLORS = { other:'#D7DDE6', more:'#DDE6E5', terminated:'#DFE3E9' };
+
+// 色名 + 建议承载页面（顺风车主链路）
+const PALETTE_META = [
+  ['#EF9A9A','红 200','首页 united_homepage'],
+  ['#F48FB1','粉 200','地址搜索 address_search'],
+  ['#CE93D8','紫 200','询价页 create_journey_lift'],
+  ['#B39DDB','深紫 200','等待应答 wait_journey'],
+  ['#9FA8DA','靛蓝 200','支付页 wait_journey_payment'],
+  ['#90CAF9','蓝 200','行程中'],
+  ['#81D4FA','浅蓝 200','评价页'],
+  ['#80DEEA','青 200','订单列表'],
+  ['#80CBC4','蓝绿 200','订单详情'],
+  ['#A5D6A7','绿 200','取消退单页'],
+  ['#B4D68E','浅绿（压深）','优惠券页'],
+  ['#C3D46A','黄绿（压深）','登录注册'],
+  ['#DECF5C','黄（压深）','实名认证'],
+  ['#F0C860','琥珀（压深）','增值服务页'],
+  ['#FFCC80','橙 200','客服帮助'],
+  ['#FFAB91','深橙 200','消息中心'],
+  ['#BCAAA4','棕 200','个人中心'],
+  ['#8EA9F3','蓝紫（备用）','营销落地页'],
+  ['#F6A5C0','玫粉（备用）','分享页'],
+  ['#E6B8AF','淡陶土（备用）','活动页 / 未登记页面']
+];
+const NEUTRAL_META = [
+  ['#D7DDE6','其他','未归类页面聚合桶'],
+  ['#DDE6E5','更多','折叠占位，可展开下钻'],
+  ['#DFE3E9','终止','路径终点 / 流失']
+];
+
+// 页面名 → 固定色，保证跨图一致
+const PAGE_COLOR_MAP = {};
+PALETTE_META.forEach(([hex,,page])=>{
+  PAGE_COLOR_MAP[page.split(' ')[0]] = hex;   // 取中文页面名做 key
+});
+
+/* ==================================================================
+   2. 工具函数
+   ================================================================== */
+function hexRgba(hex,a){
+  const n = parseInt(hex.slice(1),16);
+  return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`;
+}
+// 相对亮度：决定块内文字用深色还是白色，避免手工维护文字色表
+function isLight(hex){
+  const n = parseInt(hex.slice(1),16);
+  const [r,g,b] = [(n>>16)&255,(n>>8)&255,n&255].map(v=>{
+    v/=255; return v<=0.03928 ? v/12.92 : Math.pow((v+0.055)/1.055,2.4);
+  });
+  // 阈值 0.199 = 白字与深字对比度相等的临界亮度，取更高的那一侧
+  return (0.2126*r+0.7152*g+0.0722*b) > 0.199;
+}
+const NEUTRAL_LABEL = {'其他':'other','更多':'more','终止':'terminated'};
+function colorOf(label){
+  if(NEUTRAL_LABEL[label]) return NEUTRAL_COLORS[NEUTRAL_LABEL[label]];
+  if(PAGE_COLOR_MAP[label]) return PAGE_COLOR_MAP[label];
+  // 未登记页面：按名称 hash 稳定取色，多次渲染不变
+  let h=0; for(let i=0;i<label.length;i++) h=(h*31+label.charCodeAt(i))>>>0;
+  return PAGE_COLORS[h % PAGE_COLORS.length];
+}
+function toast(msg){
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove('show'),1600);
+}
+function copy(text,msg){
+  navigator.clipboard?.writeText(text).then(()=>toast(msg))
+    .catch(()=>toast('复制失败，请手动选择'));
+}
+function copyJS(){
+  copy('const PAGE_COLORS = '+JSON.stringify(PAGE_COLORS,null,2)+';\n\n'+
+       'const NEUTRAL_COLORS = '+JSON.stringify(NEUTRAL_COLORS,null,2)+';',
+       '已复制 JS 色板');
+}
+function copyJSON(){
+  copy(JSON.stringify({pages:PAGE_COLOR_MAP,neutral:NEUTRAL_COLORS},null,2),'已复制 JSON 映射');
+}
+
+/* ==================================================================
+   3. 渲染色卡
+   ================================================================== */
+function renderSwatches(){
+  const build = (list, offset) => list.map(([hex,name,page],i)=>{
+    const light = isLight(hex);
+    const fg = light ? '#17181a' : '#fff';
+    return `<div class="sw" tabindex="0" role="button" aria-label="复制 ${name} ${hex}"
+              onclick="copy('${hex}','已复制 ${hex}')"
+              onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();copy('${hex}','已复制 ${hex}')}">
+        <div class="sw-chip" style="background:${hex};color:${fg}">
+          <span class="sw-idx">${offset+i+1}</span><span>${light?'深色字':'白色字'}</span>
+        </div>
+        <div class="sw-meta">
+          <div class="sw-name">${name}</div>
+          <div class="sw-hex">${hex.toUpperCase()}</div>
+          <div class="sw-page">${page}</div>
+        </div>
+      </div>`;
+  }).join('');
+  document.getElementById('swBiz').innerHTML = build(PALETTE_META,0);
+  document.getElementById('swNeutral').innerHTML = build(NEUTRAL_META,19);
+}
+renderSwatches();
+
+/* ==================================================================
+   4. 示例路径数据
+   节点命名 'S{步}·{页面名}'，label 取 · 后半段；同名页面跨步不冲突
+   ================================================================== */
+const RAW_LINKS = [
+  // S0 → S1
+  ['S0·首页','S1·地址搜索',420000],
+  ['S0·首页','S1·营销落地页',150000],
+  ['S0·首页','S1·订单列表',120000],
+  ['S0·首页','S1·消息中心',60000],
+  ['S0·首页','S1·个人中心',50000],
+  ['S0·首页','S1·其他',90000],
+  ['S0·首页','S1·终止',110000],
+  // S1 → S2
+  ['S1·地址搜索','S2·询价页',340000],
+  ['S1·地址搜索','S2·其他',30000],
+  ['S1·地址搜索','S2·终止',50000],
+  ['S1·营销落地页','S2·优惠券页',70000],
+  ['S1·营销落地页','S2·询价页',40000],
+  ['S1·营销落地页','S2·终止',40000],
+  ['S1·订单列表','S2·订单详情',80000],
+  ['S1·订单列表','S2·终止',40000],
+  ['S1·消息中心','S2·订单详情',25000],
+  ['S1·消息中心','S2·更多',20000],
+  ['S1·消息中心','S2·终止',15000],
+  ['S1·个人中心','S2·更多',25000],
+  ['S1·个人中心','S2·终止',25000],
+  ['S1·其他','S2·更多',40000],
+  ['S1·其他','S2·终止',50000],
+  // S2 → S3
+  ['S2·询价页','S3·等待应答',210000],
+  ['S2·询价页','S3·增值服务页',45000],
+  ['S2·询价页','S3·登录注册',30000],
+  ['S2·询价页','S3·终止',95000],
+  ['S2·优惠券页','S3·等待应答',20000],
+  ['S2·优惠券页','S3·终止',50000],
+  ['S2·订单详情','S3·客服帮助',25000],
+  ['S2·订单详情','S3·取消退单页',20000],
+  ['S2·订单详情','S3·分享页',15000],
+  ['S2·订单详情','S3·终止',45000],
+  ['S2·更多','S3·更多',60000],
+  ['S2·更多','S3·终止',25000],
+  ['S2·其他','S3·其他',12000],
+  ['S2·其他','S3·终止',18000],
+  // S3 → S4
+  ['S3·等待应答','S4·支付页',120000],
+  ['S3·等待应答','S4·行程中',40000],
+  ['S3·等待应答','S4·取消退单页',25000],
+  ['S3·等待应答','S4·终止',45000],
+  ['S3·增值服务页','S4·支付页',25000],
+  ['S3·增值服务页','S4·终止',20000],
+  ['S3·登录注册','S4·实名认证',18000],
+  ['S3·登录注册','S4·终止',12000],
+  ['S3·客服帮助','S4·终止',25000],
+  ['S3·取消退单页','S4·终止',20000],
+  ['S3·分享页','S4·终止',15000],
+  ['S3·更多','S4·终止',60000],
+  ['S3·其他','S4·终止',12000],
+  // S4 → S5
+  ['S4·支付页','S5·行程中',100000],
+  ['S4·支付页','S5·终止',45000],
+  ['S4·行程中','S5·评价页',22000],
+  ['S4·行程中','S5·终止',18000],
+  ['S4·取消退单页','S5·终止',25000],
+  ['S4·实名认证','S5·终止',18000]
+];
+
+const labelOf = n => n.split('·').pop();
+const depthOf = n => +n.slice(1, n.indexOf('·'));
+
+// 构建节点：按 step 升序，step 内业务节点在前、中性节点沉底
+function buildNodes(){
+  const seen = new Set(), byStep = {};
+  RAW_LINKS.forEach(([s,t])=>{
+    [s,t].forEach(n=>{
+      if(seen.has(n)) return;
+      seen.add(n);
+      (byStep[depthOf(n)] ||= []).push(n);
+    });
+  });
+  const order = ['其他','更多','终止'];  // 中性节点排到列底部
+  const nodes = [];
+  Object.keys(byStep).map(Number).sort((a,b)=>a-b).forEach(d=>{
+    byStep[d].sort((a,b)=>{
+      const ia = order.indexOf(labelOf(a)), ib = order.indexOf(labelOf(b));
+      return (ia<0?-1:ia) - (ib<0?-1:ib);
+    });
+    byStep[d].forEach(n=>nodes.push({name:n, depth:d}));
+  });
+  return nodes;
+}
+
+/* ==================================================================
+   5. 渲染桑基图
+   ================================================================== */
+let chart, nodeStyle='outline', linkOpacity=0.32, shapeHint=false;
+const nodeVal = {}, outSum = {};
+RAW_LINKS.forEach(([s,t,v])=>{
+  outSum[s] = (outSum[s]||0)+v;
+  nodeVal[t] = (nodeVal[t]||0)+v;
+});
+Object.keys(outSum).forEach(n=>{ nodeVal[n] = Math.max(nodeVal[n]||0, outSum[n]); });
+const ROOT_PV = nodeVal['S0·首页'];
+
+function render(){
+  if(!chart) chart = echarts.init(document.getElementById('sankey'));
+  const nodes = buildNodes();
+
+  // 先定画布尺寸：节点高度由 sankey 按全局最紧的列归一，据此估算能否放下标签
+  const el = document.getElementById('sankey');
+  const stepCount = Math.max(...nodes.map(n=>n.depth)) + 1;
+  const perStep = {}, colSum = {};
+  nodes.forEach(n=>{
+    perStep[n.depth] = (perStep[n.depth]||0)+1;
+    colSum[n.depth]  = (colSum[n.depth]||0)+(nodeVal[n.name]||0);
+  });
+  const maxCol    = Math.max(...Object.values(perStep));
+  const maxColSum = Math.max(...Object.values(colSum));
+  // 高度给足：主链路末端节点（如评价页）流量小，画布太矮会被判成薄节点丢标签
+  const chartH = Math.max(880, maxCol*98);
+  const wrapW  = el.parentElement ? el.parentElement.clientWidth : el.clientWidth;
+  el.style.width  = Math.max(wrapW, stepCount*185) + 'px';
+  el.style.height = chartH + 'px';
+  chart.resize();
+  const availH = chartH - 20 - (maxCol-1)*12;         // 减去 top/bottom 和列内间隙
+  const estH   = v => (v||0) / maxColSum * availH;    // 节点估算像素高度
+
+  const styledNodes = nodes.map(n=>{
+    const label = labelOf(n.name), c = colorOf(label);
+    const isMore = label==='更多';
+    const solid = nodeStyle==='solid';
+    const item = solid
+      ? { color:c, borderWidth:0 }
+      : { color:hexRgba(c,0.18), borderColor:c, borderWidth:1.4 };
+    // 「更多」加虚线描边：不单独依赖颜色表达「可展开」
+    if(isMore && shapeHint){
+      // 描边取「更多」色的同色相加深版（冷灰绿），浅底填充下才看得见虚线
+      item.borderColor = solid ? '#7C918E' : '#A8BEBB';
+      item.borderWidth = 1.4;
+      item.borderType = 'dashed';
+    }
+    const fg = solid ? (isLight(c) ? '#17181a' : '#fff') : '#3a4554';
+    // 节点太薄时标签放不下，硬放会串到相邻节点上；隐藏后靠 hover tooltip 读数
+    const h = estH(nodeVal[n.name]);
+    return {
+      name:n.name, depth:n.depth, value:nodeVal[n.name]||0,
+      itemStyle:item,
+      label:{
+        show: h >= 16,
+        color:fg, fontSize: h >= 26 ? 12 : 10,
+        position:'inside', overflow:'truncate',
+        // 轻微投影：中饱和底色上把字提亮一档，不改变对比度达标结论
+        textShadowColor: fg==='#fff' ? 'rgba(0,0,0,.35)' : 'rgba(255,255,255,.45)',
+        textShadowBlur: 2,
+        formatter: p => labelOf(p.name) + (isMore && shapeHint ? ' ›' : '')
+      }
+    };
+  });
+
+  const grad = (c1,c2,a)=>({type:'linear',x:0,y:0,x2:1,y2:0,
+    colorStops:[{offset:0,color:hexRgba(c1,a)},{offset:1,color:hexRgba(c2,a)}]});
+
+  const styledLinks = RAW_LINKS.map(([s,t,v])=>{
+    const sc = colorOf(labelOf(s)), tc = colorOf(labelOf(t));
+    const toEnd = labelOf(t)==='终止';
+    // 流向终止的连线压到 55%，读起来就是「走到这儿断了」
+    const a = toEnd && shapeHint ? linkOpacity*0.55 : linkOpacity;
+    return {source:s, target:t, value:v, lineStyle:{color:grad(sc,tc,a), curveness:0.5}};
+  });
+
+  chart.setOption({
+    tooltip:{
+      trigger:'item', triggerOn:'mousemove',
+      formatter:p=>{
+        const fmt = v => (v||0).toLocaleString();
+        if(p.dataType==='edge'){
+          const rate = outSum[p.data.source] ? p.data.value/outSum[p.data.source] : 0;
+          return `${labelOf(p.data.source)} → ${labelOf(p.data.target)}<br/>`+
+                 `PV：<b>${fmt(p.data.value)}</b><br/>转化率：${(rate*100).toFixed(1)}%`;
+        }
+        const pv = nodeVal[p.name]||0;
+        return `<b>${labelOf(p.name)}</b> · 第 ${depthOf(p.name)} 步<br/>`+
+               `PV：${fmt(pv)}<br/>占起始流量：${(pv/ROOT_PV*100).toFixed(1)}%`;
+      }
+    },
+    series:[{
+      type:'sankey', left:8, right:8, top:10, bottom:10,
+      nodeWidth:104, nodeGap:12, nodeAlign:'left',
+      layoutIterations:0,          // 保持 data 顺序，让中性节点稳定沉底
+      draggable:false,
+      emphasis:{focus:'adjacency'},
+      data:styledNodes, links:styledLinks
+    }]
+  }, true);
+}
+render();
+window.addEventListener('resize', ()=>{ if(chart) render(); });
+
+/* ==================================================================
+   6. 交互
+   ================================================================== */
+document.getElementById('segStyle').addEventListener('click', e=>{
+  const btn = e.target.closest('button'); if(!btn) return;
+  [...e.currentTarget.children].forEach(b=>b.classList.toggle('on', b===btn));
+  nodeStyle = btn.dataset.v; render();
+});
+document.getElementById('rgOpacity').addEventListener('input', e=>{
+  linkOpacity = +e.target.value/100;
+  document.getElementById('vOpacity').textContent = linkOpacity.toFixed(2).replace('0.','.');
+  render();
+});
+document.getElementById('cbShape').addEventListener('change', e=>{
+  shapeHint = e.target.checked; render();
+});
+</script>
+</body>
+</html>
