@@ -119,22 +119,25 @@
   /* ===== 节点点击信息浮层 ===== */
   .node-pop { position:fixed; z-index:60; width:264px; background:#fff; border:1px solid #e6e9ef; border-radius:10px; box-shadow:0 12px 32px rgba(31,45,61,.2); display:none; overflow:hidden; }
   .node-pop.show { display:block; }
-  .np-hd { padding:11px 14px; border-bottom:1px solid #eef1f5; font-weight:600; font-size:14px; color:#1f2d3d; display:flex; justify-content:space-between; align-items:center; }
-  .np-close { color:#b0bac7; cursor:pointer; font-size:18px; line-height:1; }
+  /* 节点弹窗（Modal/Basic 卡片样式） */
+  .node-pop { position:absolute; z-index:99; display:none; width:360px;
+    background:#fff; border-radius:16px; box-shadow:0 8px 32px rgba(31,45,61,.14), 0 2px 8px rgba(0,0,0,.06); overflow:hidden; }
+  .np-hd { padding:14px 18px 10px; font-weight:700; font-size:16px; color:#1f2d3d; display:flex; justify-content:space-between; align-items:center; }
+  .np-close { color:#b0bac7; cursor:pointer; font-size:20px; line-height:1; }
   .np-close:hover { color:#d03050; }
-  .np-thumb { height:128px; background:linear-gradient(135deg,#eef2fb,#f7f9fc); border-bottom:1px solid #eef1f5; position:relative; display:flex; align-items:center; justify-content:center; }
-  .np-mock { width:78px; background:#fff; border:1px solid #e2e8f2; border-radius:8px; padding:8px 8px 10px; box-shadow:0 2px 8px rgba(31,45,61,.08); }
-  .np-mock .m-bar { height:10px; background:#8ea9f3; border-radius:3px; margin-bottom:6px; }
-  .np-mock .m-line { height:5px; background:#e2e8f2; border-radius:3px; margin-bottom:4px; }
+  .np-body { display:flex; gap:14px; padding:0 18px 14px; align-items:flex-start; }
+  .np-thumb { width:100px; height:180px; flex:none; background:#f7f9fc; border-radius:10px; border:1px solid #eef1f5; position:relative; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+  .np-mock { width:68px; background:#fff; border:1px solid #e2e8f2; border-radius:6px; padding:6px; box-shadow:0 1px 4px rgba(31,45,61,.06); }
+  .np-mock .m-bar { height:8px; background:#8ea9f3; border-radius:3px; margin-bottom:5px; }
+  .np-mock .m-line { height:4px; background:#e2e8f2; border-radius:2px; margin-bottom:3px; }
   .np-mock .m-line.short { width:60%; }
-  .np-mock .m-block { height:22px; background:#f0f3fa; border-radius:4px; margin:6px 0; }
-  .np-mock .m-btn { height:9px; width:50%; background:#ffcc80; border-radius:3px; margin-top:6px; }
-  .np-thumb-tag { position:absolute; right:8px; bottom:6px; font-size:11px; color:#95a3b3; background:rgba(255,255,255,.75); padding:1px 6px; border-radius:8px; }
-  .np-stats { padding:12px 14px; display:flex; flex-direction:column; gap:9px; }
-  .np-stat { display:flex; justify-content:space-between; font-size:13px; }
-  .np-stat .k { color:#7f8c9b; } .np-stat .v { font-weight:600; color:#1f2d3d; }
-  .np-acts { padding:10px 12px; border-top:1px solid #eef1f5; display:flex; gap:8px; }
-  .np-btn { flex:1; padding:7px 0; border-radius:6px; font-size:12px; cursor:pointer; border:1px solid #d7dce5; background:#fff; color:#2c3e50; text-align:center; white-space:nowrap; }
+  .np-mock .m-block { height:18px; background:#f0f3fa; border-radius:3px; margin:5px 0; }
+  .np-mock .m-btn { height:7px; width:50%; background:#ffcc80; border-radius:3px; margin-top:5px; }
+  .np-stats { flex:1; display:flex; flex-direction:column; gap:10px; padding-top:4px; }
+  .np-stat { display:flex; justify-content:space-between; align-items:baseline; font-size:13px; }
+  .np-stat .k { color:#7f8c9b; } .np-stat .v { font-weight:600; color:#1f2d3d; font-size:14px; }
+  .np-acts { padding:12px 18px 16px; display:flex; gap:10px; }
+  .np-btn { flex:1; padding:9px 0; border-radius:8px; font-size:13px; font-weight:500; cursor:pointer; border:1px solid #d7dce5; background:#fff; color:#2c3e50; text-align:center; white-space:nowrap; }
   .np-btn.primary { background:#2f6fed; border-color:#2f6fed; color:#fff; }
   .np-btn:hover { opacity:.88; }
   /* KPI 卡片 */
@@ -839,23 +842,24 @@
 <!-- 节点点击信息浮层 -->
 <div class="node-pop" id="nodePop">
   <div class="np-hd"><span id="npName">页面</span><span class="np-close" onclick="closeNodePop()">×</span></div>
-  <div class="np-thumb">
-    <div class="np-mock">
-      <div class="m-bar"></div><div class="m-line"></div><div class="m-line short"></div>
-      <div class="m-block"></div><div class="m-line"></div><div class="m-btn"></div>
+  <div class="np-body">
+    <div class="np-thumb">
+      <div class="np-mock">
+        <div class="m-bar"></div><div class="m-line"></div><div class="m-line short"></div>
+        <div class="m-block"></div><div class="m-line"></div><div class="m-btn"></div>
+      </div>
     </div>
-    <span class="np-thumb-tag" id="npThumbName">页面缩略图</span>
-  </div>
-  <div class="np-stats">
-    <div class="np-stat"><span class="k">日均页面总 PV</span><span class="v" id="npTotalPv">-</span></div>
-    <div class="np-stat"><span class="k">日均页面总 UV</span><span class="v" id="npTotalUv">-</span></div>
-    <div class="np-stat"><span class="k">当前节点日均 PV</span><span class="v" id="npPv">-</span></div>
-    <div class="np-stat"><span class="k">当前节点日均终止 PV</span><span class="v" id="npLoss">-</span></div>
-    <div class="np-stat"><span class="k">终止率</span><span class="v" id="npRate">-</span></div>
+    <div class="np-stats">
+      <div class="np-stat"><span class="k">日均页面总UV</span><span class="v" id="npTotalUv">-</span></div>
+      <div class="np-stat"><span class="k">当前节点日均PV</span><span class="v" id="npTotalPv">-</span></div>
+      <div class="np-stat"><span class="k">节点日均PV</span><span class="v" id="npPv">-</span></div>
+      <div class="np-stat"><span class="k">节点日均终止PV</span><span class="v" id="npLoss">-</span></div>
+      <div class="np-stat"><span class="k">终止率</span><span class="v" id="npRate">-</span></div>
+    </div>
   </div>
   <div class="np-acts">
-    <div class="np-btn primary" id="npHlBtn" onclick="onHlBtn()">高亮节点</div>
-    <div class="np-btn" onclick="drillNode()">查看页面详情</div>
+    <div class="np-btn" id="npHlBtn" onclick="onHlBtn()">高亮节点</div>
+    <div class="np-btn primary" onclick="drillNode()">查看页面数据</div>
   </div>
 </div>
 

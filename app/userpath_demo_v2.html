@@ -152,30 +152,34 @@
   #sankey{width:100%;height:760px;}
 
   /* ===== 节点浮层（沿用原 demo） ===== */
-  .node-pop{position:fixed;z-index:200;width:264px;   /* 高于 sticky 顶栏(100)，避免浮层被遮挡 */background:#fff;border:1px solid var(--border);border-radius:10px;
-            box-shadow:0 12px 32px rgba(23,24,26,.18);display:none;overflow:hidden;}
+  .node-pop{position:fixed;z-index:200;width:360px;background:#fff;border-radius:16px;
+            box-shadow:0 8px 32px rgba(31,45,61,.14), 0 2px 8px rgba(0,0,0,.06);display:none;overflow:hidden;}
   .node-pop.show{display:block;}
-  .np-hd{padding:11px 14px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px;
-         color:var(--text-primary);display:flex;justify-content:space-between;align-items:center;}
-  .np-close{color:#b0bac7;cursor:pointer;font-size:18px;line-height:1;}
+  .np-hd{padding:14px 18px 10px;font-weight:700;font-size:16px;
+         color:var(--text-primary);display:flex;justify-content:space-between;align-items:center;
+         border-bottom:1px solid #F0F0F0;padding-bottom:12px;}
+  .np-close{color:#b0bac7;cursor:pointer;font-size:20px;line-height:1;}
   .np-close:hover{color:#d03050;}
-  .np-thumb{height:128px;background:linear-gradient(135deg,#eef7fd,#f7fbfe);border-bottom:1px solid var(--border);
-            position:relative;display:flex;align-items:center;justify-content:center;}
-  .np-mock{width:78px;background:#fff;border:1px solid var(--border);border-radius:8px;padding:8px 8px 10px;
-           box-shadow:0 2px 8px rgba(23,24,26,.08);}
-  .np-mock .m-bar{height:10px;background:var(--brand);border-radius:3px;margin-bottom:6px;}
-  .np-mock .m-line{height:5px;background:#e8eef4;border-radius:3px;margin-bottom:4px;}
+  .np-body{display:flex;gap:16px;padding:14px 18px 0 0;align-items:stretch;}
+  .np-thumb{width:102px;flex:none;background:rgba(245,250,253,0.8);padding:10px 5px;
+            position:relative;display:flex;align-items:center;justify-content:center;overflow:hidden;
+            margin-top:-14px;}
+  .np-thumb img{width:70px;border-radius:4px;
+    box-shadow:0 4px 12px rgba(31,45,61,.12), 0 1px 3px rgba(0,0,0,.06);display:block;}
+  .np-thumb .np-mock-wrap{width:70px;padding:6px;background:#fff;border-radius:6px;
+    box-shadow:0 4px 12px rgba(31,45,61,.12), 0 1px 3px rgba(0,0,0,.06);}
+  .np-mock{width:100%;background:#fff;border:1px solid #e8eef4;border-radius:5px;padding:5px;}
+  .np-mock .m-bar{height:6px;background:var(--brand);border-radius:2px;margin-bottom:4px;}
+  .np-mock .m-line{height:3px;background:#e8eef4;border-radius:2px;margin-bottom:3px;}
   .np-mock .m-line.short{width:60%;}
-  .np-mock .m-block{height:22px;background:#f1f5f9;border-radius:4px;margin:6px 0;}
-  .np-mock .m-btn{height:9px;width:50%;background:#ffcc80;border-radius:3px;margin-top:6px;}
-  .np-thumb-tag{position:absolute;right:8px;bottom:6px;font-size:11px;color:var(--text-secondary);
-                background:rgba(255,255,255,.75);padding:1px 6px;border-radius:8px;}
-  .np-stats{padding:12px 14px;display:flex;flex-direction:column;gap:9px;}
-  .np-stat{display:flex;justify-content:space-between;font-size:13px;}
+  .np-mock .m-block{height:14px;background:#f1f5f9;border-radius:3px;margin:4px 0;}
+  .np-mock .m-btn{height:6px;width:50%;background:#ffcc80;border-radius:2px;margin-top:4px;}
+  .np-stats{flex:1;display:flex;flex-direction:column;gap:10px;padding-top:4px;}
+  .np-stat{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;}
   .np-stat .k{color:var(--text-secondary);}
-  .np-stat .v{font-weight:600;color:var(--text-primary);}
-  .np-acts{padding:10px 12px;border-top:1px solid var(--border);display:flex;gap:8px;}
-  .np-btn{flex:1;padding:7px 0;border-radius:var(--radius-ctl);font-size:12px;cursor:pointer;
+  .np-stat .v{font-weight:600;color:var(--text-primary);font-size:14px;}
+  .np-acts{padding:12px 18px 16px;border-top:1px solid #F0F0F0;display:flex;gap:10px;}
+  .np-btn{flex:1;padding:9px 0;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;
           border:1px solid var(--border);background:#fff;color:var(--text-primary);text-align:center;white-space:nowrap;}
   .np-btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;}
   .np-btn:hover{opacity:.88;}
@@ -305,23 +309,27 @@
 <!-- ===== 节点点击浮层 ===== -->
 <div class="node-pop" id="nodePop">
   <div class="np-hd"><span id="npName">页面</span><span class="np-close" onclick="closeNodePop()">×</span></div>
-  <div class="np-thumb">
-    <div class="np-mock">
-      <div class="m-bar"></div><div class="m-line"></div><div class="m-line short"></div>
-      <div class="m-block"></div><div class="m-line"></div><div class="m-btn"></div>
+  <div class="np-body">
+    <div class="np-thumb">
+      <img id="npThumbImg" src="" alt="" style="display:none;">
+      <div class="np-mock-wrap" id="npThumbMock">
+        <div class="np-mock">
+          <div class="m-bar"></div><div class="m-line"></div><div class="m-line short"></div>
+          <div class="m-block"></div><div class="m-line"></div><div class="m-btn"></div>
+        </div>
+      </div>
     </div>
-    <span class="np-thumb-tag" id="npThumbName">页面缩略图</span>
-  </div>
-  <div class="np-stats">
-    <div class="np-stat"><span class="k">日均页面总 PV</span><span class="v" id="npTotalPv">-</span></div>
-    <div class="np-stat"><span class="k">日均页面总 UV</span><span class="v" id="npTotalUv">-</span></div>
-    <div class="np-stat"><span class="k">当前节点日均 PV</span><span class="v" id="npPv">-</span></div>
-    <div class="np-stat"><span class="k">当前节点日均终止 PV</span><span class="v" id="npLoss">-</span></div>
-    <div class="np-stat"><span class="k">终止率</span><span class="v" id="npRate">-</span></div>
+    <div class="np-stats">
+      <div class="np-stat"><span class="k">日均页面总UV</span><span class="v" id="npTotalUv">-</span></div>
+      <div class="np-stat"><span class="k">当前节点日均PV</span><span class="v" id="npTotalPv">-</span></div>
+      <div class="np-stat"><span class="k">节点日均PV</span><span class="v" id="npPv">-</span></div>
+      <div class="np-stat"><span class="k">节点日均终止PV</span><span class="v" id="npLoss">-</span></div>
+      <div class="np-stat"><span class="k">终止率</span><span class="v" id="npRate">-</span></div>
+    </div>
   </div>
   <div class="np-acts">
-    <div class="np-btn primary" id="npHlBtn" onclick="onHlBtn()">高亮节点</div>
-    <div class="np-btn" onclick="drillNode()">查看页面详情</div>
+    <div class="np-btn" id="npHlBtn" onclick="onHlBtn()">高亮节点</div>
+    <div class="np-btn primary" onclick="drillNode()">查看页面数据</div>
   </div>
 </div>
 
@@ -690,7 +698,14 @@ function openNodePop(nodeName, x, y){
   const D=getDays();
   const avg = v => v==null ? '-' : Math.round(v/D).toLocaleString();
   set('npName', m.label);
-  set('npThumbName', m.label);
+  // 显示页面真实截图（如果有）
+  const pageImg = (pageConfig.find(p=>p.name===m.label)||{}).img || '';
+  const thumbImg = document.getElementById('npThumbImg');
+  const thumbMock = document.getElementById('npThumbMock');
+  if(thumbImg && thumbMock){
+    if(pageImg){ thumbImg.src=pageImg; thumbImg.style.display='block'; thumbMock.style.display='none'; }
+    else { thumbImg.style.display='none'; thumbMock.style.display='block'; }
+  }
   set('npTotalPv', avg(m.totalPv));
   set('npTotalUv', avg(m.totalUv));
   set('npPv', avg(m.pv||0));
@@ -701,7 +716,7 @@ function openNodePop(nodeName, x, y){
   pop.classList.add('show');
   popOpen = true;
   lockHover(true);
-  const w = 264, h = pop.offsetHeight || 320;
+  const w = 360, h = pop.offsetHeight || 360;
   pop.style.left = Math.min(x+12, window.innerWidth - w - 12) + 'px';
   pop.style.top  = Math.min(y+8, window.innerHeight - h - 12) + 'px';
 }
@@ -714,25 +729,25 @@ function onHlBtn(){ if(pathHL) clearHighlight(); else highlightNode(); }
 function clearHighlight(){ pathHL=null; renderSankey(); closeNodePop(); }
 function highlightNode(){
   if(!curNodeName) return;
-  // 从当前节点出发，向前/向后各沿 PV 最大的连线追踪主干路径
+  // 高亮所有经过当前节点的链路：向前追溯所有能到达该节点的路径，向后追溯所有从该节点出发的路径
   const nodeKeys=new Set([curNodeName]), linkKeys=new Set();
-  let cur=curNodeName;
-  while(true){ // 向后
-    const outs=curLinks.filter(l=>l.source===cur && !l.loss);
-    if(!outs.length) break;
-    const best=outs.reduce((a,b)=>b.value>a.value?b:a);
-    linkKeys.add(best.source+'__'+best.target);
-    if(nodeKeys.has(best.target)) break;
-    nodeKeys.add(best.target); cur=best.target;
+  // 向后：从当前节点出发，BFS 找到所有下游节点和连线
+  const queue=[curNodeName];
+  while(queue.length){
+    const cur=queue.shift();
+    curLinks.filter(l=>l.source===cur && !l.loss).forEach(l=>{
+      const key=l.source+'__'+l.target;
+      if(!linkKeys.has(key)){ linkKeys.add(key); nodeKeys.add(l.target); queue.push(l.target); }
+    });
   }
-  cur=curNodeName;
-  while(true){ // 向前
-    const ins=curLinks.filter(l=>l.target===cur && !l.loss);
-    if(!ins.length) break;
-    const best=ins.reduce((a,b)=>b.value>a.value?b:a);
-    linkKeys.add(best.source+'__'+best.target);
-    if(nodeKeys.has(best.source)) break;
-    nodeKeys.add(best.source); cur=best.source;
+  // 向前：从当前节点出发，BFS 找到所有上游节点和连线
+  const queue2=[curNodeName];
+  while(queue2.length){
+    const cur=queue2.shift();
+    curLinks.filter(l=>l.target===cur && !l.loss).forEach(l=>{
+      const key=l.source+'__'+l.target;
+      if(!linkKeys.has(key)){ linkKeys.add(key); nodeKeys.add(l.source); queue2.push(l.source); }
+    });
   }
   pathHL = {nodeKeys, linkKeys};
   renderSankey();
@@ -743,6 +758,11 @@ function highlightNode(){
 const pageList = ['平台首页','乘客首页','登录页','POI页','询价页','发单动画','等待接单页','确认同行页',
   '风控预付页','支付页','顺风车履约-订单取消','顺风车履约-待车主接单','顺风车履约-待乘客确认',
   '顺风车履约-待车主到达起点','顺风车履约-待乘客上车','顺风车履约-待司乘到达终点','顺风车履约-行程完成'];
+// 页面效果图映射（有截图的页面在弹窗中展示真实图片）
+const pageConfig = [
+  {name:'询价页', img:'image/询价页.png'},
+  {name:'品类中心询价页', img:'image/询价页2.png'}
+];
 function renderPageSelects(){
   ['startPageSel','endPageSel'].forEach(id=>{
     const sel = document.getElementById(id);
