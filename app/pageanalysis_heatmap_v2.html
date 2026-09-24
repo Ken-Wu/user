@@ -294,6 +294,46 @@
   /* 原 svg 的图形只占 30x30 viewBox 中间约四成，直接缩到 18px 图形会小得看不清，
      所以把 viewBox 裁到图形四周（7 7 16 16）再显示 18px */
   .hm-ic svg{width:18px;height:18px;display:block;flex:none;}
+
+  /* ===== 热力图调参面板 =====
+     固定定位、不进文档流，不会挤到卡片布局；默认收起，点工具栏「调参」打开。
+     不需要这个入口时，把 #btnTune 那个 span 删掉即可，其余逻辑不依赖它。 */
+  .htune{position:fixed;right:24px;bottom:24px;z-index:200;width:272px;display:none;
+         padding:14px 16px 12px;border-radius:14px;
+         background:rgba(255,255,255,.94);
+         -webkit-backdrop-filter:saturate(180%) blur(20px);
+         backdrop-filter:saturate(180%) blur(20px);
+         border:1px solid rgba(17,61,112,.1);
+         box-shadow:0 8px 28px rgba(17,61,112,.18);}
+  .htune.on{display:block;}
+  .htune-hd{display:flex;align-items:center;font-size:13px;font-weight:600;
+            color:var(--text-primary);margin-bottom:8px;}
+  .htune-x{margin-left:auto;width:18px;height:18px;line-height:17px;text-align:center;
+           border-radius:50%;color:var(--text-secondary);cursor:pointer;font-size:14px;}
+  .htune-x:hover{background:var(--nav-chip);color:var(--text-primary);}
+  /* 色带预览：直接按当前 stops 画，冷暖配比一眼看得出 */
+  .htune-bar{height:10px;border-radius:6px;margin-bottom:10px;background:#fff;
+             border:1px solid rgba(17,61,112,.08);}
+  .htune-row{display:flex;align-items:center;gap:8px;margin-bottom:9px;
+             font-size:12px;line-height:18px;color:var(--text-primary);}
+  .htune-row .lb{width:60px;flex:none;color:var(--text-secondary);}
+  .htune-row input[type=range]{flex:1;min-width:0;height:12px;appearance:none;
+             -webkit-appearance:none;background:transparent;cursor:pointer;}
+  .htune-row input[type=range]::-webkit-slider-runnable-track{height:2px;border-radius:10px;
+             background:rgba(23,24,26,.35);}
+  .htune-row input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;
+             border-radius:50%;background:var(--brand);margin-top:-5px;}
+  .htune-row input[type=range]::-moz-range-track{height:2px;border-radius:10px;background:rgba(23,24,26,.35);}
+  .htune-row input[type=range]::-moz-range-thumb{width:12px;height:12px;border:none;
+             border-radius:50%;background:var(--brand);}
+  .htune-row .vv{width:32px;flex:none;text-align:right;font-family:var(--font-num);
+             font-variant-numeric:tabular-nums;}
+  .htune-ft{display:flex;gap:8px;margin-top:2px;}
+  .htune-bt{flex:1;height:28px;border-radius:var(--radius-ctl);cursor:pointer;font-size:12px;
+            font-family:inherit;border:1px solid var(--border);
+            background:var(--surface);color:var(--text-secondary);}
+  .htune-bt:hover{border-color:var(--brand);color:var(--brand);}
+  .htune-tip{margin-top:8px;font-size:11px;line-height:16px;color:var(--text-secondary);}
   /* 图片 750x1624，300 宽等比 = 650 高（不拉伸）。卡片改为自然高度，无需再抢占剩余空间 */
   .phone-wrap{display:flex;justify-content:center;align-items:center;margin-top:12px;}
 
@@ -517,6 +557,11 @@
             <svg viewBox="7 7 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M9.3912 16.1859C10.5775 17.3652 12.6464 18.9999 15.0001 18.9999C17.3539 18.9999 19.4224 17.3652 20.6086 16.1859C20.9215 15.8748 21.0785 15.7188 21.1781 15.4134C21.2492 15.1955 21.2492 14.8045 21.1781 14.5866C21.0785 14.2812 20.9215 14.1251 20.6086 13.8141C19.4224 12.6347 17.3539 11 15.0001 11C12.6464 11 10.5775 12.6347 9.3912 13.8141C9.07809 14.1253 8.92152 14.2811 8.82186 14.5866C8.75078 14.8045 8.75078 15.1955 8.82186 15.4134C8.92152 15.7189 9.07809 15.8746 9.3912 16.1859Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.6667 15C13.6667 15.7364 14.2636 16.3333 15 16.3333C15.7364 16.3333 16.3333 15.7364 16.3333 15C16.3333 14.2636 15.7364 13.6667 15 13.6667C14.2636 13.6667 13.6667 14.2636 13.6667 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span>隐藏数据</span>
           </span>
+          <!-- 调参入口：红核大小 / 冷端配比 / 整体浓度，详见 .htune 面板 -->
+          <span class="hm-ic" id="btnTune" title="调节红核大小、冷端配比、整体浓度" onclick="toggleTunePanel()">
+            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 8h8M17 8h3M4 16h5M14 16h6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><circle cx="14.5" cy="8" r="2.5" stroke="currentColor" stroke-width="2"/><circle cx="11.5" cy="16" r="2.5" stroke="currentColor" stroke-width="2"/></svg>
+            <span>调参</span>
+          </span>
         </div>
       </div>
       <div class="phone-wrap">
@@ -610,6 +655,33 @@
       <table id="stratTable" style="min-width:520px;"></table>
     </div>
   </div>
+</div>
+
+<!-- 热力图调参面板：滑杆改的就是 HEAT_TUNE，调满意后「复制参数」把字面量贴回代码 -->
+<div class="htune" id="hTune">
+  <div class="htune-hd">热力图调参<span class="htune-x" title="关闭" onclick="toggleTunePanel()">×</span></div>
+  <div class="htune-bar" id="hTuneBar"></div>
+  <div class="htune-row"><span class="lb">红核大小</span>
+    <input type="range" id="tCore"   min="0.12" max="0.55" step="0.01" oninput="onTune('core',this.value)"><span class="vv" id="vCore"></span></div>
+  <div class="htune-row"><span class="lb">梯度陡度</span>
+    <input type="range" id="tFall"   min="2"    max="5.5"  step="0.1"  oninput="onTune('falloff',this.value)"><span class="vv" id="vFall"></span></div>
+  <div class="htune-row"><span class="lb">热区范围</span>
+    <input type="range" id="tSpread" min="0.55" max="1.15" step="0.05" oninput="onTune('spread',this.value)"><span class="vv" id="vSpread"></span></div>
+  <div class="htune-row"><span class="lb">冷端占比</span>
+    <input type="range" id="tCool"   min="0.8"  max="2.2"  step="0.05" oninput="onTune('cool',this.value)"><span class="vv" id="vCool"></span></div>
+  <div class="htune-row"><span class="lb">浓度上限</span>
+    <input type="range" id="tAlpha"  min="0.3"  max="1"    step="0.02" oninput="onTune('alpha',this.value)"><span class="vv" id="vAlpha"></span></div>
+  <div class="htune-row"><span class="lb">淡出快慢</span>
+    <input type="range" id="tFade"   min="0.3"  max="1.4"  step="0.05" oninput="onTune('fade',this.value)"><span class="vv" id="vFade"></span></div>
+  <div class="htune-row"><span class="lb">冷端压淡</span>
+    <input type="range" id="tTilt"   min="0"    max="1"    step="0.05" oninput="onTune('tilt',this.value)"><span class="vv" id="vTilt"></span></div>
+  <div class="htune-row"><span class="lb">压淡起点</span>
+    <input type="range" id="tKnee"   min="0.25" max="1"    step="0.02" oninput="onTune('knee',this.value)"><span class="vv" id="vKnee"></span></div>
+  <div class="htune-ft">
+    <button class="htune-bt" onclick="resetTune()">恢复默认</button>
+    <button class="htune-bt" id="tCopy" onclick="copyTune(this)">复制参数</button>
+  </div>
+  <div class="htune-tip">红核大小 = 红色半径占热区的比例；梯度陡度越小，冷色铺得越远；冷端占比越大，蓝青那段越宽。<br>压淡起点以上的模块（默认 0.62≈黄绿往上）一律拿满浓度上限，之下才按冷端压淡的力度变淡。</div>
 </div>
 
 <script>
@@ -1076,87 +1148,131 @@ window.closeStratDetail = closeStratDetail;
    热力层：读取各 .zone 的位置与标签里的点击率生成
    数据只存在于 DOM（zone 的 style 与 .hot 文案），避免再维护一份副本
    ============================================================ */
-/* 色带：透明 → 淡蓝 → 青 → 青绿 → 绿 → 黄绿 → 黄 → 橙 → 橙红 → 红
+/* 五个可调量。页面右下角的「调参」面板直接改它们，改完点「复制参数」，
+   把打印出来的字面量贴回这里就算定稿（面板值存在 localStorage，刷新不丢）。
+     core    红核半径，占热区外缘的比例。红色面积 ∝ core²，想让红块小就调它
+     falloff 梯度陡度。越小，从红到蓝铺得越远、冷色带越宽；越大，收得越紧
+     spread  热区外缘 = 模块尺寸 x spread（w/h 是全宽全高，0.85 约等于模块的 1.7 倍）
+     cool    冷段（蓝/青/青绿）在色带上占的比例，>1 就是把蓝端拉宽、过渡更明显
+     alpha   最热模块的核心不透明度，也是整张图的浓度上限
+     fade    淡出快慢（覆盖度曲线的指数）。越小外圈越实、冷色越明显；
+             越大越快化开，但过大时最外沿容易显出一道边
+     tilt    冷端压淡的力度。给每个模块一个整体浓度系数：
+             0 = 所有模块一样浓（只用色相区分冷热）
+             1 = 冷模块淡到几乎看不见
+             注意它压的是「整个模块的一条曲线」，不是按像素颜色压——
+             淡出曲线的形状对所有模块仍然一致，只是整条等比降低，
+             所以不会退回「浓淡跟着色相走」那种模块内部也变浓淡的老毛病
+     knee    压淡起点。热度在这之上的模块一律拿满额浓度，之下才线性压淡。
+             0.62 大致对应黄绿，也就是「黄以上不压，绿蓝才压」。
+             最初没有这个拐点，压淡是从红一路线性铺到蓝的，
+             结果浓度上限拉到 1.0 时黄色模块仍只有 0.84，看着还是半透明 */
+const HEAT_TUNE_DEF = { core:0.35, falloff:3.3, spread:0.85, cool:1.20,
+                        alpha:0.90, fade:1.00, tilt:1.00, knee:0.45 };
+const HEAT_TUNE = Object.assign({}, HEAT_TUNE_DEF);
+try{
+  const sv = JSON.parse(localStorage.getItem('heatTune3') || 'null');
+  if(sv) Object.keys(HEAT_TUNE_DEF).forEach(k => { if(typeof sv[k] === 'number') HEAT_TUNE[k] = sv[k]; });
+}catch(e){}
+
+/* 色带：深蓝 → 蓝 → 青蓝 → 青绿 → 绿 → 黄绿 → 黄 → 橙 → 橙红 → 红
    节点从 6 个加到 11 个，作用是把黄→橙→橙红→红这段色相路径显式定下来，
    原先靠黄(.74)到红(1.0)两端线性插值，中途偏色不好控。
    别指望加节点能改善过渡：实测色带自身的斜率突变峰值 8→9，几乎没变。
-   过渡自然与否主要由红核大小和衰减曲线决定，见 buildHeat 里的 stops。
-   红色压到 0.91 之后才出现，这一项才真正让中心红核收小。
-   低端 alpha 不宜再压低：上色时还会再乘一次位置系数（见 buildHeat 末尾），
-   点击率极低的区块本就很淡，低端一压就彻底看不见了。 */
+   红色只在 0.90 之后出现：热核顶部是满强度的，只有点击率最高的那个模块够红，
+   其余模块按 inten 依次退到橙、黄、绿、青——颜色的信息量在模块之间，
+   不在模块内部，所以色带必须在中低段留够可分辨的色相（见 inten 的指数）。
+   这里只管色相，一律不带 alpha：以前每档自带浓度（蓝 .42 一路升到红 .93），
+   结果核心是红的模块比核心是绿的模块实一截，浓淡跟着颜色走。
+   现在不透明度完全交给覆盖度（HEAT_COVER），只与「离本模块中心多远」有关，
+   于是所有模块核心一样实、往外淡出的曲线也完全一致。 */
+const HEAT_STOPS = [
+  [0.00,'rgb(0,80,255)'],
+  [0.04,'rgb(0,110,255)'],   /* 深蓝，最外围 */
+  [0.09,'rgb(0,155,255)'],   /* 蓝 */
+  [0.15,'rgb(0,198,240)'],   /* 青蓝 */
+  [0.26,'rgb(0,220,180)'],   /* 青绿 —— 冷暖分界 */
+  [0.40,'rgb(74,231,116)'],
+  [0.54,'rgb(158,234,66)'],
+  [0.68,'rgb(226,225,26)'],
+  [0.80,'rgb(255,188,10)'],
+  [0.90,'rgb(255,122,14)'],  /* 橙红 —— 红色起点，core 就锚在这里 */
+  [1.00,'rgb(255,47,14)']    /* #FF2F0E。历史值：#C92816（砖红，压暗底图上发闷）
+                                → #E8442A → 现在这个。R 拉满、G 压到 47，
+                                比 #E8442A 更艳也更"红"，跟 0.90 的橙(#FF7A0E)
+                                差 20 度色相，红核与外圈的橙仍分得开 */
+];
+const HEAT_COOL_END = 0.26;   /* 青绿那一档：它之前算冷段，之后算暖段 */
+
+/* 冷段拉伸：把 0~0.26 这段按 cool 倍放大，暖段等比压进剩下的区间。
+   两个端点不动，所以色序、红色起点的相对含义都不变，只是冷暖配比变了。
+   cool=1 就是原始色带；调大以后蓝→青→青绿这段在热区里占的宽度成比例变宽，
+   「往外过渡到蓝色」才看得出层次。 */
+function heatStopPos(p, cool){
+  const e = HEAT_COOL_END * cool;
+  return p <= HEAT_COOL_END ? p * cool
+                            : e + (p - HEAT_COOL_END) * (1 - e) / (1 - HEAT_COOL_END);
+}
+/* 红色起点在当前色带上的位置，rebuildHeatProfile 拿它把 core 锚成真的红核半径 */
+function heatRedAt(){ return heatStopPos(0.90, HEAT_TUNE.cool); }
+
 function heatPalette(){
   const c = document.createElement('canvas');
   c.width = 1; c.height = 256;
   const x = c.getContext('2d');
   const g = x.createLinearGradient(0,0,0,256);
-  /* 蓝的三段（深蓝/蓝/青蓝）压在 0~0.15 之内，原先占到 0.24、蓝边铺得太宽。
-     缩的是它们在色带上占的区间，而不是整个热区尺度——后面的色相跟着前移，
-     绿往外顶上来补位，所以只有蓝边变窄，热区总范围不变。 */
-  g.addColorStop(0.00,'rgba(0,80,255,0)');
-  g.addColorStop(0.04,'rgba(0,110,255,.42)');   /* 深蓝，最外围 */
-  g.addColorStop(0.09,'rgba(0,155,255,.60)');   /* 蓝 */
-  g.addColorStop(0.15,'rgba(0,198,240,.70)');   /* 青蓝 */
-  g.addColorStop(0.26,'rgba(0,220,180,.76)');   /* 青绿 */
-  g.addColorStop(0.40,'rgba(74,231,116,.80)');
-  g.addColorStop(0.54,'rgba(158,234,66,.83)');
-  g.addColorStop(0.68,'rgba(226,225,26,.86)');
-  g.addColorStop(0.80,'rgba(255,188,10,.89)');
-  g.addColorStop(0.90,'rgba(255,122,14,.91)');
-  g.addColorStop(1.00,'rgba(201,40,22,.93)');   /* #C92816 */
+  HEAT_STOPS.forEach(s => g.addColorStop(heatStopPos(s[0], HEAT_TUNE.cool), s[1]));
   x.fillStyle = g;
   x.fillRect(0,0,1,256);
   return x.getImageData(0,0,1,256).data;
 }
 
-/* 单点核：中心一小块满强度平台，往外按 (1-q)² 衰减。q 是归一化后的平方距离。
-   平台必不可少——纯 (1-q)² 的中心是个尖点，归一化后只有极小一圈能进红色区间，
-   实测发单按钮的红核只剩 1px。单椭圆版本的衰减曲线开头就有 8% 满强度平台，
-   红核尺寸正是那个平台撑出来的。平台半径 ∝ √P。
-   核数升到 5~9 后 R 缩到原来的三分之二，加上 soft-max 的峰值会被核重叠抬高
-   （邻核半径 0.8~1.1R 必然盖住首核那块 0.3R 的平台，peak 被推到 1.3 上下，
-   首核平台的相对值因此掉出红色区间），两头夹击下 P 要提到 0.14 红核才够 30px。
-   用平方距离查表省掉每像素一次 sqrt；有限支撑，不必为高斯长尾多算像素。 */
-const HEAT_KERNEL = (() => {
-  const lut = new Float32Array(257);
-  const P = 0.02;
-  for(let i = 0; i <= 256; i++){
-    const q = i / 256;
-    if(q <= P){ lut[i] = 1; continue; }
-    const u = (1 - q) / (1 - P);
-    lut[i] = u * u;
-  }
-  return lut;
-})();
+/* 热核剖面：平顶指数 exp(-K·tⁿ)，t 是归一化到热区外缘的半径，n = HEAT_TUNE.falloff。
+   为什么不撒点：点密度的峰值总会落在某一处，画面上就是一个小红核，
+   看着像「用户点了这里」，而这个坐标本来就是编的（埋点只有模块级点击量，
+   没有点击坐标），只会误导。
+   n>2 让顶部变平：中心一整片都接近满强度，往外才开始明显衰减——
+   「最热的地方」于是是一片而不是一个点，热度看得出来，位置看不出来。
+   K 不直接给，而是由 core 反解出来：要求 t=core 处的热度正好等于色带里红色的
+   起点，于是 core 就是货真价实的「红核半径占热区的比例」，面板拖它就是缩红块。
+   剖面剩下的 core~1 这段自然铺开橙→黄→绿→青→蓝，n 控制铺多远。
+   为什么不用「满强度平台 + 衰减」硬拼：平台边缘是曲率突变，大区块上
+   直接看出一个规整红圆盘，跟贴了张半透明色块没差别（那个方案已经否掉了）。
+   末尾减 e0 再归一化，让 t=1 处正好归零，热区外沿不留台阶。 */
+const HEAT_PROFILE = new Float32Array(257);
+function rebuildHeatProfile(){
+  const n = HEAT_TUNE.falloff;
+  const K = Math.log(1 / heatRedAt()) / Math.pow(HEAT_TUNE.core, n);
+  const e0 = Math.exp(-K), s = 1 / (1 - e0);
+  for(let i = 0; i <= 256; i++) HEAT_PROFILE[i] = (Math.exp(-K * Math.pow(i / 256, n)) - e0) * s;
+}
+rebuildHeatProfile();
 
-/* 确定性伪随机：同一区块每次渲染撒点位置一致，不会刷新一下形状就变 */
+/* 确定性伪随机：同一区块每次渲染的轮廓扰动一致，不会刷新一下形状就变 */
 function heatRand(seed){
   let s = (seed * 9301 + 49297) % 233280;
   return () => { s = (s * 9301 + 49297) % 233280; return s / 233280; };
 }
 
-/* 高端压缩：归一化后的密度过一遍 γ。
-   多个核在中心重叠，不压的话一大片都贴着峰值，红核会比单椭圆版本还大。
-   实测：γ=1.9 红核只剩 15px、1.4 是 17px，都比单椭圆版本的 33px 小得多。
-   多核相邻时叠加峰值落在两核之间，主核中心的归一化值本就掉了一截，
-   再叠一道 γ 就压过头，所以只留 1.1 收一下高端。 */
-/* 上色时的第二道衰减：让热区边缘淡出，不留硬边。
-   原先直接乘热度值本身（相当于指数 1.0），低端衰减太狠——位置 0.14 处
-   最多只能得到 1.0×0.14 的不透明度，色带里的蓝色再怎么调都是近乎透明，
-   于是画面上只看得到绿到红。改成 0.55 次幂后位置 0.14 能拿到 0.325，
-   蓝色才在最外围显出来。 */
-const HEAT_FADE = (() => {
-  const lut = new Float32Array(257);
-  for(let i = 0; i <= 256; i++) lut[i] = Math.pow(i / 256, 0.55);
-  return lut;
-})();
+/* 覆盖度 → 不透明度，这是 alpha 的唯一来源：
+   alpha = HEAT_TUNE.alpha x 模块浓度系数(tilt) x 覆盖度，
+   而覆盖度只查剖面值（离本模块中心多远），与画成什么颜色无关。
+   所以淡出曲线的形状对所有模块一致，冷模块只是整条被 tilt 等比压低，
+   而不是「红的地方实、绿的地方虚」那种按色相决定浓淡。
+   指数 fade（默认 0.6，<1）决定淡出快慢：热核外圈的剖面值本来就小，
+   按线性算 alpha 会直接淡到看不见、青蓝那一圈等于白画；0.6 次幂把它提回
+   能看清的浓度，又不至于在最外沿糊出一道边。 */
+const HEAT_COVER = new Float32Array(257);
+function rebuildHeatCover(){
+  for(let i = 0; i <= 256; i++) HEAT_COVER[i] = Math.pow(i / 256, HEAT_TUNE.fade);
+}
+rebuildHeatCover();
 
-/* γ 决定热区看起来铺多远。
-   γ>1 会把低密度区压暗：点云边缘本就点稀、密度低，再压一道就直接不可见，
-   所以热区半径从 0.66 提到 0.85 后画面几乎没变——真正卡住可见范围的是这里。
-   取 0.8（<1）反过来提亮中低密度区，热区自然往外铺开，边缘的青蓝带也宽出来。 */
-const HEAT_GAMMA = (() => {
+/* 归属权重：决定相邻模块交界处色相归谁。固定指数 1.8，不跟着 fade 走——
+   fade 只该影响浓淡，不该顺带改变「谁压住谁」这件已经调好的事。 */
+const HEAT_OWN = (() => {
   const lut = new Float32Array(257);
-  for(let i = 0; i <= 256; i++) lut[i] = Math.pow(i / 256, 0.8);
+  for(let i = 0; i <= 256; i++) lut[i] = Math.pow(i / 256, 1.8);
   return lut;
 })();
 
@@ -1197,137 +1313,126 @@ function buildHeat(){
     cv.width = W * dpr; cv.height = H * dpr;
     cv.style.height = H + 'px';
 
-    /* 1) 热度层：每个区块撒一组点，累加成密度场，再按峰值归一化。
-       这才是热力图该有的形态——多个热核彼此融合成团块，边缘没有明确轮廓线。
-       之前不敢铺点是怕 alpha 累加饱和（1.2% 会和 66% 一样红），
-       归一化解决了这件事：峰值恒等于 inten，只由点击率决定，与点数、区块大小无关。
-       注意撒点位置是伪随机的，所以形态像热力图，但形状本身不携带数据——
-       要让形状有依据，得埋点上报点击坐标。 */
+    /* 1) 热度层：每个区块画一团平顶的有机热核（剖面见 HEAT_PROFILE）。
+       高热区是一整片、大致罩住整个模块，所以画面表达的是「这个模块整体多热」，
+       不会在模块里点出一个具体位置——埋点只有模块级点击量，没有点击坐标，
+       任何小红核都是编的。峰值恒等于 inten，只由点击率决定，与区块大小无关。 */
     const CW = cv.width, CH = cv.height;
-    const acc = new Float32Array(CW * CH);   /* 每像素热度 0~1，区块重叠处取最大值 */
+    const acc = new Float32Array(CW * CH);   /* Σ 权重x热度 */
+    const wsm = new Float32Array(CW * CH);   /* Σ 权重，acc/wsm 才是该像素的热度 */
+    const cov = new Float32Array(CW * CH);   /* 每像素覆盖度 0~1 → 决定不透明度 */
 
     zones.forEach((z, zi) => {
       const x0 = z.left/100 * CW,  y0 = z.top/100 * CH;
       const w  = z.width/100 * CW, h  = z.height/100 * CH;
-      const inten = Math.max(0.12, Math.pow(z.rate / max, 0.5));
+      /* 热度归一化到最热模块。指数决定色带被用掉多少：
+         0.5 次幂把低端整体抬上去，实测 47.2%/38.7%/30.1%/18.7%/12.7% 分别落在
+         0.77/0.70/0.61/0.48/0.40——全挤在黄绿到绿这一小段里，肉眼分不出差别。
+         改 0.85（接近线性，只给低端留一点提亮）后依次是
+         0.79/0.64/0.54/0.44/0.29/0.21，橙→黄→黄绿→绿→青绿→青，层次才铺开。
+         下限 0.12 保证 5.9% 这种极低值仍是可见的深蓝，而不是彻底透明。 */
+      const inten = Math.max(0.12, Math.pow(z.rate / max, 0.85));
+      /* 本模块的整体浓度系数。knee 以上（红/橙/黄那几档）一律给 1，也就是
+         拿满 HEAT_TUNE.alpha；knee 以下按热度线性压到 1-tilt。
+         它是个常数，乘在覆盖度上，所以只压低这个模块的整条曲线，不改形状。 */
+      const ascale = 1 - HEAT_TUNE.tilt * (1 - Math.min(1, inten / HEAT_TUNE.knee));
       const cx = x0 + w/2, cy = y0 + h/2;
 
-      /* 外缘沿用单椭圆版本的算法，覆盖范围才不会变：
-         半径放大一档让热度往区块外扩散；离心率钳到 0.55，否则扁长区块
-         （高速费条 98%x4.6%）会薄成一条线，钳住后能往短边外侧扩散开。 */
-      /* 系数从 0.66 提到 0.85，热区整体往区块外多扩一圈。
-         只动这个尺度，不碰 单点半径/点云半径 = 0.6 那个比值，核的形状就不变。 */
-      const rx = Math.max(w * 0.85, 18 * dpr);
-      const ry = Math.max(h * 0.85, 20 * dpr);
-      const r  = Math.max(rx, ry);
-      const sx = Math.max(rx / r, 0.55), sy = Math.max(ry / r, 0.55);
-      /* 把原先那一个大椭圆拆成「撒点范围 + 单点核」两截，两者之和仍是原外缘。
-         核也得是椭圆：用圆核的话，扁长区块只能按短边取半径，热区会缩成细带。 */
-      /* 每个区块 2~4 个核，串成一条链。
-         间距是这里唯一要紧的参数，单位取核半径 R：
-           < 1.0R  两核完全融合，又变回一个椭圆；
-           > 2.0R  散成互不相干的独立斑点，不像一片热区；
-           1.1~1.4R 相连但留出腰身，轮廓才有起伏。
-         随机撒点做不到这件事——中心极限定理会把一堆点叠成平滑钟形，
-         越撒越规则，所以间距必须显式控制。 */
+      /* 外缘：半径取模块尺寸的 spread 倍（默认 0.85）。注意 w/h 是全宽全高，
+         所以外缘约为模块的 1.7 倍，热度才能往模块外扩散出一圈梯度；
+         再兜一个像素下限，免得极小的模块只剩几个像素。
+         这里以前还按离心率钳过一道（ey 不得小于长轴的 0.55），本意是别让扁长
+         区块薄成一条线，实际是帮倒忙：券包是 98%x6% 的通栏条，钳完纵向半径
+         变成 266px（画面高度的 22%），一条 6% 高的条子糊掉半个屏幕，
+         下面的代叫/备注中心全被它的 47.2% 染成黄绿。
+         扁长区块本来就该画成扁长的椭圆，rx/ry 各自成比例就够了。 */
+      const ex = Math.max(w * HEAT_TUNE.spread, 18 * dpr);
+      const ey = Math.max(h * HEAT_TUNE.spread, 20 * dpr);
+
+      /* 轮廓扰动：把归一化半径按两组正弦之积做 ±21% 的起伏，热区就不是一个规整
+         椭圆，而是有腰身的有机团块——这是「像热力图」与「像一块贴上去的色板」
+         的分界，也是当初撒点唯一真正换来的东西。
+         频率取到 5.7/4.3，等值线才有几处明显的凹凸；频率再低，整团只是被
+         均匀放大一点，看上去仍是个正圆。
+         用 x、y 可分离的正弦（而不是按极角做谐波）是为了避免每像素一次 atan2：
+         正弦项按行列预先算好，内层循环只剩乘加和一次 sqrt。 */
       const rnd = heatRand(zi + 1);
-      const uni = () => rnd() * 2 - 1;                     /* [-1,1] 均匀 */
-      /* 核数上限看短轴，不能看长轴 r：扁长区块（高速费条）长轴很大，
-         按长轴算会分到 4 个核，每个核被短轴压扁后红核只剩几个像素。
-         除数取 9 而不是 14——取 14 时几乎所有区块都落到 2 核，核数就没有变化了。 */
-      /* 撒几十个小点，累加成密度场——这就是标准热力图的算法。
-         之前拿 3~9 个大核拼形状，怎么调都不对：核少一定能看出构造（链式成长条、
-         环绕成花瓣、放大首核成「中心核+卫星」），而核大则峰值平坦，
-         红核要么是一条窄带要么连成一大片椭圆。
-         点多而小，峰值由点的局部聚集形成，红核自然又小又散，
-         轮廓也由点云边界决定，才是参考图那种有机形状。 */
-      /* 点云半径 R + 单点半径 0.6R = 1.6R，双侧 3.2R，令其等于原直径 */
-      const R = 2 * r / 3.2;
-      /* 点少或点小时峰值会是个尖刺，红核只剩十来个像素（实测 pr=0.35R 时 12px、
-         0.45R 时 16px）。峰值区的宽度取决于 单点半径/点云半径 这个比值，
-         所以单点要够大；点数则要够多，否则大点会退化成前面那种「几个大核」。 */
-      const N = 50 + Math.floor(rnd() * 40);              /* 50~90 个点 */
-      const pr = R * 0.6;
+      const p1 = rnd() * 6.2832, p2 = rnd() * 6.2832;
+      const p3 = rnd() * 6.2832, p4 = rnd() * 6.2832;
 
-      const pts = [];
-      for(let i = 0; i < N; i++){
-        const a    = rnd() * 6.2832;
-        /* 指数决定点往哪聚：0.5 次幂是圆盘面积均匀，中心不突出，峰值会随机
-           落在边缘某处（实测红核质心偏出 33px）；取 0.9 让点适度向中心堆，
-           峰值才落在区块中心附近。1.0 以上就堆成一个规整的圆了。 */
-        const dist = Math.pow(rnd(), 0.8);
-        const jit  = 0.8 + rnd() * 0.4;
-        pts.push({
-          x: cx + Math.cos(a) * dist * R * sx,
-          y: cy + Math.sin(a) * dist * R * sy,
-          kx: pr * sx * jit, ky: pr * sy * jit, wgt: 1
-        });
+      /* 扰动最多把轮廓往外推到 1/(1-0.21)≈1.27 倍，包围盒留 1.35 倍余量 */
+      const xa = Math.max(0, Math.floor(cx - ex * 1.35));
+      const xb = Math.min(CW - 1, Math.ceil(cx + ex * 1.35));
+      const ya = Math.max(0, Math.floor(cy - ey * 1.35));
+      const yb = Math.min(CH - 1, Math.ceil(cy + ey * 1.35));
+      if(xb < xa || yb < ya) return;
+
+      /* 按列预算：u 是归一化横坐标，wx 是两组扰动的正弦项 */
+      const bw = xb - xa + 1;
+      const u2  = new Float32Array(bw);
+      const wx1 = new Float32Array(bw), wx2 = new Float32Array(bw);
+      for(let x = xa; x <= xb; x++){
+        const i = x - xa, u = (x + 0.5 - cx) / ex;
+        u2[i]  = u * u;
+        wx1[i] = Math.sin(5.7 * u + p1);
+        wx2[i] = Math.cos(2.9 * u + p3);
       }
-      let xa = CW, xb = 0, ya = CH, yb = 0;
-      pts.forEach(p => {
-        xa = Math.min(xa, Math.floor(p.x - p.kx)); xb = Math.max(xb, Math.ceil(p.x + p.kx));
-        ya = Math.min(ya, Math.floor(p.y - p.ky)); yb = Math.max(yb, Math.ceil(p.y + p.ky));
-      });
-      xa = Math.max(0, xa); xb = Math.min(CW - 1, xb);
-      ya = Math.max(0, ya); yb = Math.min(CH - 1, yb);
-      const bw = xb - xa + 1, bh = yb - ya + 1;
-      if(bw <= 0 || bh <= 0) return;
-
-      const den = new Float32Array(bw * bh);   /* 区块自己的密度缓冲 */
-      pts.forEach(p => {
-        const px0 = Math.max(xa, Math.floor(p.x - p.kx)), px1 = Math.min(xb, Math.ceil(p.x + p.kx));
-        const py0 = Math.max(ya, Math.floor(p.y - p.ky)), py1 = Math.min(yb, Math.ceil(p.y + p.ky));
-        for(let y = py0; y <= py1; y++){
-          const dy  = (y + 0.5 - p.y) / p.ky, dy2 = dy * dy;
-          if(dy2 >= 1) continue;
-          const row = (y - ya) * bw - xa;
-          for(let x = px0; x <= px1; x++){
-            const dx = (x + 0.5 - p.x) / p.kx;
-            const q  = dx * dx + dy2;
-            if(q >= 1) continue;
-            /* 直接累加。点足够多、单点足够小时，累加才是对的：
-               密度 = 单位面积内的点数，峰值自然落在点最密处。
-               当初改用 max 和 soft-max，是因为那时只有 3~9 个大核，
-               累加会在两核之间叠出比核心更高的假峰值；现在点密度本身就是信号，
-               饱和问题由后面按峰值归一化解决。 */
-            den[row + x] += HEAT_KERNEL[(q * 256) | 0] * p.wgt;
-          }
-        }
-      });
-
-      /* 按实测峰值归一化：峰值只代表「这个区块最密的地方」，映射到 inten，
-         于是颜色仍由点击率决定，与点数、区块大小无关。 */
-      let peak = 0;
-      for(let i = 0; i < den.length; i++) if(den[i] > peak) peak = den[i];
-      if(peak <= 0) return;
 
       for(let y = ya; y <= yb; y++){
-        const src = (y - ya) * bw - xa, dst = y * CW;
+        const v = (y + 0.5 - cy) / ey, v2 = v * v;
+        if(v2 > 1.8) continue;                    /* 扰动上限之外，必为 0 */
+        const wy1 = Math.cos(4.3 * v + p2), wy2 = Math.sin(3.3 * v + p4);
+        const dst = y * CW;
         for(let x = xa; x <= xb; x++){
-          const u = den[src + x];
-          if(u <= 0) continue;
-          const a = HEAT_GAMMA[(u / peak * 256) | 0] * inten;
-          if(a > acc[dst + x]) acc[dst + x] = a;
+          const i = x - xa;
+          const q = u2[i] + v2;
+          if(q > 1.8) continue;
+          /* 扰动后的归一化半径，查平顶剖面得本模块在该像素的份量 */
+          const t = Math.sqrt(q) / (1 + 0.13 * wx1[i] * wy1 + 0.08 * wx2[i] * wy2);
+          if(t >= 1) continue;
+          const hv = HEAT_PROFILE[(t * 256) | 0];
+          const k  = dst + x;
+          const hi = (hv * 256) | 0;
+          const c  = HEAT_COVER[hi];
+
+          /* 色相：按归属权重加权平均各模块的热度，权重是剖面的 1.8 次幂。
+             不能简单取最大值——热模块的余晖会盖掉紧邻的冷模块：实测品类列表
+             (80.2%) 的余晖把上方高速费条 (13.7%) 的中心顶到 0.53，画出来是黄绿，
+             和 47% 的券包一个颜色，模块之间的层次就没了。
+             立方之后，各模块自己的核心（覆盖度≈1）压得住邻居的余晖（覆盖度小），
+             而两者之间是连续过渡，不会出现拼接边。 */
+          const ow = HEAT_OWN[hi];
+          acc[k] += ow * hv * inten;
+          wsm[k] += ow;
+
+          /* 不透明度：覆盖度先乘本模块的浓度系数再取最大值。
+             取 max 而不是加总，是不想让两团余晖叠出比核心还实的地方。 */
+          const cc = c * ascale;
+          if(cc > cov[k]) cov[k] = cc;
         }
       }
     });
 
-    /* 2) 查色带上色。重叠处取最大值而不是累加：两个中等热度的区块相邻时，
+    /* 2) 查色带上色。热度用加权平均而不是累加：两个中等热度的区块相邻时，
        累加会让交界处比真正的高热区块更红，凭空造出一个假热点。 */
     const pal = heatPalette();
     const ctx = cv.getContext('2d');
     const dat = ctx.createImageData(CW, CH);
     const d = dat.data;
     for(let i = 0, p = 0; i < acc.length; i++, p += 4){
-      const a = acc[i];
-      if(a <= 0) continue;
+      const s = wsm[i];
+      if(s <= 0) continue;
+      const a = acc[i] / s;
       const q = (a >= 1 ? 255 : (a * 255) | 0) * 4;
       d[p]   = pal[q];
       d[p+1] = pal[q+1];
       d[p+2] = pal[q+2];
-      /* 不给 alpha 托底：托底会把最外圈那条等值线显式画出来，热区外沿变成
-         一道清晰边界，而不是慢慢化开。 */
-      d[p+3] = pal[q+3] * HEAT_FADE[(a >= 1 ? 256 : (a * 256) | 0)];
+      /* 不透明度只由覆盖度（已含模块浓度系数）和面板上的浓度上限决定，
+         与上面取到的色相无关：最热模块核心 cov=1，拿到满额 HEAT_TUNE.alpha，
+         冷模块整条曲线按 tilt 等比压低；往外 cov 一路降到 0，
+         所以外沿是慢慢化开的（也不给 alpha 托底，
+         托底会把最外圈那条等值线显式画成一道边界）。 */
+      d[p+3] = 255 * HEAT_TUNE.alpha * cov[i];
     }
     ctx.putImageData(dat, 0, 0);
   });
@@ -1418,6 +1523,86 @@ function toggleData(btn){
   });
   syncShotMask();
   btn.classList.toggle('off', !dataOn);
+}
+
+/* ===== 热力图调参面板 =====
+   五个滑杆直接写 HEAT_TUNE，改完立刻重画；值同时存 localStorage，刷新后保留。
+   定稿时点「复制参数」，把拿到的字面量贴回 HEAT_TUNE_DEF，面板就可以不用了。 */
+const HEAT_TUNE_UI = [
+  ['core',   'tCore',   'vCore',   2],
+  ['falloff','tFall',   'vFall',   1],
+  ['spread', 'tSpread', 'vSpread', 2],
+  ['cool',   'tCool',   'vCool',   2],
+  ['alpha',  'tAlpha',  'vAlpha',  2],
+  ['fade',   'tFade',   'vFade',   2],
+  ['tilt',   'tTilt',   'vTilt',   2],
+  ['knee',   'tKnee',   'vKnee',   2]
+];
+
+function syncTuneUI(){
+  HEAT_TUNE_UI.forEach(([key, sid, vid, dig]) => {
+    const s = document.getElementById(sid), v = document.getElementById(vid);
+    if(s) s.value = HEAT_TUNE[key];
+    if(v) v.textContent = HEAT_TUNE[key].toFixed(dig);
+  });
+  /* 色带预览用同一套 stops 和同一个 heatStopPos，面板里看到的配比就是画布上的配比 */
+  const bar = document.getElementById('hTuneBar');
+  if(bar){
+    bar.style.backgroundImage = 'linear-gradient(90deg,' + HEAT_STOPS.map(s =>
+      s[1] + ' ' + (heatStopPos(s[0], HEAT_TUNE.cool) * 100).toFixed(1) + '%').join(',') + ')';
+  }
+}
+
+/* 拖动时每帧最多重画一次：buildHeat 约 15ms，input 事件比帧还密，不节流会卡手 */
+let tunePend = false;
+function applyTune(){
+  syncTuneUI();
+  try{ localStorage.setItem('heatTune3', JSON.stringify(HEAT_TUNE)); }catch(e){}
+  if(tunePend) return;
+  tunePend = true;
+  requestAnimationFrame(() => {
+    tunePend = false;
+    rebuildHeatProfile();   /* core / falloff / cool 都会改剖面，统一重建 */
+    rebuildHeatCover();     /* fade 改的是覆盖度曲线 */
+    buildHeat();
+  });
+}
+
+function onTune(key, val){
+  const n = parseFloat(val);
+  if(!isFinite(n)) return;
+  HEAT_TUNE[key] = n;
+  applyTune();
+}
+
+function resetTune(){
+  Object.assign(HEAT_TUNE, HEAT_TUNE_DEF);
+  applyTune();
+}
+
+function copyTune(btn){
+  const txt = 'const HEAT_TUNE_DEF = { '
+    + HEAT_TUNE_UI.map(([k,,,dig]) => k + ':' + HEAT_TUNE[k].toFixed(dig)).join(', ')
+    + ' };';
+  const done = () => {
+    const old = btn.textContent;
+    btn.textContent = '已复制';
+    setTimeout(() => { btn.textContent = old; }, 1200);
+  };
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(done, () => window.prompt('复制以下参数：', txt));
+  }else{
+    window.prompt('复制以下参数：', txt);
+  }
+}
+
+function toggleTunePanel(){
+  const p = document.getElementById('hTune');
+  if(!p) return;
+  const on = !p.classList.contains('on');
+  p.classList.toggle('on', on);
+  document.getElementById('btnTune').classList.toggle('off', !on);
+  if(on) syncTuneUI();
 }
 
 /* ============ 覆盖：模块数据 Tab 切换 ============ */
@@ -1605,6 +1790,7 @@ window.addEventListener('resize', ()=>{ if(modSankeyChart) modSankeyChart.resize
 (function(){
   const shot = document.querySelector('.phone .ph-shot');
   if(!shot) return;
+  syncTuneUI();          // 面板滑杆对齐到当前（可能来自 localStorage 的）参数
   /* 先把标签刷成 UV 口径再画热力图：buildHeat 的热度就是从标签文案里读的百分比 */
   const draw = () => { syncZoneLabels(); buildHeat(); fitHots(); };
   if(shot.complete) draw();
