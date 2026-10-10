@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>热力图效果调试 · UV点击率色块</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  /* 页面使用纯白画布，让热区、页面截图和数据卡片成为唯一视觉焦点。 */
+  body { font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; background:#fff; color:#1f2d3d; }
+  .topbar { position:sticky; top:0; z-index:100; background:#fff; border-bottom:1px solid #eef1f5; padding:10px 24px; display:flex; align-items:baseline; gap:12px; }
+  .topbar h1 { font-size:16px; } .topbar .sub { font-size:12px; color:#95a3b3; }
+  .wrap { max-width:1200px; margin:20px auto; padding:0 16px; }
+  .card { background:#fff; border-radius:14px; box-shadow:0 2px 12px rgba(31,45,61,.06); padding:18px; margin-bottom:20px; }
+  .two-col { display:flex; gap:20px; align-items:flex-start; flex-wrap:wrap; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th, td { padding:10px 12px; text-align:left; border-bottom:1px solid #f0f2f5; }
+  th { background:#fafbfc; color:#7f8c9b; font-weight:600; position:sticky; top:0; z-index:2; }
+  tr:hover td { background:#f7f9fc; }
+  .desc { font-size:12px; color:#95a3b3; margin-bottom:8px; }
+  .barbg { display:inline-block; width:72px; height:10px; background:#eef1f5; border-radius:5px; vertical-align:middle; }
+  .barbg .bar { display:block; height:100%; background:#2f6fed; border-radius:5px; }
+
+  /* ===== 手机页面热力图 ===== */
+  .heatmap-card { flex:0 1 460px; min-width:0; }
+  .heatmap-stage { display:flex; justify-content:center; margin-top:8px; min-width:0; }
+  .phone-shell { width:min(300px, 100%); text-align:center; }
+  .phone { width:100%; height:auto; aspect-ratio:6 / 13; margin:0 auto; border:8px solid #1f2d3d; border-radius:32px; overflow:hidden; background:#fff; font-size:11px; position:relative; }
+  .phone .shot-wrap { position:relative; width:100%; font-size:0; --mask-rgb:66,148,181; }
+
+  @media (max-width:700px) {
+    .wrap { margin:12px auto; padding:0 10px; }
+    .card { padding:14px; }
+    .heatmap-card { flex-basis:100%; }
+    .palette-tabs { overflow-x:auto; justify-content:flex-start; scrollbar-width:thin; }
+    .palette-tab { flex:0 0 54px; }
+    .legend-bar { width:min(200px, calc(100vw - 156px)); }
+  }
+  /* 遮罩改 #00AAFF（原先是纯黑）。同样的不透明度下，蓝色遮罩不像黑色那样把
+     底图压成灰，而是统一偏冷，暖色热区（橙/红）对比反而更强；
+     白色描边压在冷色底上也比压在原本的浅色截图上立得住。 */
+  .phone .shot-wrap::after { content:''; position:absolute; inset:0; background:rgba(var(--mask-rgb),var(--mask-alpha,.06)); pointer-events:none; z-index:1; }
+  .phone .ph-shot { display:block; width:100%; height:auto; }
+
+  /* 色块区域：z-index 高于遮罩层；颜色与标签、描边、交互轮廓分层，互不影响。 */
+  .phone .zone { position:absolute; box-sizing:border-box; border-radius:0; font-size:11px; cursor:pointer; transition:box-shadow .2s, outline .2s, border-radius .15s ease; z-index:2; -webkit-tap-highlight-color:rgba(224,0,37,.22); user-select:none; }
+  .phone .zone-heat-clip { position:absolute; inset:0; overflow:hidden; border-radius:inherit; pointer-events:none; z-index:0; }
+  .phone .zone-fill { position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0; }
+  .phone .zone.figma-adaptive-ellipse .zone-fill { inset:auto; left:50%; top:50%; width:var(--figma-ellipse-width,64px); height:var(--figma-ellipse-height,64px); border-radius:50%; transform:translate(-50%,-50%); }
+  /* 方案十 Figma 效果：图层模糊柔化色层边缘；背景模糊只作用于椭圆内的底图。 */
+  .phone .zone.figma-layer-blur .zone-fill { filter:blur(var(--figma-blur-radius,0px)); will-change:filter; }
+  /* 大模块仅扩大滤镜的可见裁切边界，热区本体仍以 Figma 内边距居中。 */
+  .phone .zone.figma-blur-bleed .zone-heat-clip { inset:calc(var(--figma-blur-bleed,0px) * -1); }
+  .phone .zone.figma-background-blur .zone-fill { -webkit-backdrop-filter:blur(var(--figma-blur-radius,0px)); backdrop-filter:blur(var(--figma-blur-radius,0px)); }
+  .phone .shot-wrap.zones-rounded .zone { border-radius:4px; }
+  /* 模块描边保持锐利：方案十将 Figma 圆形基形按模块横纵比例自适应拉伸，标签和交互轮廓不受影响。 */
+  /* 描边：纯白 1px，不带任何投影或垫底。
+     曾在外侧垫过一道 rgba(31,45,61,.1) 的 hairline，为的是让白线在截图的浅色
+     区域（券包那条、底部估价区）上不至于消失；遮罩换成 #00AAFF 之后底图整体
+     偏冷，白线自己就立得住，那道垫底只剩下"灰边/灰投影"的观感，已删。 */
+  .phone .shot-wrap.zones-outlined .zone::before { content:''; position:absolute; inset:0;
+    border:1px solid rgba(255,255,255,.9); border-radius:inherit; pointer-events:none; z-index:3; }
+  .phone .zone:active { outline:2px solid #E00025; outline-offset:1px; box-shadow:0 0 0 4px rgba(224,0,37,.28); border-radius:4px; }
+
+  /* 数据标注：模块名 · 点击率 */
+  .phone .zone .hot { position:absolute; left:0; top:0; transform:translateY(-55%);
+    background:rgba(255,255,255,.92); color:#1f2d3d; padding:2px 8px; border-radius:10px;
+    font-size:10px; font-weight:500; white-space:nowrap;
+    box-shadow:0 1px 4px rgba(0,0,0,.12); z-index:4; backdrop-filter:blur(4px); }
+  .phone .zone .hot.hot-l { left:auto; right:0; }
+  .phone .zone .hot b { color:#1f2d3d; font-weight:600; }
+  .phone .data-highlight .hot b { color:#E00025; }
+  .phone .zone.sel { outline:2px solid #E00025; outline-offset:1px; box-shadow:0 0 0 4px rgba(224,0,37,.28); border-radius:4px; z-index:5; }
+  .phone .zone.sel .hot,
+  .phone .zone.mod-hl .hot { background:#E00025; color:#fff; }
+  .phone .zone.sel .hot b,
+  .phone .zone.mod-hl .hot b { color:#fff; }
+  .phone .zone.hover { outline:2px solid #ff3b30; outline-offset:1px; box-shadow:0 0 0 4px rgba(255,59,48,.25); z-index:6; }
+  .phone [data-mod] { cursor:pointer; transition:box-shadow .2s, outline .2s; }
+  .phone [data-mod].mod-hl { outline:2px solid #E00025; outline-offset:1px; box-shadow:0 0 0 4px rgba(224,0,37,.28); border-radius:4px; z-index:5; }
+
+  /* 图标按钮 */
+  .hm-tools { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+  .hm-ic { width:28px; height:28px; display:flex; align-items:center; justify-content:center; border-radius:6px; border:1px solid #e2e8f2; cursor:pointer; color:#7f8c9b; background:#fff; }
+  .hm-ic:hover { background:#f0f3fa; } .hm-ic.on { color:#2f6fed; border-color:#b3cff5; background:#eef4ff; }
+
+  /* 配色方案 Tab */
+  .palette-tabs { display:flex; width:100%; box-sizing:border-box; align-items:center; gap:2px; padding:3px; margin:2px 0 4px; border:1px solid #e4e9f1; border-radius:8px; background:#f5f7fa; }
+  .palette-tab { height:30px; min-width:0; flex:1 1 0; display:inline-flex; align-items:center; justify-content:center; gap:1px; padding:0; border:0; border-radius:6px; background:transparent; color:#7f8c9b; font-size:10px; font-weight:500; white-space:nowrap; cursor:pointer; transition:background-color .15s ease, color .15s ease, box-shadow .15s ease; }
+  .palette-tab > span:first-child { width:30px; flex:none; white-space:nowrap; }
+  .palette-tab:hover { color:#43546a; background:#eef1f5; }
+  .palette-tab.active { color:#2f6fed; background:#fff; box-shadow:0 1px 4px rgba(31,45,61,.12); }
+  .palette-tab:focus-visible { outline:2px solid #2f6fed; outline-offset:1px; }
+  .palette-swatch { width:8px; height:7px; flex:none; border-radius:4px; }
+  .palette-swatch.scheme-one { background:linear-gradient(to right, #FFE45D 0%, #FF7433 47%, #FF0033 100%); }
+  .palette-swatch.scheme-two { background:linear-gradient(to right, #F0EAC6 0%, #FFAB3D 24%, #FF6200 53%, #E00025 100%); }
+  .palette-swatch.scheme-three { background:linear-gradient(to right, rgba(255,244,183,.3) 0%, rgba(255,171,61,.465) 24%, rgba(255,98,0,.671) 53%, rgba(224,0,37,1) 100%); }
+  .palette-swatch.scheme-four { background:linear-gradient(to right, #FFE58F 0%, #FFC53D 24%, #FF7A45 53%, #F5222D 100%); }
+  .palette-swatch.scheme-five { background:linear-gradient(135deg, rgba(255,229,143,.85) 0%, rgba(245,34,45,.08) 60%, rgba(245,34,45,.08) 100%); }
+  .palette-swatch.scheme-six { background:linear-gradient(135deg, rgba(0,229,199,.85) 0%, rgba(0,229,199,.72) 15%, rgba(255,229,143,.55) 30%, rgba(255,122,69,.25) 50%, rgba(245,34,45,.08) 60%, rgba(245,34,45,.08) 100%); }
+  .palette-swatch.scheme-seven { background:linear-gradient(135deg, rgba(64,150,255,.85) 0%, rgba(64,150,255,.72) 15%, rgba(255,229,143,.55) 30%, rgba(255,122,69,.25) 50%, rgba(245,34,45,.08) 60%, rgba(245,34,45,.08) 100%); }
+  .palette-swatch.scheme-eight { background:linear-gradient(135deg, rgba(64,150,255,.85) 0%, rgba(145,202,255,.66) 15%, rgba(255,241,184,.47) 30%, rgba(255,197,61,.34) 40%, rgba(255,122,69,.21) 50%, rgba(245,34,45,.08) 60%, rgba(245,34,45,.08) 100%); }
+  .palette-swatch.scheme-nine { background:linear-gradient(135deg, rgba(178,255,229,.85) 0%, rgba(178,255,229,.72) 15%, rgba(255,229,143,.55) 30%, rgba(255,122,69,.25) 50%, rgba(245,34,45,.08) 60%, rgba(245,34,45,.08) 100%); }
+  /* 方案十色标使用独立的圆形标记，与其它渐变色带区分。 */
+  .palette-swatch.scheme-ten { background:rgba(255,0,77,.88); border-radius:50%; }
+
+  /* 图例 */
+  .legend { display:flex; align-items:center; gap:8px; font-size:11px; color:#95a3b3; margin:8px 0 4px; }
+  .legend-bar { width:200px; height:10px; border-radius:5px; background:linear-gradient(to right, #FFE45D 0%, #FF7433 47%, #FF0033 100%); transition:background .2s ease; }
+
+  /* 模块数据表 */
+  #modTable tr:hover td:first-child { background:#f7f9fc !important; }
+  #modTable tr.hov td:first-child { background:#f7f9fc !important; }
+  #modTable tr.sel td:first-child { background:#eef4ff !important; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>热力图效果调试</h1>
+  <span class="sub">UV点击率色块 · 多配色梯度方案对比</span>
+</div>
+<div class="wrap">
+  <div class="two-col">
+    <!-- 左：热力图 -->
+    <div class="card heatmap-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:6px;">
+        <h2 style="margin:0;font-size:15px;">页面点击热力图</h2>
+        <div class="hm-tools">
+          <span class="hm-ic on" id="btnHeat" title="隐藏热力图" onclick="toggleHeat(this)" style="font-size:12px;width:auto;padding:0 10px;gap:4px;display:flex;align-items:center;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 3 21 8 12 13 3 8"/><polyline points="3 13 12 18 21 13"/></svg>
+            隐藏热力图
+          </span>
+          <span class="hm-ic on" id="btnData" title="隐藏数据" onclick="toggleData(this)" style="font-size:12px;width:auto;padding:0 10px;gap:4px;display:flex;align-items:center;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10z"/><circle cx="7.5" cy="7.5" r="1"/></svg>
+            隐藏数据
+          </span>
+          <button class="hm-ic" id="btnCopyConfig" type="button" title="复制当前热力图配置，发送给 AI 继续调参" onclick="copyHeatmapConfig()" style="font-size:12px;width:auto;padding:0 10px;gap:4px;display:flex;align-items:center;">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>
+            <span class="copy-config-label">复制配置</span>
+          </button>
+        </div>
+      </div>
+      <div class="palette-tabs" role="group" aria-label="热力图配色方案">
+        <button class="palette-tab active" type="button" data-palette="scheme1" aria-pressed="true" onclick="setPalette('scheme1')">
+          <span>方案一</span><span class="palette-swatch scheme-one" aria-hidden="true"></span>
+        </button>
+        <button class="palette-tab" type="button" data-palette="scheme2" aria-pressed="false" onclick="setPalette('scheme2')">
+          <span>方案二</span><span class="palette-swatch scheme-two" aria-hidden="true"></span>
+        </button>
+        <button class="palette-tab" type="button" data-palette="scheme3" aria-pressed="false" onclick="setPalette('scheme3')" title="黄色透明度最低，红色使用滑块设定的最高透明度">
+          <span>方案三</span><span class="palette-swatch scheme-three" aria-hidden="true"></span>
+        </button>
+        <button class="palette-tab" type="button" data-palette="scheme4" aria-pressed="false" onclick="setPalette('scheme4')" title="参考 Ant Design Gold、Volcano、Red 色板，透明度一致">
+          <span>方案四</span><span class="palette-swatch scheme-four" aria-hidden="true"></span>
+        </button>
+        <button class="palette-tab" type="button" data-palette="scheme5" aria-pressed="false" onclick="setPalette('scheme5')" title="热区颜色由左上向右下逐渐降低透明度；60% 处降至 8% 并保持到末端，角度可调">
+          <span>方案五</span><span class="palette-swatch scheme-five" aria-hidden="true"></span>
+        </button>
+        <button class="palette-tab" type="button" data-palette="scheme6" aria-pressed="false" onclick="setPalette('scheme6')" title="最低数据为绿色，随点击率升高过渡到黄、橙、红；60% 处降至 8% 透明度并保持到末端">
+          <span>方案六</span><span class="palette-swatch scheme-six" aria-hidden="true"></span>
+        </button>
+        <button class="palette-tab" type="button" data-palette="scheme7" aria-pressed="false" onclick="setPalette('scheme7')" title="最低数据为蓝色，随点击率升高过渡到黄、橙、红；60% 处降至 8% 透明度并保持到末端">
+          <span>方案七</span><span class="palette-swatch scheme-seven" aria-hidden="true"></span>
+        </button>
+        <button class="palette-tab" type="button" data-palette="scheme8" aria-pressed="false" onclick="setPalette('scheme8')" title="保留六级蓝、黄、橙、红配色；颜色分界与方案五至七对齐，60% 处降至 8% 并保持到末端">
+          <span>方案八</span><span class="palette-swatch scheme-eight" aria-hidden="true"></span>
+        </button>
+        <button class="palette-tab" type="button" data-palette="scheme9" aria-pressed="false" onclick="setPalette('scheme9')" title="复制方案六的颜色节点与透明度行为，低值绿色改为 #B2FFE5；60% 处降至 8% 并保持到末端">
+          <span>方案九</span><span class="palette-swatch scheme-nine" aria-hidden="true"></span>
+        </button>
+        <button class="palette-tab" type="button" data-palette="scheme10" aria-pressed="false" onclick="setPalette('scheme10')" title="保留四色分档；以 Frame 2147241405 的 240/300 圆形基形在矩形模块内自适应拉伸，并可切换 Figma 图层或背景模糊；标签与描边保持清晰">
+          <span>方案十</span><span class="palette-swatch scheme-ten" aria-hidden="true"></span>
+        </button>
+      </div>
+      <div class="legend">
+        <span>低 0%</span><div class="legend-bar" id="legendBar"></div><span>高 60%+</span>
+      </div>
+      <div style="display:flex;gap:20px;align-items:center;margin:8px 0 4px;font-size:12px;color:#7f8c9b;flex-wrap:wrap;">
+        <label style="display:flex;align-items:center;gap:6px;">地图遮罩 <input type="range" min="0" max="50" value="6" id="maskRange" oninput="setMask(this.value)" style="width:90px;accent-color:#00AAFF;"> <span id="maskVal">6%</span></label>
+        <label style="display:flex;align-items:center;gap:5px;" title="可直接输入 6 位 HEX 色值">遮罩颜色 <input type="color" id="maskColorPicker" value="#4294B5" aria-label="地图遮罩颜色" oninput="setMaskColor(this.value)" style="width:26px;height:22px;padding:0;border:1px solid #e2e8f2;border-radius:4px;background:#fff;cursor:pointer;"><input type="text" id="maskColorHex" value="#4294B5" spellcheck="false" aria-label="地图遮罩 HEX 色值" oninput="setMaskColor(this.value)" style="width:72px;height:22px;border:1px solid #e2e8f2;border-radius:4px;padding:0 5px;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#43546a;"></label>
+        <label id="globalAlphaControl" style="display:flex;align-items:center;gap:6px;">色块透明度 <input type="range" min="10" max="90" value="55" id="alphaRange" oninput="setAlpha(this.value)" style="width:90px;accent-color:#EF5350;"> <span id="alphaVal">55%</span></label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="zoneOutlineToggle" checked onchange="setZoneOutline(this.checked)" style="accent-color:#2f6fed;"> 模块描边</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="zoneRoundedToggle" checked onchange="setZoneRounded(this.checked)" style="accent-color:#2f6fed;"> 色块圆角（4px）</label>
+        <label style="display:flex;align-items:center;gap:6px;cursor:pointer;"><input type="checkbox" id="dataHighlightToggle" onchange="setDataHighlight(this.checked)" style="accent-color:#E00025;"> 高亮数据</label>
+        <label id="gradientAngleControl" style="display:none;align-items:center;gap:6px;">渐变角度 <input type="range" min="0" max="360" step="5" value="135" id="gradientAngleRange" aria-label="热区渐变角度" oninput="setGradientAngle(this.value)" style="width:90px;accent-color:#F5222D;"> <span id="gradientAngleVal">135°</span></label>
+        <!-- Figma 基准为 30px 留白；当前默认配置使用 16px。 -->
+        <label id="figmaInsetControl" style="display:none;align-items:center;gap:6px;" title="大/普通模块按滑杆设置 Figma 内边距；模块面积小于 2,500px² 时固定使用 8px 内边距">Figma 内边距 <input type="range" min="0" max="60" step="1" value="16" id="figmaInsetRange" aria-label="方案十 Figma 热区内边距（像素）" oninput="setFigmaInset(this.value)" style="width:90px;accent-color:#7C3AED;"> <span id="figmaInsetVal">16px</span></label>
+        <label id="figmaBlurModeControl" style="display:none;align-items:center;gap:6px;">Figma 模糊 <select id="figmaBlurMode" aria-label="方案十 Figma 模糊方式" onchange="setFigmaBlurMode(this.value)" style="height:24px;border:1px solid #e2e8f2;border-radius:4px;background:#fff;color:#43546a;font-size:12px;"><option value="none">无模糊</option><option value="layer" selected>图层模糊</option><option value="background">背景模糊</option><option value="combined">叠加模糊</option></select></label>
+        <label id="figmaBlurStrengthControl" style="display:none;align-items:center;gap:6px;" title="自动分级上限：小模块 8px、普通模块 16px、大模块 36px；仅大模块可额外扩散 5px">模糊强度 <input type="range" min="0" max="48" step="1" value="39" id="figmaBlurStrengthRange" aria-label="方案十 Figma 模糊强度" oninput="setFigmaBlurStrength(this.value)" style="width:90px;accent-color:#7C3AED;"> <span id="figmaBlurStrengthVal">39px</span><span style="color:#95a3b3;font-size:11px;">自动分级</span></label>
+      </div>
+      <!-- 方案十专属：四个色标随时可改。四个取色器按「低→高」排，
+           右边的输入框支持整串粘贴（逗号/空格/换行都行，凑齐 4 个才生效）。 -->
+      <div id="scheme10Colors" style="display:none;align-items:center;gap:6px;margin:6px 0 2px;font-size:12px;color:#7f8c9b;flex-wrap:wrap;">
+        <span>四色梯度</span>
+        <input type="color" id="c10_0" title="第1档 · 点击率 <10%" oninput="setScheme10Color(0,this.value)" style="width:26px;height:22px;padding:0;border:1px solid #e2e8f2;border-radius:4px;background:#fff;cursor:pointer;">
+        <input type="color" id="c10_1" title="第2档 · 10%~30%" oninput="setScheme10Color(1,this.value)" style="width:26px;height:22px;padding:0;border:1px solid #e2e8f2;border-radius:4px;background:#fff;cursor:pointer;">
+        <input type="color" id="c10_2" title="第3档 · 30%~55%" oninput="setScheme10Color(2,this.value)" style="width:26px;height:22px;padding:0;border:1px solid #e2e8f2;border-radius:4px;background:#fff;cursor:pointer;">
+        <input type="color" id="c10_3" title="第4档 · >=55%" oninput="setScheme10Color(3,this.value)" style="width:26px;height:22px;padding:0;border:1px solid #e2e8f2;border-radius:4px;background:#fff;cursor:pointer;">
+        <input type="text" id="c10_hex" spellcheck="false" oninput="setScheme10Hex(this.value)" aria-label="方案十四色色值" style="width:232px;height:22px;box-sizing:border-box;border:1px solid #e2e8f2;border-radius:4px;padding:0 6px;font-size:11px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;color:#43546a;">
+      </div>
+      <div id="scheme10Alphas" style="display:none;align-items:center;gap:8px;margin:6px 0 2px;font-size:12px;color:#7f8c9b;flex-wrap:wrap;">
+        <span>四色透明度</span>
+        <label title="第1档 · 点击率 <10%" style="display:inline-flex;align-items:center;gap:3px;"><span id="c10a_swatch_0" aria-hidden="true" style="width:8px;height:8px;border-radius:50%;"></span>1档 <input type="range" min="0" max="100" step="1" value="65" id="c10a_0" aria-label="方案十第1档透明度" oninput="setScheme10Alpha(0,this.value)" style="width:54px;"><span id="c10a_val_0">65%</span></label>
+        <label title="第2档 · 10%~30%" style="display:inline-flex;align-items:center;gap:3px;"><span id="c10a_swatch_1" aria-hidden="true" style="width:8px;height:8px;border-radius:50%;"></span>2档 <input type="range" min="0" max="100" step="1" value="65" id="c10a_1" aria-label="方案十第2档透明度" oninput="setScheme10Alpha(1,this.value)" style="width:54px;"><span id="c10a_val_1">65%</span></label>
+        <label title="第3档 · 30%~55%" style="display:inline-flex;align-items:center;gap:3px;"><span id="c10a_swatch_2" aria-hidden="true" style="width:8px;height:8px;border-radius:50%;"></span>3档 <input type="range" min="0" max="100" step="1" value="32" id="c10a_2" aria-label="方案十第3档透明度" oninput="setScheme10Alpha(2,this.value)" style="width:54px;"><span id="c10a_val_2">32%</span></label>
+        <label title="第4档 · >=55%" style="display:inline-flex;align-items:center;gap:3px;"><span id="c10a_swatch_3" aria-hidden="true" style="width:8px;height:8px;border-radius:50%;"></span>4档 <input type="range" min="0" max="100" step="1" value="32" id="c10a_3" aria-label="方案十第4档透明度" oninput="setScheme10Alpha(3,this.value)" style="width:54px;"><span id="c10a_val_3">32%</span></label>
+      </div>
+      <div class="heatmap-stage">
+        <div class="phone-shell">
+          <div style="font-size:12px;color:#7f8c9b;margin-bottom:8px;">电梯询价页</div>
+          <div class="phone">
+            <div class="shot-wrap zones-outlined zones-rounded" id="shotWrap">
+              <img class="ph-shot" src="image/询价页.png" alt="询价页">
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 右：模块数据表 -->
+    <div class="card" style="flex:1;min-width:0;max-height:850px;display:flex;flex-direction:column;">
+      <div style="display:flex;gap:24px;border-bottom:1px solid #eef1f5;margin-bottom:12px;flex:none;">
+        <div id="mdTab0" onclick="switchModTab(0)" style="padding:8px 0;cursor:pointer;font-size:15px;font-weight:600;color:#2f6fed;border-bottom:2px solid #2f6fed;margin-bottom:-1px;">模块数据</div>
+        <div id="mdTab1" onclick="switchModTab(1)" style="padding:8px 0;cursor:pointer;font-size:15px;font-weight:600;color:#7f8c9b;border-bottom:2px solid transparent;margin-bottom:-1px;">行为数据</div>
+      </div>
+      <div id="mdPane0" style="flex:1;min-height:0;display:flex;flex-direction:column;">
+        <div class="desc" style="flex:none;">点击表格行可在左侧热力图高亮对应模块，反向也可联动。</div>
+        <div style="overflow:auto;width:100%;flex:1;min-height:0;">
+          <table id="modTable" style="min-width:440px;"></table>
+        </div>
+      </div>
+      <div id="mdPane1" style="display:none;flex:1;min-height:0;flex-direction:column;">
+        <div class="desc" style="flex:none;">电梯各展开状态曝光数据（模拟数据）。</div>
+        <div style="overflow:auto;width:100%;flex:1;min-height:0;">
+          <table id="behTable" style="min-width:440px;"></table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== 模块数据 =====
+const modules = [
+  {name:'返回',          expo:21200, ctr:0.301},
+  {name:'安全中心',      expo:20800, ctr:0.168},
+  {name:'地图',          expo:20800, ctr:0.168},
+  {name:'优惠banner',    expo:20100, ctr:0.225},
+  {name:'高速费',        expo:19400, ctr:0.123},
+  {name:'电梯-组',      expo:18600, ctr:0.423},
+  {name:'品类列表-组',  expo:18200, ctr:0.586},
+  {name:'券包',          expo:14800, ctr:0.423},
+  {name:'时间人数弹窗',  expo:13600, ctr:0.423},
+  {name:'代叫',          expo:13100, ctr:0.114},
+  {name:'备注',          expo:12800, ctr:0.053},
+  {name:'发单按钮',      expo:17900, ctr:0.543}
+];
+const repeat = {'品类列表-组':2.4,'电梯-组':1.8,'时间人数弹窗':1.4,'地图':1.5,'返回':1.2,'券包':1.6};
+function modClick(m){ return Math.round(m.expo*m.ctr); }
+const D = 21;
+
+// 热力区域：uvCtr 是气泡显示与色块着色的唯一点击率数据源
+const zones = [
+  {left:5,   top:3.7,  w:16,   h:7,    mod:'返回',         uvCtr:0.187, label:'返回',         labelPos:''},
+  {left:5,   top:17.5, w:16,   h:7.2,  mod:'安全中心',     uvCtr:0.003, label:'安全中心',     labelPos:''},
+  {left:83,  top:17.5, w:14,   h:7.2,  mod:'地图',         uvCtr:0.061, label:'地图操作',     labelPos:'hot-l'},
+  {left:1,   top:25.5, w:98,   h:7,    mod:'优惠banner',   uvCtr:0.095, label:'高速费通知条', labelPos:'hot-l'},
+  {left:1,   top:33,   w:98,   h:4.6,  mod:'高速费',       uvCtr:0.074, label:'电梯楼层',     labelPos:''},
+  {left:1,   top:38,   w:16,   h:38.5, mod:'电梯-组',     uvCtr:0.611, label:'品类卡片',     labelPos:''},
+  {left:17.5,top:38,   w:81.5, h:40.5, mod:'品类列表-组', uvCtr:0.459, label:'品类列表',     labelPos:''},
+  {left:1,   top:79,   w:98,   h:6,    mod:'券包',         uvCtr:0.007, label:'券包详情',     labelPos:'hot-l'},
+  {left:1,   top:85.5, w:42,   h:5,    mod:'时间人数弹窗', uvCtr:0.732, label:'时间人数入口', labelPos:''},
+  {left:44,  top:85.5, w:25,   h:5,    mod:'代叫',         uvCtr:0.391, label:'代叫',         labelPos:''},
+  {left:70,  top:85.5, w:29,   h:5,    mod:'备注',         uvCtr:0.485, label:'行程备注',     labelPos:''},
+  {left:55,  top:90,   w:44,   h:7,    mod:'发单按钮',     uvCtr:0.576, label:'立即呼叫',     labelPos:''}
+];
+
+// 九套热力图配色方案：方案五至九支持热区内部的可调角度透明渐变
+const heatPalettes = {
+  scheme1: {
+    gradient:'linear-gradient(to right, #FFE45D 0%, #FF7433 47%, #FF0033 100%)',
+    stops:[
+      {at:0,    r:255, g:228, b:93},  // #FFE45D
+      {at:0.40, r:255, g:116, b:51},  // #FF7433
+      {at:0.85, r:255, g:0,   b:51}   // #FF0033
+    ]
+  },
+  scheme2: {
+    gradient:'linear-gradient(to right, #F0EAC6 0%, #FFAB3D 24%, #FF6200 53%, #E00025 100%)',
+    stops:[
+      {at:0,    r:240, g:234, b:198}, // #F0EAC6
+      {at:0.20, r:255, g:171, b:61},  // #FFAB3D
+      {at:0.45, r:255, g:98,  b:0},   // #FF6200
+      {at:0.85, r:224, g:0,   b:37}   // #E00025
+    ]
+  },
+  scheme3: {
+    gradient:'linear-gradient(to right, rgba(255,244,183,.3) 0%, rgba(255,171,61,.465) 24%, rgba(255,98,0,.671) 53%, rgba(224,0,37,1) 100%)',
+    stops:[
+      {at:0,    r:255, g:244, b:183}, // #FFF4B7
+      {at:0.20, r:255, g:171, b:61},  // #FFAB3D
+      {at:0.45, r:255, g:98,  b:0},   // #FF6200
+      {at:0.85, r:224, g:0,   b:37}   // #E00025
+    ],
+    alphaScale:{min:0.30, max:1}
+  },
+  scheme4: {
+    gradient:'linear-gradient(to right, #FFE58F 0%, #FFC53D 24%, #FF7A45 53%, #F5222D 100%)',
+    stops:[
+      {at:0,    r:255, g:229, b:143}, // Ant Design Gold-3 #FFE58F
+      {at:0.20, r:255, g:197, b:61},  // Ant Design Gold-5 #FFC53D
+      {at:0.45, r:255, g:122, b:69},  // Ant Design Volcano-5 #FF7A45
+      {at:0.85, r:245, g:34,  b:45}   // Ant Design Red-6 #F5222D
+    ]
+  },
+  scheme5: {
+    gradient:'linear-gradient(to right, #FFE58F 0%, #FFC53D 24%, #FF7A45 53%, #F5222D 100%)',
+    stops:[
+      {at:0,    r:255, g:229, b:143}, // Ant Design Gold-3 #FFE58F
+      {at:0.20, r:255, g:197, b:61},  // Ant Design Gold-5 #FFC53D
+      {at:0.45, r:255, g:122, b:69},  // Ant Design Volcano-5 #FF7A45
+      {at:0.85, r:245, g:34,  b:45}   // Ant Design Red-6 #F5222D
+    ],
+    spatialAlpha:true,
+    alphaEnd:0.08,
+    alphaPlateauStart:0.60
+  },
+  scheme6: {
+    gradient:'linear-gradient(to right, #00E5C7 0%, #00E5C7 12%, #FFE58F 24%, #FF7A45 53%, #F5222D 100%)',
+    stops:[
+      {at:0,    r:0,   g:229, b:199}, // 指定绿色 #00E5C7
+      {at:0.10, r:0,   g:229, b:199}, // 指定绿色 #00E5C7
+      {at:0.20, r:255, g:229, b:143}, // Ant Design Gold-3 #FFE58F
+      {at:0.45, r:255, g:122, b:69},  // Ant Design Volcano-5 #FF7A45
+      {at:0.85, r:245, g:34,  b:45}   // Ant Design Red-6 #F5222D
+    ],
+    spatialAlpha:true,
+    alphaEnd:0.08,
+    alphaPlateauStart:0.60
+  },
+  scheme7: {
+    gradient:'linear-gradient(to right, #4096FF 0%, #4096FF 12%, #FFE58F 24%, #FF7A45 53%, #F5222D 100%)',
+    stops:[
+      {at:0,    r:64,  g:150, b:255}, // 指定蓝色 #4096FF
+      {at:0.10, r:64,  g:150, b:255}, // 指定蓝色 #4096FF
+      {at:0.20, r:255, g:229, b:143}, // Ant Design Gold-3 #FFE58F
+      {at:0.45, r:255, g:122, b:69},  // Ant Design Volcano-5 #FF7A45
+      {at:0.85, r:245, g:34,  b:45}   // Ant Design Red-6 #F5222D
+    ],
+    spatialAlpha:true,
+    alphaEnd:0.08,
+    alphaPlateauStart:0.60
+  },
+  scheme8: {
+    gradient:'linear-gradient(to right, #4096FF 0%, #91CAFF 12%, #FFF1B8 24%, #FFC53D 38%, #FF7A45 53%, #F5222D 100%)',
+    stops:[
+      {at:0,    r:64,  g:150, b:255}, // Ant Design Blue-5 #4096FF
+      {at:0.10, r:145, g:202, b:255}, // Ant Design Blue-3 #91CAFF
+      {at:0.20, r:255, g:241, b:184}, // Ant Design Gold-2 #FFF1B8
+      {at:0.32, r:255, g:197, b:61},  // Ant Design Gold-5 #FFC53D
+      {at:0.45, r:255, g:122, b:69},  // Ant Design Volcano-5 #FF7A45
+      {at:0.85, r:245, g:34,  b:45}   // Ant Design Red-6 #F5222D
+    ],
+    spatialAlpha:true,
+    alphaEnd:0.08,
+    alphaPlateauStart:0.60
+  },
+  scheme9: {
+    gradient:'linear-gradient(to right, #B2FFE5 0%, #B2FFE5 12%, #FFE58F 24%, #FF7A45 53%, #F5222D 100%)',
+    stops:[
+      {at:0,    r:178, g:255, b:229}, // 指定绿色 #B2FFE5
+      {at:0.10, r:178, g:255, b:229}, // 指定绿色 #B2FFE5
+      {at:0.20, r:255, g:229, b:143}, // Ant Design Gold-3 #FFE58F
+      {at:0.45, r:255, g:122, b:69},  // Ant Design Volcano-5 #FF7A45
+      {at:0.85, r:245, g:34,  b:45}   // Ant Design Red-6 #F5222D
+    ],
+    spatialAlpha:true,
+    alphaEnd:0.08,
+    alphaPlateauStart:0.60
+  },
+  /* 方案十：四色离散取色 + Frame 2147241405 自适应椭圆图层。
+     点击率决定椭圆热区的颜色与透明度；椭圆按模块横纵比例映射。
+     Figma 模糊模式只作用于热区填充层，标签、描边和点击区域保持清晰。 */
+  scheme10: {
+    /* gradient（图例条）由 refreshScheme10() 按 stops + steps 实时生成 */
+    gradient:'',
+    /* 四色离散取色：画面上只会出现这四个基础颜色，不做色相插值。 */
+    stops:[
+      {at:0,    r:0,   g:178, b:255},
+      {at:0.15, r:115, g:255, b:218},
+      {at:0.42, r:255, g:229, b:128},
+      {at:0.85, r:255, g:128, b:160}
+    ],
+    /* 四档独立透明度，顺序与 stops 一一对应。 */
+    alphas:[0.32, 0.32, 0.32, 0.32],
+    /* 分档阈值（3 个边界 → 4 档），保持原方案十的数据分层。 */
+    steps:[0.10, 0.30, 0.55],
+    figmaAdaptiveEllipse:true
+  }
+};
+let activePalette = 'scheme1';
+let gradientAngle = 135;
+/* 方案十使用 Frame 2147241405 的像素基准：300px 画布、240px 内圆、30px 四边留白。 */
+let figmaInsetPx = 16;
+let figmaBlurMode = 'layer';
+let figmaBlurStrength = 39;
+const figmaEllipseBase = {
+  canvasSize: 300,
+  diameter: 240,
+  inset: 30
+};
+
+function rateToRgba(rate, alpha){
+  const palette = heatPalettes[activePalette];
+  const stops = palette.stops;
+  const t = Math.min(Math.max(rate, 0), 0.85);
+
+  /* 离散取色（方案十）：落在哪一档就直接用那一档的颜色，不插值。
+     所以画面上出现的颜色数量恒等于 stops 的数量，不会有中间色。 */
+  if(palette.steps){
+    let i = 0;
+    while(i < palette.steps.length && t >= palette.steps[i]) i++;
+    const index = Math.min(i, stops.length - 1);
+    const c = stops[index];
+    const resolvedAlpha = Array.isArray(palette.alphas)
+      ? Math.min(Math.max(Number(palette.alphas[index]) || 0, 0), 1)
+      : alpha;
+    return `rgba(${c.r},${c.g},${c.b},${Number(resolvedAlpha.toFixed(3))})`;
+  }
+
+  let lo = stops[0], hi = stops[stops.length-1];
+  for(let i=0; i<stops.length-1; i++){
+    if(t >= stops[i].at && t <= stops[i+1].at){ lo=stops[i]; hi=stops[i+1]; break; }
+  }
+  const p = (hi.at===lo.at) ? 0 : (t - lo.at)/(hi.at - lo.at);
+  const r = Math.round(lo.r + (hi.r-lo.r)*p);
+  const g = Math.round(lo.g + (hi.g-lo.g)*p);
+  const b = Math.round(lo.b + (hi.b-lo.b)*p);
+  const alphaFactor = palette.alphaScale
+    ? palette.alphaScale.min + (palette.alphaScale.max - palette.alphaScale.min) * (t / 0.85)
+    : 1;
+  const resolvedAlpha = Number((alpha * alphaFactor).toFixed(3));
+  return `rgba(${r},${g},${b},${resolvedAlpha})`;
+}
+
+function rateToBackground(rate, alpha){
+  const solidColor = rateToRgba(rate, alpha);
+  const palette = heatPalettes[activePalette];
+  if(!palette.spatialAlpha) return solidColor;
+  const channels = solidColor.match(/^rgba\((\d+),(\d+),(\d+),([\d.]+)\)$/);
+  if(!channels) return solidColor;
+  const [, r, g, b, startAlpha] = channels;
+
+  if(Number.isFinite(palette.alphaPlateauStart)){
+    const plateauPct = Math.round(Math.min(Math.max(palette.alphaPlateauStart, 0), 1) * 100);
+    return `linear-gradient(${gradientAngle}deg, rgba(${r},${g},${b},${startAlpha}) 0%, rgba(${r},${g},${b},${palette.alphaEnd}) ${plateauPct}%, rgba(${r},${g},${b},${palette.alphaEnd}) 100%)`;
+  }
+  return `linear-gradient(${gradientAngle}deg, rgba(${r},${g},${b},${startAlpha}) 0%, rgba(${r},${g},${b},${palette.alphaEnd}) 100%)`;
+}
+
+function formatUvCtr(rate){
+  return `${(rate * 100).toFixed(1)}%`;
+}
+
+function setPalette(key){
+  if(!heatPalettes[key] || key===activePalette) return;
+  activePalette = key;
+  document.querySelectorAll('.palette-tab').forEach(tab=>{
+    const isActive = tab.dataset.palette===key;
+    tab.classList.toggle('active', isActive);
+    tab.setAttribute('aria-pressed', String(isActive));
+  });
+  const legend = document.getElementById('legendBar');
+  if(legend) legend.style.background = heatPalettes[key].gradient;
+  const angleControl = document.getElementById('gradientAngleControl');
+  if(angleControl) angleControl.style.display = heatPalettes[key].spatialAlpha ? 'flex' : 'none';
+  const insetControl = document.getElementById('figmaInsetControl');
+  if(insetControl) insetControl.style.display = heatPalettes[key].figmaAdaptiveEllipse ? 'flex' : 'none';
+  const blurModeControl = document.getElementById('figmaBlurModeControl');
+  if(blurModeControl) blurModeControl.style.display = heatPalettes[key].figmaAdaptiveEllipse ? 'flex' : 'none';
+  const blurStrengthControl = document.getElementById('figmaBlurStrengthControl');
+  if(blurStrengthControl) blurStrengthControl.style.display = heatPalettes[key].figmaAdaptiveEllipse ? 'flex' : 'none';
+  const insetRange = document.getElementById('figmaInsetRange');
+  const insetLabel = document.getElementById('figmaInsetVal');
+  const blurModeSelect = document.getElementById('figmaBlurMode');
+  const blurStrengthRange = document.getElementById('figmaBlurStrengthRange');
+  const blurStrengthLabel = document.getElementById('figmaBlurStrengthVal');
+  if(insetRange) insetRange.value = figmaInsetPx;
+  if(insetLabel) insetLabel.textContent = figmaInsetPx + 'px';
+  if(blurModeSelect) blurModeSelect.value = figmaBlurMode;
+  if(blurStrengthRange) blurStrengthRange.value = figmaBlurStrength;
+  if(blurStrengthLabel) blurStrengthLabel.textContent = figmaBlurStrength + 'px';
+  const globalAlphaControl = document.getElementById('globalAlphaControl');
+  if(globalAlphaControl) globalAlphaControl.style.display = key === 'scheme10' ? 'none' : 'flex';
+  const colorRow = document.getElementById('scheme10Colors');
+  if(colorRow) colorRow.style.display = key === 'scheme10' ? 'flex' : 'none';
+  const alphaRow = document.getElementById('scheme10Alphas');
+  if(alphaRow) alphaRow.style.display = key === 'scheme10' ? 'flex' : 'none';
+  renderZones();
+}
+
+// ===== 渲染热力色块 =====
+let heatOn = true, dataOn = true;
+let globalAlpha = 0.55;
+let maskColor = { r: 66, g: 148, b: 181 };
+function setMask(v){
+  document.querySelector('.shot-wrap').style.setProperty('--mask-alpha', v/100);
+  document.getElementById('maskVal').textContent = v + '%';
+}
+function applyMaskColor(){
+  const hex = rgbToHex(maskColor);
+  const wrap = document.querySelector('.shot-wrap');
+  if(wrap) wrap.style.setProperty('--mask-rgb', `${maskColor.r},${maskColor.g},${maskColor.b}`);
+  const picker = document.getElementById('maskColorPicker');
+  const field = document.getElementById('maskColorHex');
+  if(picker) picker.value = hex.toLowerCase();
+  if(field && document.activeElement !== field) field.value = hex;
+}
+function setMaskColor(hex){
+  const color = hexToRgb(hex);
+  if(!color) return;
+  Object.assign(maskColor, color);
+  applyMaskColor();
+}
+function setAlpha(v){
+  globalAlpha = v/100;
+  document.getElementById('alphaVal').textContent = v + '%';
+  renderZones();
+}
+function setGradientAngle(v){
+  gradientAngle = Math.min(Math.max(Number(v) || 0, 0), 360);
+  document.getElementById('gradientAngleVal').textContent = gradientAngle + '°';
+  if(heatPalettes[activePalette].spatialAlpha) renderZones();
+}
+function setFigmaInset(v){
+  const parsed = Number(v);
+  figmaInsetPx = Math.min(Math.max(Number.isFinite(parsed) ? parsed : figmaEllipseBase.inset, 0), 60);
+  const range = document.getElementById('figmaInsetRange');
+  const label = document.getElementById('figmaInsetVal');
+  if(range) range.value = figmaInsetPx;
+  if(label) label.textContent = figmaInsetPx + 'px';
+  if(heatPalettes[activePalette].figmaAdaptiveEllipse) updateFigmaAdaptiveEllipseSizes();
+}
+function setFigmaBlurMode(mode){
+  const validModes = ['none', 'layer', 'background', 'combined'];
+  figmaBlurMode = validModes.includes(mode) ? mode : 'layer';
+  const select = document.getElementById('figmaBlurMode');
+  if(select) select.value = figmaBlurMode;
+  if(heatPalettes[activePalette].figmaAdaptiveEllipse) renderZones();
+}
+function setFigmaBlurStrength(value){
+  figmaBlurStrength = Math.min(Math.max(Number(value) || 0, 0), 48);
+  const range = document.getElementById('figmaBlurStrengthRange');
+  const label = document.getElementById('figmaBlurStrengthVal');
+  if(range) range.value = figmaBlurStrength;
+  if(label) label.textContent = figmaBlurStrength + 'px';
+  if(heatPalettes[activePalette].figmaAdaptiveEllipse) updateFigmaAdaptiveEllipseSizes();
+}
+
+/* ===== 方案十：四个色值现场可改 ===== */
+function hexToRgb(hex){
+  const m = String(hex).trim().replace(/^#/, '');
+  if(!/^[0-9a-fA-F]{6}$/.test(m)) return null;
+  return {r:parseInt(m.slice(0,2),16), g:parseInt(m.slice(2,4),16), b:parseInt(m.slice(4,6),16)};
+}
+function rgbToHex(s){
+  return '#' + [s.r, s.g, s.b].map(v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();
+}
+/* 色值改动后统一走这里：重算图例条、色标、四个输入框，最后重画色块。
+   图例条的百分比 = 色标位置 / 0.85（色带右端对应「60%+」那一档，与其他方案一致）。 */
+function refreshScheme10(){
+  const p = heatPalettes.scheme10;
+  /* 图例条画成四个硬色块而不是渐变条——色带上有几个颜色，画面上就只有几个颜色。
+     分界位置 = 阈值 / 0.85（色带右端对应「60%+」那一档，与其他方案一致）。
+     一个 stop 给两个位置是 CSS 的硬边写法，中间不过渡。 */
+  const edge = [0].concat(p.steps.map(v => v / 0.85 * 100)).concat([100]);
+  const alphaAt = i => Math.min(Math.max(Number(p.alphas[i]) || 0, 0), 1);
+  p.gradient = 'linear-gradient(to right, ' + p.stops.map((s,i)=>
+    `rgba(${s.r},${s.g},${s.b},${alphaAt(i)}) ${edge[i].toFixed(1)}% ${edge[i+1].toFixed(1)}%`).join(', ') + ')';
+  const top = p.stops[p.stops.length-1];
+  const sw = document.querySelector('.palette-swatch.scheme-ten');
+  if(sw) sw.style.background = `rgba(${top.r},${top.g},${top.b},${alphaAt(p.stops.length - 1)})`;
+  p.stops.forEach((s,i)=>{
+    const color = rgbToHex(s);
+    const el = document.getElementById('c10_' + i);
+    if(el) el.value = color.toLowerCase();   // input[type=color] 只认小写
+    const alphaRange = document.getElementById('c10a_' + i);
+    const alphaVal = document.getElementById('c10a_val_' + i);
+    const alphaSwatch = document.getElementById('c10a_swatch_' + i);
+    const alphaPct = Math.round(alphaAt(i) * 100);
+    if(alphaRange){
+      alphaRange.value = alphaPct;
+      alphaRange.style.accentColor = color;
+    }
+    if(alphaVal) alphaVal.textContent = alphaPct + '%';
+    if(alphaSwatch) alphaSwatch.style.background = color;
+  });
+  const box = document.getElementById('c10_hex');
+  /* 正在输入时不要回写，否则光标会被打断 */
+  if(box && document.activeElement !== box) box.value = p.stops.map(rgbToHex).join(', ');
+  if(activePalette === 'scheme10'){
+    const legend = document.getElementById('legendBar');
+    if(legend) legend.style.background = p.gradient;
+    renderZones();
+  }
+}
+function setScheme10Color(i, hex){
+  const c = hexToRgb(hex);
+  if(!c) return;
+  Object.assign(heatPalettes.scheme10.stops[i], c);
+  refreshScheme10();
+}
+function setScheme10Alpha(i, value){
+  if(i < 0 || i >= heatPalettes.scheme10.alphas.length) return;
+  const pct = Math.min(Math.max(Number(value) || 0, 0), 100);
+  heatPalettes.scheme10.alphas[i] = pct / 100;
+  refreshScheme10();
+}
+/* 粘贴框：从任意分隔符里捞出 6 位十六进制，够 4 个才应用，
+   不然边打字边重画会把没输完的值当成色标。 */
+function setScheme10Hex(str){
+  const hit = String(str).match(/[0-9a-fA-F]{6}/g) || [];
+  if(hit.length < 4) return;
+  hit.slice(0,4).forEach((h,i)=>{
+    const c = hexToRgb(h);
+    if(c) Object.assign(heatPalettes.scheme10.stops[i], c);
+  });
+  refreshScheme10();
+}
+function setZoneRounded(enabled){
+  document.getElementById('shotWrap').classList.toggle('zones-rounded', Boolean(enabled));
+}
+function setZoneOutline(enabled){
+  document.getElementById('shotWrap').classList.toggle('zones-outlined', Boolean(enabled));
+}
+function setDataHighlight(enabled){
+  document.getElementById('shotWrap').classList.toggle('data-highlight', Boolean(enabled));
+}
+function updateFigmaAdaptiveEllipseSizes(){
+  const modules = [...document.querySelectorAll('.zone.figma-adaptive-ellipse')]
+    .filter(el=>el.clientWidth > 0 && el.clientHeight > 0);
+
+  modules.forEach(el=>{
+    /* 模块面积 < 2,500px² 时固定使用 8px 内边距；其它模块使用 Figma 像素内边距。 */
+    const moduleArea = el.clientWidth * el.clientHeight;
+    const isSmallModule = moduleArea < 2500;
+    const targetInset = isSmallModule ? 8 : figmaInsetPx;
+    const minimumHeatWidth = Math.min(12, el.clientWidth);
+    const minimumHeatHeight = Math.min(12, el.clientHeight);
+    const effectiveInsetX = Math.min(targetInset, Math.max(0, (el.clientWidth - minimumHeatWidth) / 2));
+    const effectiveInsetY = Math.min(targetInset, Math.max(0, (el.clientHeight - minimumHeatHeight) / 2));
+    const width = Math.max(minimumHeatWidth, el.clientWidth - effectiveInsetX * 2);
+    const height = Math.max(minimumHeatHeight, el.clientHeight - effectiveInsetY * 2);
+    /* 按热区面积分级：小 8px、普通 16px、大 36px。 */
+    const heatArea = width * height;
+    const blurTier = heatArea < 2500 ? 'small' : heatArea < 12000 ? 'medium' : 'large';
+    const blurCap = blurTier === 'small' ? 8 : blurTier === 'medium' ? 16 : 36;
+    /* 大模块允许利用额外 5px 的滤镜可见区；小/中模块仍受自身留白严格限制。 */
+    const hasFullFigmaInset = effectiveInsetX >= figmaInsetPx && effectiveInsetY >= figmaInsetPx;
+    const geometryCap = blurTier === 'large' && hasFullFigmaInset
+      ? blurCap
+      : Math.min(effectiveInsetX, effectiveInsetY) / 2;
+    const blurRadius = figmaBlurMode === 'none'
+      ? 0
+      : Math.min(figmaBlurStrength, blurCap, geometryCap);
+    /* 仅大模块的图层模糊允许额外可见 5px，热区本体仍在模块内部。 */
+    const usesLayerBlur = figmaBlurMode === 'layer' || figmaBlurMode === 'combined';
+    const canBleed = usesLayerBlur
+      && blurTier === 'large'
+      && hasFullFigmaInset;
+    const blurBleed = canBleed && blurRadius > 0
+      ? Math.min(5, blurRadius / 2)
+      : 0;
+    el.classList.toggle('figma-blur-bleed', blurBleed > 0);
+    el.style.setProperty('--figma-ellipse-width', width.toFixed(1) + 'px');
+    el.style.setProperty('--figma-ellipse-height', height.toFixed(1) + 'px');
+    el.style.setProperty('--figma-blur-radius', blurRadius.toFixed(1) + 'px');
+    el.style.setProperty('--figma-blur-bleed', blurBleed.toFixed(1) + 'px');
+    el.dataset.figmaBase = `${figmaEllipseBase.diameter}/${figmaEllipseBase.canvasSize}`;
+    el.dataset.moduleArea = moduleArea.toFixed(1);
+    el.dataset.insetTier = isSmallModule ? 'small-8px' : 'figma';
+    el.dataset.requestedInset = targetInset.toFixed(1);
+    el.dataset.effectiveInsetX = effectiveInsetX.toFixed(1);
+    el.dataset.effectiveInsetY = effectiveInsetY.toFixed(1);
+    delete el.dataset.overflowX;
+    delete el.dataset.overflowY;
+    el.dataset.ellipseWidth = width.toFixed(1);
+    el.dataset.ellipseHeight = height.toFixed(1);
+    el.dataset.blurMode = figmaBlurMode;
+    el.dataset.blurTier = blurTier;
+    el.dataset.blurCap = String(blurCap);
+    el.dataset.blurBleed = blurBleed.toFixed(1);
+    el.dataset.blurRadius = blurRadius.toFixed(1);
+  });
+}
+function renderZones(){
+  const wrap = document.getElementById('shotWrap');
+  wrap.querySelectorAll('.zone').forEach(el=>el.remove());
+  zones.forEach(z=>{
+    const el = document.createElement('div');
+    el.className = 'zone';
+    el.setAttribute('data-mod', z.mod);
+    el.style.left   = z.left + '%';
+    el.style.top    = z.top + '%';
+    el.style.width  = z.w + '%';
+    el.style.height = z.h + '%';
+    const heatClip = document.createElement('span');
+    heatClip.className = 'zone-heat-clip';
+    const fill = document.createElement('span');
+    fill.className = 'zone-fill';
+    fill.style.background = heatOn ? rateToBackground(z.uvCtr, globalAlpha) : 'transparent';
+    if(heatPalettes[activePalette].figmaAdaptiveEllipse){
+      el.classList.add('figma-adaptive-ellipse');
+      if(figmaBlurMode === 'layer' || figmaBlurMode === 'combined') el.classList.add('figma-layer-blur');
+      if(figmaBlurMode === 'background' || figmaBlurMode === 'combined') el.classList.add('figma-background-blur');
+    }
+    heatClip.appendChild(fill);
+    el.appendChild(heatClip);
+    // 气泡百分比与着色统一由 uvCtr 生成
+    if(dataOn){
+      const hot = document.createElement('span');
+      hot.className = 'hot' + (z.labelPos ? ' '+z.labelPos : '');
+      const rate = document.createElement('b');
+      rate.textContent = formatUvCtr(z.uvCtr);
+      hot.append(`${z.label} · `, rate);
+      el.appendChild(hot);
+    }
+    el.onclick = ()=> selectModule(z.mod);
+    wrap.appendChild(el);
+  });
+  updateFigmaAdaptiveEllipseSizes();
+}
+
+function toggleHeat(btn){
+  heatOn = !heatOn;
+  btn.classList.toggle('on', heatOn);
+  btn.lastChild.textContent = heatOn ? '隐藏热力图' : '显示热力图';
+  renderZones();
+}
+function toggleData(btn){
+  dataOn = !dataOn;
+  btn.classList.toggle('on', dataOn);
+  btn.lastChild.textContent = dataOn ? '隐藏数据' : '显示数据';
+  renderZones();
+}
+
+function buildHeatmapConfig(){
+  const palette = heatPalettes[activePalette] || {};
+  const getChecked = id => Boolean(document.getElementById(id)?.checked);
+  const getValue = id => document.getElementById(id)?.value;
+  return {
+    format: 'heatmap-config/v1',
+    activePalette,
+    visibility: { heatOn, dataOn },
+    controls: {
+      maskPercent: Number(getValue('maskRange') || 0),
+      maskColorHex: rgbToHex(maskColor),
+      globalAlphaPercent: Math.round(globalAlpha * 100),
+      gradientAngle,
+      zoneOutline: getChecked('zoneOutlineToggle'),
+      zoneRounded: getChecked('zoneRoundedToggle'),
+      dataHighlight: getChecked('dataHighlightToggle'),
+      figma: {
+        insetPx: figmaInsetPx,
+        smallModuleAreaThresholdPx2: 2500,
+        smallModuleInsetPx: 8,
+        blurMode: figmaBlurMode,
+        blurStrengthPx: figmaBlurStrength,
+        blurTierCapsPx: { small: 8, medium: 16, large: 36 },
+        largeBlurBleedPx: 5
+      }
+    },
+    palette: {
+      key: activePalette,
+      stops: Array.isArray(palette.stops)
+        ? palette.stops.map(({ at, r, g, b }) => ({ at, r, g, b }))
+        : [],
+      alphas: Array.isArray(palette.alphas) ? [...palette.alphas] : null,
+      steps: Array.isArray(palette.steps) ? [...palette.steps] : null,
+      spatialAlpha: Boolean(palette.spatialAlpha),
+      alphaEnd: Number.isFinite(palette.alphaEnd) ? palette.alphaEnd : null,
+      alphaPlateauStart: Number.isFinite(palette.alphaPlateauStart) ? palette.alphaPlateauStart : null
+    }
+  };
+}
+
+async function writeConfigToClipboard(text){
+  if(navigator.clipboard?.writeText && window.isSecureContext){
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.cssText = 'position:fixed;left:-9999px;top:0;opacity:0;';
+  document.body.appendChild(textarea);
+  textarea.select();
+  const copied = document.execCommand('copy');
+  textarea.remove();
+  if(!copied) throw new Error('clipboard unavailable');
+}
+
+let copyConfigTimer;
+function setCopyConfigFeedback(label, isError){
+  const button = document.getElementById('btnCopyConfig');
+  const text = button?.querySelector('.copy-config-label');
+  if(!button || !text) return;
+  clearTimeout(copyConfigTimer);
+  text.textContent = label;
+  button.classList.toggle('on', !isError);
+  button.title = isError ? '浏览器未允许复制，请重试' : '配置已复制，可直接发送给 AI';
+  copyConfigTimer = window.setTimeout(()=>{
+    text.textContent = '复制配置';
+    button.classList.remove('on');
+    button.title = '复制当前热力图配置，发送给 AI 继续调参';
+  }, 1800);
+}
+
+async function copyHeatmapConfig(){
+  const text = JSON.stringify(buildHeatmapConfig(), null, 2);
+  try {
+    await writeConfigToClipboard(text);
+    setCopyConfigFeedback('已复制', false);
+  } catch (error) {
+    console.warn('复制热力图配置失败', error);
+    setCopyConfigFeedback('复制失败', true);
+  }
+}
+
+// ===== 模块数据表 =====
+let modSort = {key:'click', dir:'desc'};
+function setModSort(key){
+  if(modSort.key===key) modSort.dir = (modSort.dir==='desc'?'asc':'desc');
+  else { modSort.key = key; modSort.dir = 'desc'; }
+  renderModTable();
+}
+function renderModTable(){
+  // 计算各模块行数据
+  const rows = modules.map(m=>{
+    const expoPv = m.expo, expoUv = Math.round(m.expo*0.78);
+    const clickPv = modClick(m);
+    const rep = repeat[m.name] || 1.15;
+    const clickUv = Math.max(1, Math.round(clickPv/rep));
+    const ctrUv = expoUv>0 ? clickUv/expoUv : 0;
+    const ctrPv = expoPv>0 ? clickPv/expoPv : 0;
+    return {m, expoPv, expoUv, clickPv, clickUv, ctrPv, ctrUv};
+  });
+  // 曝光率
+  const pageReachPv = (Math.max(...rows.map(r=>r.expoPv)) || 1) / 0.995;
+  const pageReachUv = (Math.max(...rows.map(r=>r.expoUv)) || 1) / 0.995;
+  rows.forEach(r=>{ r.expoRatePv = r.expoPv/pageReachPv; r.expoRateUv = r.expoUv/pageReachUv; });
+  const maxExpoRate = Math.max(...rows.map(r=>r.expoRatePv)) || 1;
+  // 排序
+  const cmp = {
+    name:     (a,b)=>a.m.name.localeCompare(b.m.name,'zh'),
+    expo:     (a,b)=>a.expoPv - b.expoPv,
+    exporate: (a,b)=>a.expoRateUv - b.expoRateUv,
+    click:    (a,b)=>a.clickPv - b.clickPv,
+    ctr:      (a,b)=>a.ctrUv - b.ctrUv
+  }[modSort.key] || ((a,b)=>0);
+  rows.sort((a,b)=> modSort.dir==='asc' ? cmp(a,b) : cmp(b,a));
+  const arrow = k => modSort.key===k ? (modSort.dir==='asc'?' ↑':' ↓') : ' ⇅';
+  const th = (k,label)=>`<th style="cursor:pointer;user-select:none;" onclick="setModSort('${k}')">${label}<span style="color:#b0bac7;font-size:11px;">${arrow(k)}</span></th>`;
+  let html = '<tr>'
+    + `<th style="position:sticky;left:0;background:#fafbfc;z-index:3;cursor:pointer;user-select:none;" onclick="setModSort('name')">模块名<span style="color:#b0bac7;font-size:11px;">${arrow('name')}</span></th>`
+    + th('expo','日均曝光')
+    + th('exporate','曝光率')
+    + th('click','日均点击')
+    + th('ctr','点击率')
+    + '</tr>';
+  rows.forEach(({m,expoPv,expoUv,clickPv,clickUv,ctrPv,ctrUv,expoRatePv,expoRateUv})=>{
+    const pvUv = (pv,uv)=>`<div style="line-height:1.35;">${Math.round(pv/D).toLocaleString()} PV<div style="font-size:11px;color:#95a3b3;">${Math.round((uv||0)/D).toLocaleString()} UV</div></div>`;
+    const ratePvUv = (pvRate,uvRate)=>`<div style="line-height:1.35;"><b>${(pvRate*100).toFixed(1)}%</b> PV<div style="font-size:11px;color:#95a3b3;font-weight:normal;">${(uvRate*100).toFixed(1)}% UV</div></div>`;
+    const w = Math.round(expoRatePv/maxExpoRate*72);
+    const expoRateCell = `<div style="line-height:1.35;white-space:nowrap;">
+      <span class="barbg" style="width:72px;"><span class="bar" style="width:${w}px;"></span></span> <b>${(expoRatePv*100).toFixed(1)}%</b> PV
+      <div style="font-size:11px;color:#95a3b3;margin-top:2px;">${(expoRateUv*100).toFixed(1)}% UV</div></div>`;
+    html += `<tr data-name="${m.name}" onclick="selectModule('${m.name}')" style="cursor:pointer;">
+      <td style="position:sticky;left:0;background:#fff;z-index:1;">${m.name}</td>
+      <td>${pvUv(expoPv, expoUv)}</td>
+      <td>${expoRateCell}</td>
+      <td>${pvUv(clickPv, clickUv)}</td>
+      <td>${ratePvUv(ctrPv, ctrUv)}</td></tr>`;
+  });
+  document.getElementById('modTable').innerHTML = html;
+}
+
+// ===== 行为数据 =====
+const behSegments = [
+  {label:'电梯置顶状态', expoPv:18600, expoUv:5300, orders:5000},
+  {label:'电梯半展开状态', expoPv:12400, expoUv:3800, orders:3400},
+  {label:'电梯全展开状态', expoPv:6800, expoUv:2200, orders:1900},
+  {label:'同城电梯询价页', expoPv:42000, expoUv:15800, orders:11000},
+  {label:'跨城电梯询价页', expoPv:26000, expoUv:9200, orders:6800}
+];
+function renderBehTable(){
+  const el = document.getElementById('behTable'); if(!el) return;
+  const avg = v => Math.round(v/D).toLocaleString();
+  let html = '<tr><th>维度</th><th>日均曝光 PV</th><th>日均曝光 UV</th><th>单均曝光量</th><th>人均曝光量</th></tr>';
+  behSegments.forEach(b=>{
+    const dan = b.orders ? (b.expoPv/b.orders).toFixed(1) : '—';
+    const ren = b.expoUv>0 ? (b.expoPv/b.expoUv).toFixed(1) : '—';
+    html += `<tr><td>${b.label}</td><td>${avg(b.expoPv)}</td><td>${avg(b.expoUv)}</td><td>${dan}</td><td>${ren}</td></tr>`;
+  });
+  el.innerHTML = html;
+}
+
+function switchModTab(i){
+  ['mdTab0','mdTab1'].forEach((id,j)=>{
+    const t=document.getElementById(id); if(!t) return;
+    t.style.color = j===i ? '#2f6fed' : '#7f8c9b';
+    t.style.borderBottomColor = j===i ? '#2f6fed' : 'transparent';
+  });
+  document.getElementById('mdPane0').style.display = i===0 ? 'flex' : 'none';
+  document.getElementById('mdPane1').style.display = i===1 ? 'flex' : 'none';
+  if(i===1) renderBehTable();
+}
+
+// ===== 热力图 ↔ 表格 双向联动 =====
+let selMod = null;
+function selectModule(name){
+  selMod = selMod===name ? null : name;
+  // 表格高亮
+  document.querySelectorAll('#modTable tr').forEach(tr=>tr.classList.toggle('sel', tr.dataset.name===name && selMod));
+  // 热力图色块高亮
+  document.querySelectorAll('.phone [data-mod]').forEach(el=>{
+    el.classList.toggle('mod-hl', el.getAttribute('data-mod')===name && !!selMod);
+  });
+  // 表格滚动到选中行
+  if(selMod){
+    const row = document.querySelector(`#modTable tr[data-name="${name}"]`);
+    if(row) row.scrollIntoView({block:'nearest',behavior:'smooth'});
+  }
+}
+// 表格行 hover → 热力图色块联动
+document.addEventListener('mouseover', e=>{
+  const tr = e.target.closest && e.target.closest('#modTable tr[data-name]');
+  if(tr){
+    const name = tr.dataset.name;
+    document.querySelectorAll('.phone [data-mod]').forEach(el=>{
+      el.classList.toggle('hover', el.getAttribute('data-mod')===name);
+    });
+    document.querySelectorAll('#modTable tr').forEach(r=>r.classList.toggle('hov', r.dataset.name===name));
+  }
+});
+document.addEventListener('mouseout', e=>{
+  const tr = e.target.closest && e.target.closest('#modTable tr[data-name]');
+  if(tr){
+    document.querySelectorAll('.phone [data-mod]').forEach(el=>el.classList.remove('hover'));
+    document.querySelectorAll('#modTable tr').forEach(r=>r.classList.remove('hov'));
+  }
+});
+
+// ===== 初始化 =====
+setMask(6);
+setMaskColor('#4294B5');
+refreshScheme10();   // 生成方案十的图例条 / 色标 / 四个输入框的初值
+setPalette('scheme10');
+renderModTable();
+const shotWrap = document.getElementById('shotWrap');
+if('ResizeObserver' in window && shotWrap){
+  new ResizeObserver(updateFigmaAdaptiveEllipseSizes).observe(shotWrap);
+}else{
+  window.addEventListener('resize', updateFigmaAdaptiveEllipseSizes);
+}
+window.addEventListener('load', updateFigmaAdaptiveEllipseSizes);
+</script>
+</body>
+</html>
