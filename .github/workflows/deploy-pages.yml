@@ -23,6 +23,8 @@ jobs:
         uses: actions/checkout@v4
       - name: Configure Pages
         uses: actions/configure-pages@v5
+      - name: Prepare Pages entry point
+        run: cp ./app/heatmap_demo.html ./app/index.html
       - name: Upload static site artifact
         uses: actions/upload-pages-artifact@v3
         with:
