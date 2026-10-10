@@ -3,7 +3,7 @@ name: Deploy heatmap demo to GitHub Pages
 on:
   push:
     branches:
-      - feat/heatmap-narrow-category
+      - main
   workflow_dispatch:
 
 permissions:
