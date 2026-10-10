@@ -190,7 +190,7 @@
      就足以造成 1px 级跳动。改为 fixed + 显式百分比（比例取自 Figma
      实测的列 x 坐标），列宽与文字位置从此完全稳定。 */
   #modTable,#srcTable,#dstTable,#behTable{table-layout:fixed;}
-  /* 模块表 7 列：模块 / 曝光 / 曝光率 / 点击 / 点击率 / 使用率 / 操作 */
+  /* 模块表 7 列：模块 / 曝光 / 曝光率 / 点击 / 曝光点击率 / 页面点击率 / 操作 */
   #modTable th:nth-child(1){width:17%;}
   #modTable th:nth-child(2){width:14%;}
   #modTable th:nth-child(3){width:13%;}
@@ -587,7 +587,7 @@
           </span>
           <span class="hm-ic" id="btnMetric" title="切换热力图指标" onclick="toggleHeatMetric(this)">
             <svg viewBox="7 7 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M9.3912 16.1859C10.5775 17.3652 12.6464 18.9999 15.0001 18.9999C17.3539 18.9999 19.4224 17.3652 20.6086 16.1859C20.9215 15.8748 21.0785 15.7188 21.1781 15.4134C21.2492 15.1955 21.2492 14.8045 21.1781 14.5866C21.0785 14.2812 20.9215 14.1251 20.6086 13.8141C19.4224 12.6347 17.3539 11 15.0001 11C12.6464 11 10.5775 12.6347 9.3912 13.8141C9.07809 14.1253 8.92152 14.2811 8.82186 14.5866C8.75078 14.8045 8.75078 15.1955 8.82186 15.4134C8.92152 15.7189 9.07809 15.8746 9.3912 16.1859Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M13.6667 15C13.6667 15.7364 14.2636 16.3333 15 16.3333C15.7364 16.3333 16.3333 15.7364 16.3333 15C16.3333 14.2636 15.7364 13.6667 15 13.6667C14.2636 13.6667 13.6667 14.2636 13.6667 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span class="metric-label">点击率</span>
+            <span class="metric-label">曝光点击率</span>
           </span>
           <!-- 调参入口：红核大小 / 冷端配比 / 整体浓度，详见 .htune 面板 -->
           <span class="hm-ic" id="btnTune" title="调节红核大小、冷端配比、整体浓度" onclick="toggleTunePanel()">
@@ -746,7 +746,7 @@ const modules = [
   {name:'优惠banner', expo:20100, ctr:0.225, action:'查看', eventId:'usergrowth_create_journey_lift_promo_banner'},
   {name:'高速费',     expo:19400, ctr:0.123, action:'查看', eventId:'usergrowth_create_journey_lift_highway_fee'},
   {name:'电梯-组',   expo:18600, ctr:0.423, action:'点击和反选', eventId:'usergrowth_create_journey_lift_elevator_group'},
-  /* ctrUv 是指定值，用来覆盖由 ctr(PV) 和 repeat 推算的 UV 点击率。
+  /* ctrUv 是指定值，用来覆盖由 ctr(PV) 和 repeat 推算的 UV 曝光点击率。
      这里要的 80.2% 反推不出合理参数：调 ctr 会超过 100%，调 repeat 会小于 1
      （等于点击去重后反而变多），所以直接给定。 */
   {name:'品类列表-组',   expo:18200, ctr:0.586, ctrUv:0.802, action:'点击和反选', eventId:'usergrowth_create_journey_lift_category_list'},
@@ -960,7 +960,7 @@ function setModSort(key){
 function renderModTable(){
   const canView = ['电梯-组','品类列表-组'];
   const D = getDays();
-  // 使用率仅使用 UV 口径：模块日均点击 UV / 页面 UV。
+  // 页面点击率仅使用 UV 口径：模块日均点击 UV / 页面 UV。
   const rows = modules.map(m=>{
     const exposureMeta = getExposureMeta(m);
     const exposureAvailable = exposureMeta.type !== 'none' && Number.isFinite(m.expo);
@@ -1004,8 +1004,8 @@ function renderModTable(){
     + th('expo','日均曝光','感叹号说明曝光类型；父模块曝光可点击复制父模块ID')
     + th('exporate','曝光率')
     + th('click','日均点击')
-    + metricTh('ctr','点击率','点击率\n模块点击 UV / 模块曝光 UV')
-    + metricTh('usage','使用率','使用率\n模块日均点击 UV / 页面 UV')
+    + metricTh('ctr','曝光点击率','曝光点击率\n模块点击 UV / 模块曝光 UV')
+    + metricTh('usage','页面点击率','页面点击率\n模块日均点击 UV / 页面 UV')
     + '<th>操作</th></tr>';
   const n = v => Math.round(v/D).toLocaleString();
   const p = v => (v*100).toFixed(1)+'%';
@@ -1203,7 +1203,7 @@ function hoverRow(name,on){
   const row = document.querySelector(`#modTable tr[data-name="${name}"]`);
   if(row) row.classList.toggle('hov', on);
 }
-// 热力图状态切换（点击率/点击量/曝光）—— 演示：切换标注文案
+// 热力图状态切换（曝光点击率/点击量/曝光）—— 演示：切换标注文案
 function setHeatMode(el,mode){
   el.parentElement.querySelectorAll('div').forEach(d=>d.classList.remove('on'));
   el.classList.add('on');
@@ -1222,7 +1222,7 @@ function openCategoryDetail(){
   const maxSharePv = Math.max(...categories.map(c=>c.clickPv/totalClickPv));
   const maxShareUv = Math.max(...categories.map(c=>c.clickUv/totalClickUv));
   let html = '<tr>'
-    + '<th>品类</th><th>日均曝光 PV/UV</th><th>日均点击 PV/UV</th><th>点击率</th><th>点击占比</th><th>默勾率</th><th>勾选率</th><th>发单选择率</th></tr>';
+    + '<th>品类</th><th>日均曝光 PV/UV</th><th>日均点击 PV/UV</th><th>曝光点击率</th><th>点击占比</th><th>默勾率</th><th>勾选率</th><th>发单选择率</th></tr>';
   categories.slice().sort((a,b)=>b.clickPv-a.clickPv).forEach(c=>{
     const ctrPv = c.expoPv>0 ? c.clickPv/c.expoPv : 0;
     const ctrUv = c.expoUv>0 ? c.clickUv/c.expoUv : 0;
@@ -1288,7 +1288,7 @@ function openStrategyDetail(modName){
     + `<span class="c2-sub">${Math.round(pv/D).toLocaleString()} PV</span></div>`;
   const ratePvUv = (pv,uv)=>`<div class="c2"><span class="c2-main">${(uv*100).toFixed(1)}% UV</span>`
     + `<span class="c2-sub">${(pv*100).toFixed(1)}% PV</span></div>`;
-  let html = '<tr><th>策略名</th><th>日均曝光 PV/UV</th><th>点击率</th></tr>';
+  let html = '<tr><th>策略名</th><th>日均曝光 PV/UV</th><th>曝光点击率</th></tr>';
   list.slice().sort((a,b)=>b.clickPv-a.clickPv).forEach(s=>{
     const ctrPv = s.expoPv>0 ? s.clickPv/s.expoPv : 0;
     const ctrUv = s.expoUv>0 ? s.clickUv/s.expoUv : 0;
@@ -1302,7 +1302,7 @@ function closeStratDetail(){ const m=document.getElementById('stratMask'); if(m)
 window.openStrategyDetail = openStrategyDetail;
 window.closeStratDetail = closeStratDetail;
 /* ============================================================
-   热力层：读取各 .zone 的位置与标签里的点击率生成
+   热力层：读取各 .zone 的位置与标签里的曝光点击率生成
    数据只存在于 DOM（zone 的 style 与 .hot 文案），避免再维护一份副本
    ============================================================ */
 /* 五个可调量。页面右下角的「调参」面板直接改它们，改完点「复制参数」，
@@ -1336,7 +1336,7 @@ try{
    节点从 6 个加到 11 个，作用是把黄→橙→橙红→红这段色相路径显式定下来，
    原先靠黄(.74)到红(1.0)两端线性插值，中途偏色不好控。
    别指望加节点能改善过渡：实测色带自身的斜率突变峰值 8→9，几乎没变。
-   红色只在 0.90 之后出现：热核顶部是满强度的，只有点击率最高的那个模块够红，
+   红色只在 0.90 之后出现：热核顶部是满强度的，只有曝光点击率最高的那个模块够红，
    其余模块按 inten 依次退到橙、黄、绿、青——颜色的信息量在模块之间，
    不在模块内部，所以色带必须在中低段留够可分辨的色相（见 inten 的指数）。
    这里只管色相，一律不带 alpha：以前每档自带浓度（蓝 .42 一路升到红 .93），
@@ -1433,7 +1433,7 @@ const HEAT_OWN = (() => {
   return lut;
 })();
 
-/* 热力图默认按点击率展示，可切换为使用率；两者均使用 UV 口径。 */
+/* 热力图默认按曝光点击率展示，可切换为页面点击率；两者均使用 UV 口径。 */
 let heatMetric = 'ctr';
 function syncZoneLabels(){
   document.querySelectorAll('.phone .zone[data-mod]').forEach(z => {
@@ -1453,7 +1453,7 @@ function buildHeatLegacy(){
     const W = img.clientWidth, H = img.clientHeight;
     if(!W || !H) return;
 
-    /* 从 DOM 取每个区块的位置与点击率 */
+    /* 从 DOM 取每个区块的位置与曝光点击率 */
     const zones = Array.prototype.map.call(ph.querySelectorAll('.zone'), z => {
       const hot = z.querySelector('.hot');
       const m = hot ? (hot.textContent.match(/([\d.]+)%/) || []) : [];
@@ -1473,7 +1473,7 @@ function buildHeatLegacy(){
     /* 1) 热度层：每个区块画一团平顶的有机热核（剖面见 HEAT_PROFILE）。
        高热区是一整片、大致罩住整个模块，所以画面表达的是「这个模块整体多热」，
        不会在模块里点出一个具体位置——埋点只有模块级点击量，没有点击坐标，
-       任何小红核都是编的。峰值恒等于 inten，只由点击率决定，与区块大小无关。 */
+       任何小红核都是编的。峰值恒等于 inten，只由曝光点击率决定，与区块大小无关。 */
     const CW = cv.width, CH = cv.height;
     const acc = new Float32Array(CW * CH);   /* Σ 权重x热度 */
     const wsm = new Float32Array(CW * CH);   /* Σ 权重，acc/wsm 才是该像素的热度 */
@@ -1752,14 +1752,14 @@ function toggleHeat(btn){
   /* 关闭态只切 class，置灰交给 .hm-ic.off；再叠内联 opacity 会灰得看不清 */
   btn.classList.toggle('off', !heatOn);
 }
-// 数据标签始终显示；工具栏按钮用于切换点击率与使用率。
+// 数据标签始终显示；工具栏按钮用于切换曝光点击率与页面点击率。
 const dataOn = true;
 function toggleHeatMetric(btn){
   heatMetric = heatMetric === 'ctr' ? 'usage' : 'ctr';
   const isUsage = heatMetric === 'usage';
   const label = btn.querySelector('.metric-label');
-  if(label) label.textContent = isUsage ? '使用率' : '点击率';
-  btn.title = isUsage ? '切换为点击率' : '切换为使用率';
+  if(label) label.textContent = isUsage ? '页面点击率' : '曝光点击率';
+  btn.title = isUsage ? '切换为曝光点击率' : '切换为页面点击率';
   syncZoneLabels();
   buildHeat();
   fitHots();
